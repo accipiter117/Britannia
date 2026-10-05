@@ -189,12 +189,16 @@ export const BALANCE = {
 
     morale: { start: 70, normal: 50, shaken: 30, breaking: 15, routed: 0 },
     moraleLoss: { per10PctCasualties: 8, flanked: 10, nearbyRout: 12, commanderDeath: 20, fatiguePer20: 5 },
-    routPanicRadius: 1,             // a routing block shakes friends this close
+    routPanicRadius: 1,
+    chargeMult: 1.4,                // warriors hit this much harder for their first few ticks in contact
+    chargeTicks: 3,
+    commanderRiskPerTick: 0.0015,   // chance per tick the commander falls while his block is fighting
+    commanderRiskIfRouted: 0.3,     // chance he falls when his block breaks             // a routing block shakes friends this close
     rallyDelaySeconds: 30,  // routed units cannot rejoin before this
     experience: {
-      Green:    { power: 1.0,  moraleLossMult: 1.0,  next: 2 },  // battles needed to advance
-      Seasoned: { power: 1.1,  moraleLossMult: 0.85, next: 3 },
-      Veteran:  { power: 1.2,  moraleLossMult: 0.7,  next: null },
+      Green:    { power: 1.0,  moraleLossMult: 1.0,  recoveryMult: 1.0,  next: 2 },  // battles needed to advance
+      Seasoned: { power: 1.1,  moraleLossMult: 0.85, recoveryMult: 1.25, next: 3 },
+      Veteran:  { power: 1.2,  moraleLossMult: 0.7,  recoveryMult: 1.5,  next: null },
     },
     commander: { Poor: 0.9, Average: 1.0, Skilled: 1.1, Exceptional: 1.2 },
     commanderDeathChancePerBattle: 0.05,

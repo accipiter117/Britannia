@@ -62,6 +62,12 @@ export function createBattle(district, sides, opts) {
   };
   deploy(battle, "attacker", sides.attacker);
   deploy(battle, "defender", sides.defender);
+  // the commander rides with the strongest block on each side
+  for (const side of ["attacker", "defender"]) {
+    const lead = battle.units.filter((u) => u.side === side).sort((a, b) => b.troops * BALANCE.formations[b.type].strength - a.troops * BALANCE.formations[a.type].strength)[0];
+    if (lead) { lead.commander = true; lead.wasCommander = true; }
+  }
+  battle.rng = (seed ^ 0x5bd1e995) | 0;
   if (battle.ambush) for (const u of battle.units) if (u.side === "attacker") u.morale -= B.ambushMoraleHit;
   return battle;
 }
@@ -152,7 +158,9 @@ export function tick(battle) {
     if (u.order.kind === "retreat") { u.state = "Retreating"; withdraw(battle, u); continue; }
     const target = targetFor(battle, u);
     if (target && dist(u, target) <= range(u)) {
+      if (u.state !== "Engaging" && u.type === "warriors" && !u.charged) { u.charge = B.chargeTicks; u.charged = true; }
       u.state = "Engaging";
+      if (u.commander && rnd(battle) < B.commanderRiskPerTick) commanderFalls(battle, u);
       if (!hits.has(target.id)) hits.set(target.id, []);
       hits.get(target.id).push(u);
       continue;
@@ -178,6 +186,7 @@ export function tick(battle) {
   }
   // melee is mutual: an engaged unit also feels pressure from whoever it is fighting (handled above per target)
 
+  for (const u of units) if (u.charge > 0 && u.state === "Engaging") u.charge -= 1;
   for (const u of units) {
     if (u.state === "Gone") continue;
     if (u.troops < 1) { u.state = "Gone"; u.troops = 0; u.destroyed = true; continue; }
@@ -187,6 +196,7 @@ export function tick(battle) {
 }
 
 function rout(battle, u) {
+  if (u.commander && rnd(battle) < B.commanderRiskIfRouted) commanderFalls(battle, u);
   u.state = "Routing";
   u.routTime = 0;
   u.morale = 0;
@@ -309,10 +319,11 @@ function common(battle, u) {
 
 function attackEff(battle, u) {
   const def = BALANCE.formations[u.type];
+  const charge = u.charge > 0 ? B.chargeMult : 1;
   const cell = battle.grid[u.y][u.x];
   const terrain = B.terrain[cell];
   const moraleF = B.moraleFactorMin + (1 - B.moraleFactorMin) * Math.min(1, Math.max(0, u.morale) / B.morale.start);
-  let eff = def.strength * terrain.attack * BALANCE.stances[u.stance].attack * common(battle, u) * moraleF;
+  let eff = def.strength * terrain.attack * BALANCE.stances[u.stance].attack * common(battle, u) * moraleF * charge;
   if (def.ranged) eff *= B.rangedDamageMult * (cell === "forest" ? terrain.skirmisherBonus || 1 : 1);
   return eff;
 }
@@ -323,6 +334,24 @@ function defenceEff(battle, u) {
   let eff = def.strength * terrain.defence * BALANCE.stances[u.stance].defence * common(battle, u);
   if (u.side === "defender" && battle.objective && dist(u, battle.objective) <= B.fortifiedRadius) eff *= 1 + battle.fortification;
   return eff;
+}
+
+// The commander falls: every block on that side is shaken, and command passes to a lesser man.
+function commanderFalls(battle, u) {
+  const side = battle.sides[u.side];
+  if (side.fallen) return;
+  side.fallen = true;
+  side.commander = "Poor";
+  u.commander = false;
+  battle.log.push({ time: battle.time, side: u.side, text: "The commander has fallen!" });
+  for (const v of battle.units) if (v.side === u.side && ACTIVE(v)) v.morale -= B.moraleLoss.commanderDeath * moraleMult(v, battle);
+}
+
+function rnd(battle) {
+  let t = (battle.rng = (battle.rng + 0x6d2b79f5) | 0);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
 // ---------- end ----------

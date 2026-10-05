@@ -90,7 +90,8 @@ export function openBattle(root, battle, colours, onEnd, hooks = {}) {
     root.querySelector("#b-bars").innerHTML = [["attacker", a], ["defender", d]].map(([side, s]) =>
       `<div class="b-bar ${side === player ? "mine" : ""}"><span>${side === player ? "You" : "Enemy"} (${side})</span>
         <i style="background:${colours[side]};width:${(s.fighting / Math.max(1, s.start)) * 100}%"></i><small>${num(s.fighting)} / ${num(s.start)}</small></div>`).join("");
-    root.querySelector("#b-hint").textContent = finished ? battle.result.reason
+    const fell = battle.log.filter((l) => battle.time - l.time < 4).map((l) => `${l.side === player ? "Your" : "The enemy"} commander has fallen!`)[0];
+    root.querySelector("#b-hint").textContent = finished ? battle.result.reason : fell ? fell
       : selected.size ? `${selected.size} selected: tap ground to move, tap an enemy to attack.`
       : paused ? "Paused. Tap your blocks (light outline) to select them, then give orders. Press Play to fight. L levies · W warriors · S skirmishers · R legionaries." : "Tap your blocks to command them.";
   }

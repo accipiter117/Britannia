@@ -10,7 +10,6 @@ import { armyStrength, garrisonStrength, removeEmptyArmies } from "./armies.js";
 import { atWar, changeRelation, hasAccess } from "./diplomacy.js";
 import { captureDistrict, checkEliminations } from "./governance.js";
 import { autoResolve, createBattle } from "./battle.js";
-import { chance } from "./random.js";
 
 const AMBUSH_TERRAIN = ["forest", "marsh", "hills"];
 const name = (state, fid) => (fid ? state.factions[fid].name : "the local militia");
@@ -164,8 +163,9 @@ export function applyBattle(state, battle) {
     army.battles += 1;
     const exp = BALANCE.battle.experience;
     if (exp[army.experience].next && army.battles >= thresholdFor(army.experience)) army.experience = army.experience === "Green" ? "Seasoned" : "Veteran";
-    const deathChance = side === lose ? BALANCE.battle.commanderDeathChanceIfRouted : BALANCE.battle.commanderDeathChancePerBattle;
-    if (armyTroops(army) > 0 && chance(state, deathChance)) {
+    // a commander who fell on the field: the army that carried the lead block loses him
+    const fell = battle.sides[side].fallen && battle.units.some((u) => u.side === side && u.armyId === army.id && u.wasCommander);
+    if (armyTroops(army) > 0 && fell) {
       addChronicle(state, `The commander of the ${army.name} fell at ${d.name}.`, "COMMANDER_DEATH");
       army.commander = order[Math.max(0, order.indexOf(army.commander) - 1)];
     }

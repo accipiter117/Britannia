@@ -75,7 +75,7 @@ export function resolveRecovery(state, notes) {
   for (const army of state.armies) {
     if (army.unpaid?.length) army.morale = clampMorale(army.morale - BALANCE.army.unpaidMoralePenalty);
     if (!S.effects[army.supply].recovery) continue;
-    army.morale = clampMorale(army.morale + R.moralePerSeason);
+    army.morale = clampMorale(army.morale + R.moralePerSeason * BALANCE.battle.experience[army.experience].recoveryMult);
     army.fatigue = Math.max(0, army.fatigue - BALANCE.army.fatigueRecoveryPerSeason);
     const d = state.districts[army.districtId];
     if (d.owner !== army.factionId) continue; // replacements only in friendly territory
