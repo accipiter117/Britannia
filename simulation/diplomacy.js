@@ -143,6 +143,13 @@ export function tradeLinked(state, a, b) {
     neighbours(state, d.id).some((n) => state.districts[n].owner === b && !blocked(n)));
 }
 
+// Without a Market, middlemen take a cut: the seller gets less and the buyer pays more.
+export function tradePrice(state, t) {
+  const price = Math.round(t.amount / D.exchangeRates[t.resource]);
+  const cut = (fid) => (hasMarket(state, fid) ? 1 : D.noMarketRate);
+  return { price, gets: Math.round(price * cut(t.from)), pays: Math.round(price / cut(t.to)) };
+}
+
 export function hasMarket(state, fid) {
   return districtsOf(state, fid).some((d) => d.buildings.includes("market"));
 }
@@ -151,17 +158,17 @@ export function hasMarket(state, fid) {
 export function resolveTrade(state, notes) {
   for (const t of state.diplomacy.trades) {
     const seller = state.factions[t.from], buyer = state.factions[t.to];
-    const price = Math.round(t.amount / D.exchangeRates[t.resource]);
+    const { pays, gets } = tradePrice(state, t);
     const linked = tradeLinked(state, t.from, t.to);
-    t.disrupted = !linked || seller.resources[t.resource] < t.amount || buyer.resources.wealth < price;
+    t.disrupted = !linked || seller.resources[t.resource] < t.amount || buyer.resources.wealth < pays;
     if (t.disrupted) {
       if (seller.player || buyer.player) notes.push({ level: "important", text: `Trade with ${(seller.player ? buyer : seller).name} disrupted${linked ? ": not enough to exchange" : ": no safe route"}.` });
       continue;
     }
     seller.resources[t.resource] -= t.amount;
     buyer.resources[t.resource] += t.amount;
-    buyer.resources.wealth -= price;
-    seller.resources.wealth += price;
+    buyer.resources.wealth -= pays;
+    seller.resources.wealth += gets;
     changeRelation(state, t.from, t.to, D.tradeRelationGain);
   }
 }
@@ -233,7 +240,6 @@ export function playerAction(state, other, action, opts = {}) {
 
 export function canTrade(state, other) {
   const me = state.playerFactionId;
-  if (!hasMarket(state, me)) return { ok: false, reason: "Build a Market first" };
   if (atWar(state, me, other)) return { ok: false, reason: "At war" };
   if (!tradeLinked(state, me, other)) return { ok: false, reason: "No safe route between your lands" };
   if (!willAccept(state, me, other, "trade")) return { ok: false, reason: "They distrust you too much to trade" };

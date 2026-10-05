@@ -76,7 +76,10 @@ function bestTarget(state, fid, ours) {
       const defence = seenArmies.filter((a) => a.districtId === did && a.factionId !== fid && (!d.owner || a.factionId === d.owner || atWar(state, fid, a.factionId)))
         .reduce((n, a) => n + armyStrength(a), 0) + garrisonStrength(d);
       const mine = armyStrength(army);
-      if (mine < defence * A.attackStrengthRatio) continue;
+      // walls and hillforts count, and a recent bloody nose is remembered
+      const walls = 1 + d.special.reduce((n, sp) => n + (BALANCE.specialBonuses[sp]?.defence || 0), 0) + (d.buildings.includes("fortification") ? BALANCE.buildings.fortification.effect.defence : 0);
+      const burned = state.factions[fid].memory.battles.some((b) => b.district === did && !b.won && state.turn - b.turn <= A.memorySeasons / 2);
+      if (burned || mine < defence * walls * A.attackStrengthRatio) continue;
       const prod = districtProduction(state, d, "Summer").total;
       const prefers = (pers.prefers || []).some((p) => p === d.terrain || d.special.some((s) => s.includes(p)) || d.buildings.includes(p));
       const score = W.territory * 0.3 +
@@ -165,8 +168,11 @@ function military(state, fid, view, notes) {
       const rel = relation(state, fid, t.owner);
       const bold = (pers.expand || 1) >= 1.1 && rel <= BALANCE.diplomacy.states.Neutral;
       if (!bold && rel > BALANCE.diplomacy.states.Suspicious) return;
+      // declare now, march next season: the enemy gets one season of warning
       declareWar(state, fid, t.owner);
-      if (t.owner === state.playerFactionId) notes.push({ level: "critical", text: `${f.name} has declared war on you!` });
+      if (t.owner === state.playerFactionId) notes.push({ level: "critical", text: `${f.name} has declared war on you! Their host stands at ${state.districts[army.districtId].name}.`, districtId: army.districtId });
+      setStance(state, army.id, "Aggressive");
+      return;
     }
     if (entryKind(state, army, t.districtId).kind !== "attack" && state.districts[t.districtId].owner) return;
     setStance(state, army.id, "Aggressive");

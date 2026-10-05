@@ -4,7 +4,7 @@
 
 import { BALANCE } from "../config/balance.js";
 import { districtsOf, seasonName } from "../simulation/campaign.js";
-import { allied, atWar, canTrade, hasAccess, relation, relationState } from "../simulation/diplomacy.js";
+import { allied, atWar, canTrade, hasAccess, hasMarket, relation, relationState, tradePrice } from "../simulation/diplomacy.js";
 import { dominanceLevel } from "../simulation/victory.js";
 import { visibleArmies } from "../simulation/armies.js";
 import { regionStatus } from "../simulation/governance.js";
@@ -108,8 +108,8 @@ export function diplomacyPanel(state) {
         ].join("");
     const tradeUi = war || isRome ? "" : `<div class="trade">
         <select data-trade="${f.id}">${["food", "timber", "materials"].flatMap((r) => D.tradeAmounts.map((amt) =>
-          `<option value="sell:${r}:${amt}">Sell ${amt} ${r}/season for ${Math.round(amt / D.exchangeRates[r])} ${ICON.wealth}</option>
-           <option value="buy:${r}:${amt}">Buy ${amt} ${r}/season for ${Math.round(amt / D.exchangeRates[r])} ${ICON.wealth}</option>`)).join("")}</select>
+          `<option value="sell:${r}:${amt}">Sell ${amt} ${r}/season for ${tradePrice(state, { from: me, to: f.id, resource: r, amount: amt }).gets} ${ICON.wealth}</option>
+           <option value="buy:${r}:${amt}">Buy ${amt} ${r}/season for ${tradePrice(state, { from: f.id, to: me, resource: r, amount: amt }).pays} ${ICON.wealth}</option>`)).join("")}</select>
         ${btn("trade", "Agree trade", "", trade.ok)}
         ${trade.ok ? "" : `<small class="reason">${esc(trade.reason)}</small>`}
       </div>`;
@@ -129,7 +129,7 @@ export function diplomacyPanel(state) {
   return `<header class="panel-head"><h2>Diplomacy</h2></header>
     ${rows}
     ${trades ? `<section><h3>Trade agreements</h3>${trades}</section>` : ""}
-    <p class="muted small">Relations drift towards neutral each season. Trade needs a Market and a safe border; armies parked on someone's border sour relations.</p>`;
+    <p class="muted small">Relations drift towards neutral each season. Trade needs a safe border${hasMarket(state, me) ? "" : `, and without a Market middlemen take half`}; armies parked on someone's border sour relations.</p>`;
 }
 
 export function morePanel(state, saveInfo) {

@@ -218,6 +218,7 @@ export const BALANCE = {
     limitedAssistanceWealth: 100,   // "limited assistance" to an ally sends this much Wealth
     peaceStrengthRatio: 0.7,        // a faction this much weaker than its enemy accepts peace
     tradeAmounts: [50, 100, 200],   // per-season trade agreement sizes offered in the UI
+    noMarketRate: 0.5,              // without a Market you get half the price when selling and pay double when buying
     tributeAmount: 100,             // Wealth, Food or Materials sent as tribute
     battleRelationPenalty: -10,
   },

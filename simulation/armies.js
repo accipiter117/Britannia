@@ -171,6 +171,22 @@ export function recruit(state, fid, districtId, type) {
   return { ...check, armyId: army.id };
 }
 
+// Disband a batch of one formation. In your own district the troops go home to the land.
+export function disband(state, armyId, type) {
+  const army = state.armies.find((a) => a.id === armyId);
+  const f = army?.formations.find((x) => x.type === type);
+  if (!f) return { ok: false, reason: "No such formation" };
+  const n = Math.min(f.troops, BALANCE.recruitBatch);
+  f.troops -= n;
+  f.max = Math.max(f.troops, f.max - n);
+  const d = state.districts[army.districtId];
+  const home = d.owner === army.factionId;
+  if (home) d.population += n;
+  army.formations = army.formations.filter((x) => x.troops > 0);
+  removeEmptyArmies(state);
+  return { ok: true, home, n };
+}
+
 // Merge `fromId` into `intoId` (same district, same faction).
 export function mergeArmies(state, intoId, fromId) {
   const into = state.armies.find((a) => a.id === intoId);

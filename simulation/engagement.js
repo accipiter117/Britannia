@@ -39,7 +39,7 @@ export function defenceOptions(state, eng) {
   const fid = def.factionId;
   const here = def.armies.map((a) => a.id);
   const near = state.armies.filter((a) => a.factionId === fid && !here.includes(a.id) &&
-    neighbours(state, a.districtId).includes(eng.districtId) && neighbours(state, a.districtId).includes(eng.fromId)).map((a) => a.id);
+    neighbours(state, a.districtId).includes(eng.districtId)).map((a) => a.id);
   const terrain = state.districts[eng.districtId].terrain;
   const canRetreat = def.armies.length && def.armies.every((a) => retreatTarget(state, a, eng.fromId));
   return [

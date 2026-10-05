@@ -33,7 +33,8 @@ export function armyPanel(state, id) {
   const rows = a.formations.map((f) => {
     const def = BALANCE.formations[f.type];
     return `<tr><td>${label(f.type)}</td><td>${num(f.troops)}<small class="muted">/${num(f.max)}</small></td><td>${def.strength}</td>
-      <td>${ICON.food}${Math.round((f.troops / 100) * def.food)} ${ICON.wealth}${Math.round((f.troops / 100) * def.wealth)}</td></tr>`;
+      <td>${ICON.food}${Math.round((f.troops / 100) * def.food)} ${ICON.wealth}${Math.round((f.troops / 100) * def.wealth)}</td>
+      <td><button class="mini" data-action="disband" data-army="${a.id}" data-type="${f.type}" title="Disband ${BALANCE.recruitBatch}">−${BALANCE.recruitBatch}</button></td></tr>`;
   }).join("");
   const others = armiesIn(state, a.districtId, a.factionId).filter((x) => x.id !== a.id);
 
@@ -60,8 +61,8 @@ export function armyPanel(state, id) {
     </section>
     <section>
       <h3>Formations</h3>
-      <table class="prod"><tr><th>Type</th><th>Troops</th><th>Str/100</th><th>Upkeep</th></tr>${rows}</table>
-      <p class="muted small">Lost troops are replaced slowly (${Math.round(BALANCE.recovery.replacementsPctPerSeason * 100)}% a season) while the army rests in its own land.</p>
+      <table class="prod"><tr><th>Type</th><th>Troops</th><th>Str/100</th><th>Upkeep</th><th></th></tr>${rows}</table>
+      <p class="muted small">Disbanding (−${BALANCE.recruitBatch}) cuts upkeep; in your own land the troops go home to work. Lost troops are replaced slowly (${Math.round(BALANCE.recovery.replacementsPctPerSeason * 100)}% a season) while the army rests in its own land.</p>
     </section>
     ${where.owner === a.factionId ? `<section><h3>Recruit at ${esc(where.name)}</h3>${recruitRows(state, where.id)}</section>` : ""}`;
 }

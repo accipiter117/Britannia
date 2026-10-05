@@ -86,7 +86,14 @@ Decisions made:
 - The player sees only armies within `army.visibilityRange` of their land and armies; the AI uses the same rule.
 - Balance passes (all in `balance.js`): casualty and morale rates, `effectivenessExponent`, rout panic radius and flanking were tuned so battles last 1 to 3 minutes and Rome beats any single host but loses to about 1,600 Celts. The AI waits until `earliestWarSeason` before declaring war on Celts and builds arms in peacetime (`peacetimeArmsRatio`).
 
+Session 3 changes (recovery and fairness):
+- AI declares war one season before it attacks, so the player can move a host to meet it. AI weighs fortifications and avoids districts where it lost a battle in the last `memorySeasons / 2` seasons.
+- Intercept: any army in or next to the threatened district can respond.
+- Disband (army drawer, −100 per formation): cuts upkeep; troops return to the district's population if it is yours.
+- Trade no longer needs a Market; without one the price is cut by `noMarketRate` (sell for half, buy at double).
+
 Testing:
+- `node tools/smartbot.mjs [seeds] [seasons]` plays the player's side sensibly and reports how the Confederation fares. Use it after balance changes.
 - `node tools/sim20.mjs [seasons]` plays the whole loop in Node with AI, events and Rome, round-tripping the save each season.
 
 ## End Season resolution order

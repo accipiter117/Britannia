@@ -5,7 +5,7 @@
 
 import { createCampaign, dateLabel } from "../simulation/campaign.js";
 import { startBuilding, startRoad } from "../simulation/economy.js";
-import { mergeArmies, moveArmy, reachable, recruit, setStance, visibleArmies } from "../simulation/armies.js";
+import { disband, mergeArmies, moveArmy, reachable, recruit, setStance, visibleArmies } from "../simulation/armies.js";
 import { aiResponse, resolveWithoutBattle, setupBattle } from "../simulation/engagement.js";
 import { cancelTrade, declareWar, playerAction } from "../simulation/diplomacy.js";
 import { finishBattle, resolveAllyCall, resolveDefence, resolveEnding, resolveEvent, resolveProposal } from "../simulation/decisions.js";
@@ -235,6 +235,12 @@ const actions = {
   },
   "cancel-move": () => { ui.moveArmyId = null; render(); },
   stance: (el) => { setStance(state, el.dataset.army, el.dataset.stance); render(); },
+  disband: (el) => {
+    const r = disband(state, el.dataset.army, el.dataset.type);
+    toast(r.ok ? `${r.n} ${label(el.dataset.type)} ${r.home ? "sent home to the land" : "disbanded"}` : r.reason);
+    if (!state.armies.some((a) => a.id === el.dataset.army)) { ui.selection = null; ui.panel = "armies"; }
+    render();
+  },
   merge: (el) => { mergeArmies(state, el.dataset.into, el.dataset.from); toast("Armies merged"); render(); },
   policy: (el) => { setPolicy(state, state.playerFactionId, el.dataset.district, el.dataset.policy); render(); },
   "select-district": (el) => select({ type: "district", id: el.dataset.district }),
