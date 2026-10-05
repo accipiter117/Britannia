@@ -119,3 +119,22 @@ function firstStep(prev, from, to) {
   while (prev[step] && prev[step] !== from) step = prev[step];
   return step;
 }
+
+// Where Rome could strike next season, as the Roman AI sees it: regions of yours (or holding your
+// hosts) next to a Roman army strong enough to attack them. Shown on the map as a warning.
+export function romeThreats(state) {
+  const out = new Set();
+  const full = armyPower({ units: R.vexillation.map((t) => newUnit(t)) });
+  for (const army of state.armies.filter((a) => a.faction === "rome")) {
+    const power = armyPower(army);
+    if (power < full * 0.5) continue;
+    for (const n of neighbours(state, army.region)) {
+      const r = state.regions[n];
+      const hosts = state.armies.filter((a) => a.region === n && a.faction === "celts");
+      if (r.owner !== "celts" && !hosts.length) continue;
+      const defence = hosts.reduce((s, a) => s + armyPower(a), 0) + (r.owner !== "rome" ? garrisonPower(r) : 0);
+      if (power >= defence * R.attackRatio * (r.walls ? 1.15 : 1)) out.add(n);
+    }
+  }
+  return [...out];
+}

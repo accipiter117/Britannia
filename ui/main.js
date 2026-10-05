@@ -9,11 +9,12 @@ import {
   armiesIn, armyMen, armyPower, createCampaign, dateLabel, deserialise, foodCap, garrisonPower, neighbours, newUnit, rankOf, regionsOf, seasonName, serialise,
 } from "../simulation/state.js";
 import {
-  applyBattle, canRaiseArmy, captureOptions, clashAt, decideCapture, disband, endTurn, foodNeed, harvest, income, moveArmy, pendingBattle,
+  applyBattle, attackOdds, canRaiseArmy, captureOptions, clashAt, decideCapture, disband, endTurn, foodNeed, harvest, income, moveArmy, pendingBattle,
   raiseArmy, recruit, recruitOptions, transfer, upgrade, upgradeCost,
 } from "../simulation/campaign.js";
 import { createBattle } from "../simulation/battle/setup.js";
 import { autoResolve } from "../simulation/battle/engine.js";
+import { romeThreats } from "../simulation/romeAI.js";
 import { createMap } from "./mapView.js";
 import { openBattle } from "./battleView.js";
 import { icon, injectIconSprite } from "./icons.js";
@@ -93,14 +94,17 @@ function beginCampaign(s) {
   document.body.classList.remove("on-title");
   $("title").hidden = true;
   if (!map) map = createMap($("map"), data.regions, { onRegion: tapRegion, onArmy: tapArmy });
+  window.britanniaMap = map; // for browser tests
   ui.army = state.armies.find((a) => a.faction === "celts")?.id || null;
   ui.region = null;
   render();
+  const first = state.armies.find((a) => a.id === ui.army);
+  if (first) centre(first.region);
   if (state.turn === 1 && !state.seenIntro) {
     state.seenIntro = true;
     modal(`<h2>${icon("scroll")} ${esc(data.eras[state.era].label)}, AD ${state.startYear}</h2><p>${esc(state.intro)}</p>
       <ul class="help">
-        <li><b>The map:</b> tap your host, then a lit region to march. Red regions mean battle; walled ones a siege.</li>
+        <li><b>The map:</b> your tribes are blue, Rome's red. Tap your host and the regions it can reach are marked: March, or a fight with the odds. Red pulsing borders show where Rome may strike next.</li>
         <li><b>Wheat:</b> every host carries food. At home it lives half off the land outside winter and refills from your granary; abroad it forages in summer and autumn and starves in winter.</li>
         <li><b>Taken land:</b> win a tribe over (its warriors join you) or plunder it (silver and wheat now, unrest later).</li>
         <li><b>Battles:</b> drag your bands into place, then fight. Tap to march, drag to march and face, tap an enemy to attack. Throw javelins with the skill shot: tap the button, then where they should land.</li>
@@ -117,37 +121,69 @@ function render() {
   save();
   const army = state.armies.find((a) => a.id === ui.army);
   if (!army) ui.army = null;
-  const view = { selected: ui.army, focus: ui.region };
+  const view = { selected: ui.army, focus: ui.region, threats: romeThreats(state), badges: {} };
   if (army && army.faction === "celts" && army.moves > 0) {
     const near = neighbours(state, army.region);
     view.attack = near.filter((n) => clashAt(state, "celts", n));
     view.reach = near.filter((n) => !view.attack.includes(n));
+    for (const n of view.attack) {
+      const c = clashAt(state, "celts", n);
+      const o = attackOdds(army, c);
+      view.badges[n] = { text: `${c.siege ? "Siege" : "Fight"}: ${o.word}`, tone: o.tone };
+    }
+    for (const n of view.reach) view.badges[n] = { text: state.regions[n].owner === "celts" ? "March" : `Take ${state.regions[n].name}` };
   }
   map.render(state, view);
   hud();
-  $("panel").innerHTML = army ? armyPanel(army) : ui.region ? regionPanel(state.regions[ui.region]) : overview();
+  advise(view);
+  const panel = army ? armyPanel(army) : ui.region ? regionPanel(state.regions[ui.region]) : "";
+  $("panel").innerHTML = panel;
+  $("panel").hidden = !panel;
+  $("panel").classList.toggle("open", !!ui.sheet);
   const romanNear = state.armies.some((a) => a.faction === "rome" && neighbours(state, a.region).some((n) => state.regions[n].owner === "celts"));
   setScene({ season: seasonName(state), mood: regionsOf(state, "celts").length < 2 ? "crisis" : state.pending.length ? "war" : romanNear ? "tension" : "peace" });
 }
 
 function hud() {
   const inc = income(state);
+  const crop = harvest(state);
   $("hud").innerHTML = `
-    <span class="brand">Britannia <span>Invicta</span></span>
-    <span class="res" title="Silver: income ${inc.gross}, upkeep ${inc.upkeep}"><i class="coin"></i>${state.silver}<small class="${inc.net < 0 ? "neg" : "pos"}">${inc.net >= 0 ? "+" : ""}${inc.net}</small></span>
-    <span class="res" title="Wheat in the granary. Hosts at home refill from it; the harvest comes in summer and autumn."><i class="wheat"></i>${state.wheat}${["Summer", "Autumn"].includes(seasonName(state)) ? `<small class="pos">+${harvest(state)}</small>` : ""}</span>
-    <span class="date">${dateLabel(state)}</span>
+    <button class="icon-btn" data-action="menu" title="Your realm, chronicle and settings">☰</button>
+    <span class="res" title="Silver: ${inc.gross} from your tribes, ${inc.upkeep} upkeep a season"><i class="coin"></i>${state.silver}<small class="${inc.net < 0 ? "neg" : "pos"}">${inc.net >= 0 ? "+" : ""}${inc.net}</small></span>
+    <span class="res" title="Wheat in the granary${crop ? `; this season's harvest brings ${crop}` : ""}"><i class="wheat"></i>${state.wheat}${crop ? `<small class="pos">+${crop}</small>` : ""}</span>
+    <span class="date">${seasonName(state)} <small>AD ${state.startYear + Math.floor((state.turn - 1) / 4)}</small></span>
     <span class="spacer"></span>
-    <button class="icon-btn hide-phone" data-action="help" title="How to play">?</button>
-    <button class="icon-btn hide-phone" data-action="sound" title="Sound">${icon(soundOn() ? "sound_on" : "sound_off")}</button>
-    <button class="icon-btn" data-action="menu" title="Campaign">☰</button>
     <button id="end-turn" class="primary" data-action="end-turn">${state.pending.length ? `Rome attacks (${state.pending.length})` : "End Season"}</button>`;
 }
 
-function overview() {
+function panelTools() {
+  return `<div class="panel-tools"><button class="sheet-toggle" data-action="sheet" aria-label="Show or hide details">${ui.sheet ? "Less" : "More"}</button><button data-action="deselect" aria-label="Close">✕</button></div>`;
+}
+
+// One line on the map saying what to do next, with a tap to go there.
+function advise(view) {
+  const ready = state.armies.filter((a) => a.faction === "celts" && a.moves > 0);
+  const sel = state.armies.find((a) => a.id === ui.army && a.faction === "celts");
+  let text, action = "", extra = "";
+  if (state.pending.length) text = "Rome is attacking!";
+  else if (sel && sel.moves > 0) {
+    const easy = Object.entries(view.badges).filter(([, b]) => b.tone === "good").map(([id]) => state.regions[id].name);
+    text = easy.length ? `Good odds at ${esc(easy[0])}. Tap a marked region.` : "Tap a marked region to march or fight.";
+    if (ready.length > 1) { action = "next-host"; extra = "Next ›"; }
+  } else if (ready.length) {
+    text = `${ready.length} host${ready.length > 1 ? "s" : ""} can still march.`;
+    action = "next-host"; extra = "Select ›";
+  } else if (view.threats.length) {
+    text = `Rome may strike ${view.threats.map((id) => esc(state.regions[id].name)).join(", ")} next season.`;
+    action = "show-threat"; extra = "Show ›";
+  } else text = "All hosts have marched. End the season.";
+  $("advice").innerHTML = `<span>${text}</span>${action ? `<button class="mini" data-action="${action}">${extra}</button>` : ""}`;
+}
+
+function realm() {
   const hosts = state.armies.filter((a) => a.faction === "celts");
   const inc = income(state);
-  return `<h2>The Britons</h2>
+  return `<h2>The Britons · ${esc(dateLabel(state))}</h2>
     <p class="muted">${esc(data.eras[state.era].label)}'s war. Drive Rome from Britannia.</p>
     <div class="kv"><span>Your tribes</span><b>${regionsOf(state, "celts").length}</b>
       <span>Rome holds</span><b>${regionsOf(state, "rome").length} · ${state.armies.filter((a) => a.faction === "rome").length} armies</b>
@@ -155,9 +191,11 @@ function overview() {
       <span>Silver</span><b>${state.silver} (${inc.net >= 0 ? "+" : ""}${inc.net} a season)</b>
       <span>Wheat</span><b>${state.wheat} in the granary</b></div>
     <h3>Your hosts</h3>
-    ${hosts.map((a) => `<button class="list-row" data-action="select-army" data-army="${a.id}"><b>${esc(a.name)}</b><span>${a.units.length} bands · ${armyMen(a)} warriors · ${state.regions[a.region].name} · wheat ${a.food}/${foodCap(a)}${a.moves ? "" : " · marched"}</span></button>`).join("") || `<p class="muted">You have no host. Raise one in a region you hold.</p>`}
+    ${hosts.map((a) => `<button class="list-row" data-action="select-army-close" data-army="${a.id}"><b>${esc(a.name)}</b><span>${a.units.length} bands · ${armyMen(a)} warriors · ${state.regions[a.region].name} · wheat ${a.food}/${foodCap(a)}${a.moves ? "" : " · marched"}</span></button>`).join("") || `<p class="muted">You have no host. Raise one in a region you hold.</p>`}
     <h3>Chronicle</h3>
-    <ul class="chron">${state.log.slice(-8).reverse().map((l) => `<li class="${l.kind}">${esc(l.text)}</li>`).join("")}</ul>`;
+    <ul class="chron">${state.log.slice(-8).reverse().map((l) => `<li class="${l.kind}">${esc(l.text)}</li>`).join("")}</ul>
+    <div class="choices"><button data-action="help">How to play</button><button data-action="sound">Sound ${soundOn() ? "off" : "on"}</button><button data-action="to-title">Back to the title screen</button><button class="primary" data-action="close-modal">Back to the war</button></div>
+    <p class="muted small">The game saves itself after every action.</p>`;
 }
 
 function armyPanel(a) {
@@ -166,7 +204,7 @@ function armyPanel(a) {
   const home = r.owner === "celts";
   const others = armiesIn(state, a.region, "celts").filter((x) => x.id !== a.id);
   const stars = "★".repeat(a.general.rank) + "☆".repeat(3 - a.general.rank);
-  const head = `<header class="army-head ${a.faction}">
+  const head = `${panelTools()}<header class="army-head ${a.faction}">
       <h2>${esc(a.name)}</h2>
       <p>${a.faction === "rome" ? "Legate" : "Led by"} ${esc(a.general.name)} <span class="stars">${stars}</span> · ${esc(r.name)}${mine ? ` · ${a.moves ? `${a.moves} march${a.moves > 1 ? "es" : ""} left` : "has marched"}` : ""}</p>
     </header>`;
@@ -198,11 +236,11 @@ function armyPanel(a) {
   return head + `
     <div class="wagon ${a.food < need ? "low" : ""}"><i class="wheat"></i><span>Wheat <b>${a.food}/${cap}</b> · eats ${need} this ${season.toLowerCase()}${home ? (season === "Winter" ? " · refills from the granary" : " · half off the land, refills from the granary") : season === "Summer" || season === "Autumn" ? " · foraging abroad" : " · nothing to forage"}</span>
       <i class="bar"><b style="width:${Math.min(100, (a.food / Math.max(1, cap)) * 100)}%"></b></i></div>
-    <p class="hint">${a.moves ? "Tap a lit region to march there. Red means battle." : "This host has marched this season."}</p>
+    <p class="hint">${a.moves ? "Tap a marked region: March, or a fight with its odds." : "This host has marched this season."}</p>
     <ul class="unit-list">${units}</ul>
     <p class="muted small">${a.units.length}/${BALANCE.maxUnitsPerArmy} bands · strength ${Math.round(armyPower(a))}${home ? " · men return to the colours at home" : ""}</p>
     ${home ? `<h3>Recruit at ${esc(r.name)}</h3><div class="recruit-grid">${rec}</div>` : ""}
-    <div class="row"><button data-action="deselect">Close</button></div>`;
+`;
 }
 
 function regionPanel(r) {
@@ -210,8 +248,9 @@ function regionPanel(r) {
   const raise = r.owner === "celts" ? canRaiseArmy(state, r.id) : null;
   const who = r.owner === "celts" ? "Yours" : r.owner === "rome" ? "Roman" : "A free tribe";
   const walls = r.settlement === "town" ? "Roman town, walled" : r.settlement === "fort" ? "Roman fort" : r.settlement === "oppidum" ? `Hill fort${r.seat ? ` of ${r.seat}` : ""}` : "Open villages";
-  return `<header class="army-head ${r.owner}"><h2>${esc(r.name)}</h2><p>${who} · ${r.terrain}${r.port ? " · port" : ""}</p></header>
+  return `${panelTools()}<header class="army-head ${r.owner}"><h2>${esc(r.name)}</h2><p>${who} · ${r.terrain}${r.port ? " · port" : ""}</p></header>
     <div class="kv"><span>Settlement</span><b>${walls}</b>
+      <span>Each season</span><b><i class="coin"></i>${BALANCE.regionYield[r.settlement]?.silver ?? 15} silver · <i class="wheat"></i>${BALANCE.regionYield[r.settlement]?.food ?? 4} wheat at harvest${r.owner === "celts" ? "" : " if yours"}</b>
       <span>Garrison</span><b>${r.garrison.length ? r.garrison.map((u) => U[u.type].name).join(", ") : "none"}</b>
       ${r.owner !== "celts" ? `<span>Defence</span><b>${Math.round(garrisonPower(r) + hosts.filter((a) => a.faction === r.owner).reduce((n, a) => n + armyPower(a), 0))}</b>` : ""}
       ${r.unrest ? `<span>Unrest</span><b class="neg">${r.unrest} seasons: may rise if left unguarded</b>` : ""}
@@ -219,7 +258,7 @@ function regionPanel(r) {
       ${r.fortAt ? `<span>Rome</span><b class="neg">raising a fort</b>` : ""}</div>
     ${hosts.map((a) => `<button class="list-row" data-action="select-army" data-army="${a.id}"><b>${esc(a.name)}</b><span>${a.units.length} bands · ${armyMen(a)} men</span></button>`).join("")}
     ${raise ? `<button class="primary" data-action="raise" ${raise.ok ? "" : "disabled"}>Raise a host here (<i class="coin"></i>${BALANCE.newArmyCost})</button>${raise.ok ? "" : `<p class="muted small">${esc(raise.reason)}</p>`}` : ""}
-    <div class="row"><button data-action="deselect">Close</button></div>`;
+`;
 }
 
 // little pixel portraits of units in the panel
@@ -254,7 +293,7 @@ function tapRegion(id) {
     const r = moveArmy(state, army.id, id);
     sfx("march");
     if (r.capture) return askCapture();
-    return render();
+    return nextHost(true);
   }
   ui.region = ui.region === id && !ui.army ? null : id;
   ui.army = null;
@@ -263,13 +302,11 @@ function tapRegion(id) {
 
 function confirmAttack(army, clash) {
   const r = state.regions[clash.regionId];
-  const theirs = clash.armies.reduce((n, a) => n + armyPower(a), 0) + garrisonPower({ walls: clash.siege, garrison: clash.garrison });
-  const odds = armyPower(army) / Math.max(1, theirs);
-  const word = odds > 1.6 ? "Overwhelming" : odds > 1.15 ? "Favourable" : odds > 0.85 ? "Even" : odds > 0.6 ? "Unfavourable" : "Desperate";
+  const { word, tone } = attackOdds(army, clash);
   const who = clash.armies.length ? clash.armies.map((a) => esc(a.name)).join(" and ") : clash.defenderFaction === "free" ? `The warriors of the ${esc(r.name)}` : "The garrison";
   modal(`<h2>${icon("sword")} ${clash.siege ? "Besiege" : "Attack"} ${esc(r.seat || r.name)}?</h2>
     <p>${who} stand${clash.armies.length === 1 || !clash.armies.length ? "s" : ""} against you${clash.siege ? " behind a palisade: batter the gate or climb, then hold the centre" : ""}.</p>
-    <p class="odds">Odds: <b>${word}</b></p>
+    <p class="odds">Odds: <b class="tone-${tone}">${word}</b></p>
     <div class="choices"><button class="primary" data-action="attack-fight">Lead the attack</button><button data-action="attack-auto">Auto-resolve</button><button data-action="close-modal">Not yet</button></div>`);
   ui.attack = { armyId: army.id, to: clash.regionId };
 }
@@ -284,6 +321,28 @@ function askCapture() {
       <button class="primary" data-action="capture" data-choice="peace"><b>${esc(o.peace.label)}</b><small>${esc(o.peace.hint)}</small></button>
       <button data-action="capture" data-choice="plunder"><b>${esc(o.plunder.label)}</b><small>${esc(o.plunder.hint)}</small></button>
     </div>`);
+}
+
+// Bring a region into the part of the map not hidden by the panel.
+function centre(id) {
+  requestAnimationFrame(() => {
+    const p = $("panel"), m = $("map").getBoundingClientRect();
+    if (p.hidden) return map.centreOn(id);
+    const b = p.getBoundingClientRect();
+    map.centreOn(id, b.width >= m.width - 20 ? { bottom: m.bottom - b.top } : { right: m.right - b.left });
+  });
+}
+
+// Select the next host that can still march and bring it into view. After a march, `soft`
+// keeps the current host if nothing else is ready, so its panel stays open.
+function nextHost(soft = false) {
+  const ready = state.armies.filter((a) => a.faction === "celts" && a.moves > 0);
+  if (!ready.length) { if (!soft) ui.army = null; return render(); }
+  const at = ready.findIndex((a) => a.id === ui.army);
+  const next = ready[(at + 1) % ready.length];
+  ui.army = next.id; ui.region = null;
+  render();
+  centre(next.region);
 }
 
 // ---------- battles ----------
@@ -337,7 +396,7 @@ function nextPending() {
   sfx("alert");
   ui.region = r.id; ui.army = null;
   render();
-  map.centreOn(r.id);
+  centre(r.id);
   modal(`<h2>${icon("eagle")} ${esc(att.name)} marches on ${esc(r.name)}!</h2>
     <p>${att.units.length} Roman units under ${esc(att.general.name)}. ${defenders.length ? `${defenders.map((a) => esc(a.name)).join(" and ")} stand${defenders.length > 1 ? "" : "s"} to meet them` : r.garrison.length ? `Only the warriors of ${esc(r.name)} (${r.garrison.length} bands) stand in the way` : "No one stands in the way"}${r.walls ? ", behind the palisade" : ""}.</p>
     <div class="choices"><button class="primary" data-action="pending-fight">Take command</button><button data-action="pending-auto">Auto-resolve</button></div>`);
@@ -385,7 +444,7 @@ function closeModal() {
 function help() {
   modal(`<h2>${icon("scroll")} How to play</h2>
     <ul class="help">
-      <li><b>The map:</b> tap your host, then a lit region to march (one region a season; all-horse hosts two). Red means battle; walled places mean a siege.</li>
+      <li><b>The map:</b> your tribes are blue, Rome's red, free tribes plain. Tap your host and the regions it can reach are marked with March or the odds of a fight (one region a season; all-horse hosts two). Red pulsing borders show where Rome may strike next season. The line at the top of the map says what to do next.</li>
       <li><b>Wheat:</b> each host carries wheat and eats every season, more in winter. At home it lives half off the land outside winter and refills from the granary; the harvest comes in summer and autumn. Abroad it forages in summer and autumn only. Empty wagons mean desertion.</li>
       <li><b>Silver</b> comes from your tribes each season. Recruit and upgrade in your own land; men return to the colours at home.</li>
       <li><b>Taken land:</b> win a tribe over and its warriors join you; plunder it for silver and wheat, but it may rise again and its neighbours will resist harder.</li>
@@ -410,27 +469,31 @@ const actions = {
     const notes = endTurn(state);
     sfx("season");
     ui.region = null;
+    ui.army = state.armies.find((a) => a.faction === "celts")?.id || null;
     render();
     toast(notes.slice(-1)[0]);
     nextPending();
   },
   "select-army": (el) => { ui.army = el.dataset.army; ui.region = null; render(); },
+  "select-army-close": (el) => { closeModal(); ui.army = el.dataset.army; ui.region = null; render(); centre(state.armies.find((a) => a.id === ui.army).region); },
+  "next-host": () => nextHost(),
+  sheet: () => { ui.sheet = !ui.sheet; render(); },
+  "show-threat": () => { const id = romeThreats(state)[0]; if (id) { ui.region = id; ui.army = null; render(); centre(id); } },
   deselect: () => { ui.army = null; ui.region = null; render(); },
   recruit: (el) => { const r = recruit(state, ui.army, el.dataset.type); if (r.ok) sfx("recruit"); else toast(r.reason); render(); },
   upgrade: (el) => { const r = upgrade(state, ui.army, +el.dataset.index, el.dataset.kind); if (r.ok) sfx("build"); else toast(r.reason); render(); },
   disband: (el) => { disband(state, ui.army, +el.dataset.index); render(); },
   transfer: (el) => { transfer(state, ui.army, +el.dataset.index, el.dataset.to); render(); },
   raise: () => { const r = raiseArmy(state, ui.region); if (r.ok) { ui.army = r.army.id; ui.region = null; sfx("recruit"); } else toast(r.reason); render(); },
-  capture: (el) => { decideCapture(state, el.dataset.choice); sfx(el.dataset.choice === "plunder" ? "build" : "recruit"); modalAfter = null; closeModal(); render(); nextPending(); },
+  capture: (el) => { decideCapture(state, el.dataset.choice); sfx(el.dataset.choice === "plunder" ? "build" : "recruit"); modalAfter = null; closeModal(); if (state.pending.length || state.over) nextPending(); else nextHost(true); },
   "attack-fight": () => { const m = moveArmy(state, ui.attack.armyId, ui.attack.to); if (m.battle) fight(m.battle, false); else closeModal(); },
   "attack-auto": () => { const m = moveArmy(state, ui.attack.armyId, ui.attack.to); if (m.battle) fight(m.battle, true); else closeModal(); },
   "pending-fight": () => { state.pending.shift(); fight(ui.pendingBattle, false); },
   "pending-auto": () => { state.pending.shift(); fight(ui.pendingBattle, true); },
   "close-modal": closeModal,
   help,
-  sound: () => { initAudio(); toggleSound(); render(); },
-  menu: () => modal(`<h2>Campaign</h2><p>${esc(dateLabel(state))}. The game saves itself after every action.</p>
-    <div class="choices"><button data-action="help">How to play</button><button data-action="sound">Sound ${soundOn() ? "off" : "on"}</button><button data-action="to-title">Back to the title screen</button><button class="primary" data-action="close-modal">Back to the war</button></div>`),
+  sound: () => { initAudio(); toggleSound(); render(); if (!$("modal").hidden) modal(realm()); },
+  menu: () => modal(realm()),
   "zoom-in": () => map.zoom(1.3),
   "zoom-out": () => map.zoom(0.77),
 };
