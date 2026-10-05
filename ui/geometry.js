@@ -1,14 +1,18 @@
 // ui/geometry.js
-// Owns map shapes: Voronoi district cells from district positions, with wobbly shared borders,
-// and the island coastline. Pure maths, no DOM, no game state.
+// Owns map shapes: Voronoi region cells from region positions, with wobbly shared borders,
+// and the coastline of northern Britannia. Pure maths, no DOM, no game state.
 
-export const MAP_BOUNDS = { x: 0, y: 0, w: 1000, h: 1200 };
+export const MAP_BOUNDS = { x: 0, y: 0, w: 1000, h: 1260 };
 
-// Hand-drawn coastline; jittered so it reads as land, not a polygon.
+// Northern Britannia, hand-drawn: the Highlands and Moray Firth at the top, the Tay and Forth
+// cutting in from the east, the Clyde and Solway from the west, Roman England at the bottom.
 const COAST = [
-  [120, 80], [380, 40], [620, 70], [800, 50], [905, 160], [860, 330], [770, 410], [830, 560],
-  [935, 700], [965, 900], [945, 1110], [780, 1175], [600, 1130], [420, 1175], [230, 1090],
-  [150, 910], [215, 770], [135, 640], [75, 480], [130, 300], [55, 170],
+  [250, 70], [420, 45], [600, 60], [660, 120], [600, 200], [520, 240], [620, 270], [760, 300],
+  [800, 390], [790, 480], [730, 560], [690, 600], [640, 612], [700, 640], [690, 700], [600, 722],
+  [690, 742], [740, 800], [720, 880], [700, 960], [740, 1040], [760, 1120], [720, 1200], [560, 1235],
+  [420, 1225], [300, 1205], [320, 1120], [270, 1050], [330, 1012], [230, 992], [200, 940], [180, 860],
+  [250, 820], [300, 790], [250, 742], [300, 700], [220, 660], [170, 600], [140, 520], [190, 470],
+  [140, 400], [180, 330], [150, 250], [190, 160],
 ];
 
 export function coastline() {

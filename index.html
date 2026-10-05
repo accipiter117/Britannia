@@ -2,52 +2,20 @@
 <html lang="en-GB">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="theme-color" content="#1d2421">
-  <title>Britannia</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Caledonia</title>
+  <meta name="description" content="Lead the Picts of northern Britannia against Rome: real-time battles, sieges and a campaign across the north.">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <header id="hud"></header>
-
   <main id="main">
-    <div id="map-wrap">
-      <svg id="map" role="img" aria-label="Campaign map"></svg>
-      <div id="move-banner" hidden>Tap a highlighted district to march. Red means battle. <button data-action="cancel-move">Cancel</button></div>
-      <div id="objectives"></div>
-      <div id="playback" hidden><span>The season unfolds…</span><button data-action="skip-playback">Skip</button></div>
-      <div id="map-controls">
-        <button id="zoom-in" aria-label="Zoom in">+</button>
-        <button id="zoom-out" aria-label="Zoom out">−</button>
-        <button id="zoom-reset" aria-label="Show whole map">⌖</button>
-        <button id="sound-toggle" aria-label="Turn sound on"></button>
-      </div>
-    </div>
-    <aside id="drawer">
-      <div class="drawer-top"><span class="grip"></span><button id="drawer-close" aria-label="Close">✕</button></div>
-      <div id="drawer-body"></div>
-    </aside>
+    <div id="map-wrap"><svg id="map" role="img" aria-label="Map of northern Britannia"></svg></div>
+    <aside id="panel"></aside>
   </main>
-
-  <section id="summary" hidden></section>
-
-  <footer id="footer">
-    <div id="notifications"></div>
-    <div class="footer-row">
-      <nav id="nav">
-        <button data-panel="realm"><svg class="ico" aria-hidden="true"><use href="#i-realm"/></svg><span>Realm</span></button>
-        <button data-panel="armies"><svg class="ico" aria-hidden="true"><use href="#i-armies"/></svg><span>Armies</span></button>
-        <button data-panel="diplomacy"><svg class="ico" aria-hidden="true"><use href="#i-diplomacy"/></svg><span>Diplomacy</span></button>
-        <button data-panel="more"><svg class="ico" aria-hidden="true"><use href="#i-more"/></svg><span>More</span></button>
-      </nav>
-      <button id="end-season">End Season</button>
-    </div>
-  </footer>
-
+  <section id="battle" hidden></section>
   <div id="modal" hidden><div id="modal-card"></div></div>
-  <div id="battle" hidden></div>
-  <div id="chronicle-view" hidden></div>
-  <div id="toast" role="status"></div>
+  <div id="toast" hidden></div>
   <script type="module" src="ui/main.js"></script>
 </body>
 </html>

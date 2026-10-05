@@ -1,9 +1,9 @@
-# Britannia
+# Caledonia
 
-Seasonal strategy prototype set in ancient Britain. Vanilla JavaScript, no build step.
+Lead the Picts of northern Britannia against Rome. Move your hosts across the north, then command every clash yourself in real-time battles with formations, flanks, charges, ambushes and sieges.
 
-- Play: open `index.html` through any static server (GitHub Pages serves it from `main`).
+- Play: https://accipiter117.github.io/Britannia/ (GitHub Pages from `main`).
 - Local: `python3 -m http.server` in this folder, then visit http://localhost:8000
-- Sanity check: `node tools/sim20.mjs` runs 20 seasons in Node.
+- Checks: `node tools/battletest.mjs`, `node tools/campaignsim.mjs`
 
-Start with `CLAUDE.md` for the brief, rules and milestone status.
+Start with `CLAUDE.md`. The earlier game, Britannia v1, is archived on the `britannia-v1` branch.
