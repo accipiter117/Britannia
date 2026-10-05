@@ -59,6 +59,9 @@ const SYMBOLS = {
   crown: `<path d="M4 18l1-10 4 4 3-6 3 6 4-4 1 10z" ${S}/>`,
   candle: `<path d="M9 21V11h6v10M12 11V9" ${S}/><path d="M12 4q2 2 0 4-2-2 0-4z" ${S}/>`,
   scroll: `<path d="M7 4h11v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2h12" ${S}/><path d="M7 4a2 2 0 0 0-2 2v10" ${S}/>`,
+  torch: `<path d="M10 21l2-10 2 10z" ${S}/><path d="M12 3q4 3 2 7h-4q-2-4 2-7z" ${S}/>`,
+  spade: `<path d="M3 20h18M5 20l3-6h8l3 6M12 14V4M10 4h4" ${S}/>`,
+  rest: `<path d="M20 14A8 8 0 1 1 10 4a6 6 0 0 0 10 10z" ${S}/>`,
 };
 
 export function injectIconSprite() {

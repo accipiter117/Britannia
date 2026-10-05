@@ -40,10 +40,11 @@ export function defenceOptions(state, eng) {
   const near = state.armies.filter((a) => a.factionId === fid && !here.includes(a.id) &&
     neighbours(state, a.districtId).includes(eng.districtId)).map((a) => a.id);
   const terrain = state.districts[eng.districtId].terrain;
+  const dug = def.armies.some((a) => a.dugAt === eng.districtId && a.districtId === eng.districtId);
   const canRetreat = def.armies.length && def.armies.every((a) => retreatTarget(state, a, eng.fromId));
   return [
     { id: "intercept", label: "Intercept", ok: here.length + near.length > 0, armyIds: [...here, ...near], reason: "No army in or beside the district", hint: "Meet them in the open before they arrive. Armies from neighbouring districts can join." },
-    { id: "hold", label: "Hold Position", ok: here.length > 0, armyIds: here, reason: "No army in the district", hint: "Defend the district's stronghold. Fortifications and hillforts help; hold until nightfall to win." },
+    { id: "hold", label: "Hold Position", ok: here.length > 0, armyIds: here, reason: "No army in the district", hint: `Defend the district's stronghold. Fortifications and hillforts help; hold until nightfall to win.${dug ? ` Your host is dug in: defence ×${1 + BALANCE.orders.dig.defence}.` : ""}` },
     { id: "ambush", label: "Ambush", ok: here.length > 0 && AMBUSH_TERRAIN.includes(terrain), armyIds: here, reason: here.length ? "Needs forest, hills or marsh" : "No army in the district", hint: "Strike from cover: the enemy starts shaken and closer." },
     { id: "withdraw", label: "Withdraw", ok: !!canRetreat, armyIds: here, reason: here.length ? "Nowhere safe to fall back" : "No army to withdraw", hint: "Fall back to a neighbouring friendly district. The district is lost for now." },
   ];

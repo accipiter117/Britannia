@@ -7,6 +7,7 @@
 
 import { BALANCE } from "../config/balance.js";
 import { armyTroops } from "../simulation/campaign.js";
+import { isDugIn, orderOf } from "../simulation/orders.js";
 import { emblemSvg } from "./art.js";
 import { factionColour, num } from "./format.js";
 
@@ -16,6 +17,9 @@ const HOME = [108, -16];          // offset of the first stand from its district
 
 export function createUnitLayer(group, districtPos) {
   const nodes = new Map();   // armyId -> <g>
+  const intents = document.createElementNS("http://www.w3.org/2000/svg", "g"); // raid arrows
+  intents.setAttribute("class", "intents");
+  group.appendChild(intents);
   const ghosts = new Map();  // armyId -> <g>
   let seasonLabel = (turn) => `${turn}`;
 
@@ -60,6 +64,17 @@ export function createUnitLayer(group, districtPos) {
         node.classList.remove("leaving");
       }
     }
+    // a raid in preparation: a burning arrow from the host to its target
+    intents.innerHTML = armies.map((a) => {
+      const o = orderOf(a);
+      if (o?.kind !== "raid" || !o.target) return "";
+      const [x1, y1] = districtPos(a.districtId), [x2, y2] = districtPos(o.target);
+      const sx = x1 + HOME[0] * 0.6, sy = y1 + HOME[1];
+      const mx = (sx + x2) / 2 + (y2 - sy) * 0.18, my = (sy + y2) / 2 - (x2 - sx) * 0.18;
+      const mine = a.factionId === state.playerFactionId;
+      return `<g class="raid-intent ${mine ? "mine" : "foe"}"><path d="M${sx} ${sy}Q${mx} ${my} ${x2} ${y2}" marker-end="url(#raid-head)"/>
+        <g transform="translate(${mx} ${my})"><circle r="15"/><path d="M-5 6q0-11 5-13q5 2 5 13q-5 3-10 0z" class="flame"/></g></g>`;
+    }).join("");
     for (const [id, node] of nodes) {
       if (seen.has(id)) continue;
       nodes.delete(id);
@@ -177,7 +192,9 @@ function miniature(state, army, { selected, mine }) {
   const pips = mine ? Array.from({ length: Math.max(full, army.movesLeft) }, (_, i) =>
     `<circle cx="${-10 + i * 7}" cy="27" r="2.4" class="${i < army.movesLeft ? "pip on" : "pip"}"/>`).join("") : "";
   const stance = { Defensive: "M-3 -4h6v4q0 4-3 5q-3-1-3-5z", Aggressive: "M-4 3l4-7l4 7", "Forced March": "M-4 -3l3 3l-3 3M1 -3l3 3l-3 3" }[army.stance];
-  const order = army.order ? ORDER_MARK[army.order] : "";
+  const live = army.formations ? orderOf(army) : null;
+  const order = live ? ORDER_MARK[live.kind] : "";
+  const dug = army.formations && isDugIn(army);
   let figsSvg = "";
   rows.forEach((row, r) => {
     const y = r === 0 && rows.length > 1 ? -4 : 4;
@@ -189,6 +206,7 @@ function miniature(state, army, { selected, mine }) {
     <ellipse cx="3" cy="13" rx="34" ry="10" fill="#000" opacity="0.32"/>
     <ellipse cx="0" cy="10" rx="33" ry="9.5" fill="#4a3824" stroke="${supplyBad || "#2a1f12"}" stroke-width="${supplyBad ? 2.5 : 1}"/>
     <ellipse cx="0" cy="8.5" rx="31" ry="8" fill="#6b5236"/>
+    ${dug ? `<path d="M-36 14q36 14 72 0l2 4q-38 16-76 0z" fill="#5b4527" stroke="#2a1f12" stroke-width="0.8"/>${[-30, -20, -10, 0, 10, 20, 30].map((px) => `<path d="M${px} ${17 + Math.abs(px) * -0.12}l2 -9l2 9z" fill="#8a6a3e" stroke="#2a1f12" stroke-width="0.5"/>`).join("")}` : ""}
     <g transform="translate(26 0)">
       <path d="M0 10V-34" stroke="#3a2a18" stroke-width="2"/>
       ${roman

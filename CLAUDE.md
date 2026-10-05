@@ -113,6 +113,14 @@ Depth pass (session 4):
 - Chronicle screen: `ui/chronicle.js`, opened from More.
 - Battle: the commander rides with the strongest block (crown marker) and can fall mid-battle (`commanderRiskPerTick`, `commanderRiskIfRouted`), shaking his side; warriors charge on first contact; veterans recover morale faster between battles.
 
+Board presence and stitched phases (session 5), to move the feel away from menus and toward a board game:
+- Armies are painted miniatures (`ui/units.js`): figures per formation share, standard with the faction emblem, troop plaque, movement pips, stance and order marks, supply ring. Each army keeps one SVG node so moves animate as marches. Last-seen enemy hosts stay as faded ghosts (`state.intel`, `army.intelSeasons`).
+- Moving: tap a district to preview the route and cost (`ui.preview`), tap again or press March/Attack to commit.
+- End Season is played back on the board (`ui/playback.js`) from `state.seasonLog` (written by `logSeason` while `state.logging`): enemy marches, battles, captures, raids, buildings, Rome landing, rebellions, limited to what the player could see. Then one season report card; decisions after it are anchored to their district with a pulsing highlight.
+- Army orders (`simulation/orders.js`, `balance.orders`), an alternative to marching, resolved at step 7b: Raid an adjacent enemy or unclaimed district (loot food and wealth, hurt its prosperity, loyalty and relations; repelled if the defence is much stronger), Dig in (entrenched after one End Season: defence ×1.3 when attacked there), Rest (extra recovery, double replacements, own land only). Moving cancels an order. The AI raids at war, digs in when threatened and rests when worn; its raid orders show on the map as burning arrows for a season before they land, so the player can answer them.
+- Battle plans (`balance.battle.plans`, `setPlan` in battle.js): Line, Deep (+morale, narrow centre) or Wings (flanks forward, thin centre), chosen on the battlefield before Play. The AI picks by relative strength.
+- Seasons tint the land (snow in winter, gold in autumn). During the countdown Rome's fleet gathers at sea and closes on the Old Road; Roman-held districts show as marching camps.
+
 Saving: the game saves after every action (in `render()`), not only at End Season.
 
 Testing:
@@ -120,7 +128,7 @@ Testing:
 - `node tools/sim20.mjs [seasons]` plays the whole loop in Node with AI, events and Rome, round-tripping the save each season.
 
 ## End Season resolution order
-1 construction, 2 production, 3 consumption, 4 population, 5 army upkeep, 6 supply, 7 army recovery, 8 trade, 9 diplomacy, 10 AI decisions and actions, 11 rebellions, 12 events, 13 historical events (Rome), 14 region and control updates, 15 Chronicle entries, 16 advance season.
+1 construction, 2 production, 3 consumption, 4 population, 5 army upkeep, 6 supply, 7 army recovery, 7b army orders (raids, digging in), 8 trade, 9 diplomacy, 10 AI decisions and actions, 11 rebellions, 12 events, 13 historical events (Rome), 14 region and control updates, 15 Chronicle entries, 16 advance season.
 
 ## UI
 - Map first. Permanent HUD: faction, Population, Food, Timber, Materials, Wealth, Year/Season, critical warning. Persistent END SEASON button.

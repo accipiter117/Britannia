@@ -98,6 +98,7 @@ export function moveArmy(state, armyId, targetId) {
     snapshot: { name: army.name, factionId: army.factionId, formations: army.formations.map((f) => ({ ...f })), movesLeft: 0, supply: army.supply, stance: army.stance } });
   army.districtId = path[stopAt];
   army.movesLeft = Math.max(0, army.movesLeft - route.cost);
+  army.order = null;
   if (route.kind === "attack") {
     army.movesLeft = 0;
     return { ok: true, engagement: { attackerFactionId: army.factionId, armyIds: [army.id], fromId: path[stopAt], districtId: targetId } };

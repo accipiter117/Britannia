@@ -368,12 +368,52 @@ button.wide { width: 100%; margin-top: 10px; }
   #end-season { padding: 8px 14px; }
   #map-controls .ico { width: 20px; height: 20px; }
 #map-controls button { width: 34px; height: 34px; }
-  #battle { display: grid; grid-template-columns: 1fr 220px; grid-template-rows: auto auto 1fr auto; gap: 6px 10px; padding: 6px 10px; }
+  #battle { display: grid; grid-template-columns: 1fr 220px; grid-template-rows: auto auto auto 1fr auto; gap: 6px 10px; padding: 6px 10px; }
   #battle[hidden] { display: none; }
   .b-head { grid-column: 1 / -1; }
   .b-bars { grid-column: 2; grid-row: 2; grid-template-columns: 1fr; }
-  .b-field { grid-column: 1; grid-row: 2 / span 3; }
-  .b-hint { grid-column: 2; grid-row: 3; text-align: left; font-size: 12px; }
-  .b-cmds { grid-column: 2; grid-row: 4; grid-template-columns: 1fr 1fr; }
+  .b-plan { grid-column: 2; grid-row: 3; }
+  .b-field { grid-column: 1; grid-row: 2 / span 4; }
+  .b-hint { grid-column: 2; grid-row: 4; text-align: left; font-size: 12px; }
+  .b-cmds { grid-column: 2; grid-row: 5; grid-template-columns: 1fr 1fr; }
   .b-cmds button { padding: 8px 4px; font-size: 12px; }
 }
+
+/* ---------- army orders ---------- */
+.raid-intent path:first-child { fill: none; stroke: #e07a3a; stroke-width: 5; stroke-dasharray: 10 8; opacity: 0.85; animation: march-dash 1.2s linear infinite; }
+.raid-intent.foe path:first-child { stroke: #e2735f; }
+.raid-intent circle { fill: #1d1b16; stroke: #e07a3a; stroke-width: 2.5; }
+.raid-intent .flame { fill: #f2a04b; stroke: #7a2e12; stroke-width: 1; animation: flicker 0.9s ease-in-out infinite alternate; transform-origin: 0 6px; }
+@keyframes march-dash { to { stroke-dashoffset: -36; } }
+@keyframes flicker { from { transform: scale(0.9, 0.85); } to { transform: scale(1.05, 1.1); } }
+.unit-mark.raid { fill: #7a2e12; }
+.orders .order-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; }
+.orders .order-grid button { display: flex; align-items: center; gap: 6px; justify-content: center; }
+.orders .order-now { display: flex; gap: 8px; align-items: flex-start; }
+
+/* ---------- battle plan and entrance ---------- */
+.b-plan { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; color: #cdbf96; }
+.b-plan[hidden] { display: none; }
+.b-plan > span { font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; font-size: 11px; }
+.b-plan button { padding: 5px 12px; border-radius: 6px; border: 1px solid #5c5340; background: #23271f; color: #f4ecd4; }
+.b-plan button.on { background: #c9a548; color: #1d1b16; border-color: #c9a548; }
+.b-plan small { flex-basis: 100%; color: #a99f84; }
+#battle.entering { animation: battle-in 0.7s cubic-bezier(.2,.7,.2,1); }
+#battle.entering .b-field { animation: field-in 0.9s cubic-bezier(.2,.7,.2,1); }
+@keyframes battle-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes field-in { from { transform: scale(0.6) rotate(-2deg); filter: brightness(1.8) blur(3px); } to { transform: none; filter: none; } }
+
+/* ---------- the season on the land ---------- */
+#season .tint { fill: transparent; opacity: 0; transition: fill 1.2s, opacity 1.2s; }
+#season .flecks { opacity: 0; transition: opacity 1.2s; }
+#season.season-spring .tint { fill: #b7e07a; opacity: 0.07; }
+#season.season-summer .tint { fill: #f3d36b; opacity: 0.08; }
+#season.season-autumn .tint { fill: #c8641a; opacity: 0.2; }
+#season.season-winter .tint { fill: #eef3f7; opacity: 0.34; }
+#season.season-winter .flecks { opacity: 0.8; }
+
+/* ---------- Rome on the board ---------- */
+.galley { animation: bob 3.2s ease-in-out infinite; transform-box: fill-box; }
+@keyframes bob { 0%, 100% { translate: 0 0; rotate: -1.5deg; } 50% { translate: 0 4px; rotate: 1.5deg; } }
+.castra rect { fill: none; stroke: #a3242b; stroke-width: 5; stroke-dasharray: 3 3; opacity: 0.85; }
+.castra .gate { stroke: #f2cf5b; stroke-width: 6; }

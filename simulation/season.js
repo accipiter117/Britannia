@@ -9,6 +9,7 @@ import {
 } from "./economy.js";
 import { resetMovement } from "./armies.js";
 import { resolveRecovery, resolveSupply } from "./supply.js";
+import { resolveOrders } from "./orders.js";
 import { resolveDiplomacy, resolveTrade } from "./diplomacy.js";
 import { resolveAI } from "./ai.js";
 import { resolveGovernance, resolveRegions, checkEliminations } from "./governance.js";
@@ -31,6 +32,7 @@ export function endSeason(state) {
   for (const fid of playing) resolveArmyUpkeep(state, ctx, fid);    // 5
   resolveSupply(state, ctx.notes, season);                          // 6
   resolveRecovery(state, ctx.notes);                                // 7
+  resolveOrders(state, ctx.notes);                                  // 7b raids, digging in
   resolveTrade(state, ctx.notes);                                   // 8
   resolveDiplomacy(state);                                          // 9
   resolveAI(state, ctx.notes);                                      // 10

@@ -6,6 +6,7 @@ import { BALANCE } from "../config/balance.js";
 import { armiesIn, armyTroops } from "../simulation/campaign.js";
 import { canRecruit, militaryCapacity, movementPoints, professionalsInService } from "../simulation/armies.js";
 import { supplyDistance } from "../simulation/supply.js";
+import { canOrder, isDugIn, orderOf, raidTargets } from "../simulation/orders.js";
 import { atWar, relation, relationState } from "../simulation/diplomacy.js";
 import { ICON, esc, factionColour, factionName, label, num } from "./format.js";
 import { icon } from "./icons.js";
@@ -55,6 +56,7 @@ export function armyPanel(state, id) {
         ${a.unpaid?.length ? `<span>Upkeep</span><b class="neg">Unpaid ${a.unpaid.join(", ")}</b>` : ""}
       </div>
     </section>
+    ${ordersSection(state, a)}
     <section>
       <h3>Stance</h3>
       <div class="seg">${Object.keys(BALANCE.stances).map((s) => `<button data-action="stance" data-army="${a.id}" data-stance="${s}" class="${a.stance === s ? "on" : ""}">${s}</button>`).join("")}</div>
@@ -68,6 +70,37 @@ export function armyPanel(state, id) {
     ${where.owner === a.factionId ? `<section><h3>Recruit at ${esc(where.name)}</h3>${recruitRows(state, where.id)}</section>` : ""}`;
 }
 
+const ORDER_TEXT = {
+  raid: (state, o) => `Raiding ${esc(state.districts[o.target].name)} at End Season: plunder its harvest and come home.`,
+  dig: () => "Digging in. Once the season turns, defence here is ×" + (1 + BALANCE.orders.dig.defence).toFixed(1) + " until the host marches.",
+  rest: () => "Resting: extra morale and fatigue recovery, double replacements.",
+};
+
+// Orders: what the host does with the season instead of marching.
+function ordersSection(state, a) {
+  const o = orderOf(a);
+  const dug = isDugIn(a);
+  if (o) {
+    return `<section class="orders"><h3>Orders</h3>
+      <p class="order-now">${icon(o.kind === "raid" ? "torch" : o.kind === "dig" ? "spade" : "rest")} ${ORDER_TEXT[o.kind](state, o)}</p>
+      ${dug ? `<p class="muted small">Entrenched at ${esc(state.districts[a.districtId].name)}.</p>` : ""}
+      <button data-action="order" data-army="${a.id}" data-order="">Stand down</button></section>`;
+  }
+  const targets = raidTargets(state, a);
+  const btn = (kind, text, hint, target = "") => {
+    const c = canOrder(state, a, kind, target || null);
+    return `<button data-action="order" data-army="${a.id}" data-order="${kind}" ${target ? `data-target="${target}"` : ""} ${c.ok ? "" : "disabled"} title="${esc(c.ok ? hint : c.reason)}">${text}</button>`;
+  };
+  return `<section class="orders"><h3>Orders <small class="muted">instead of marching</small></h3>
+    <div class="order-grid">
+      ${targets.length ? targets.map((t) => btn("raid", `${icon("torch")} Raid ${esc(state.districts[t].name)}`, "Strike across the border for food and wealth", t)).join("") : btn("raid", `${icon("torch")} Raid`, "")}
+      ${btn("dig", `${icon("spade")} Dig in`, "Entrench where you stand")}
+      ${btn("rest", `${icon("rest")} Rest`, "Recover faster in your own land")}
+    </div>
+    ${dug ? `<p class="muted small">Entrenched here: defence ×${(1 + BALANCE.orders.dig.defence).toFixed(1)} until the host marches.</p>` : `<p class="muted small">An order takes the season's march. Moving cancels it.</p>`}
+  </section>`;
+}
+
 function foreignArmy(state, a) {
   const me = state.playerFactionId;
   const rough = Math.round(armyTroops(a) / 100) * 100;
@@ -77,7 +110,8 @@ function foreignArmy(state, a) {
       <span>Troops</span><b>about ${num(rough)}</b>
       <span>Formations</span><b>${a.formations.map((f) => label(f.type)).join(", ")}</b>
       <span>Bearing</span><b>${mood}, ${a.experience}</b>
-      <span>Stance</span><b>${a.stance}</b>
+      <span>Stance</span><b>${a.stance}${isDugIn(a) ? ", dug in" : ""}</b>
+      ${orderOf(a)?.kind === "raid" ? `<span>Intent</span><b class="neg">Preparing to raid ${esc(state.districts[orderOf(a).target].name)}</b>` : ""}
       <span>Relations</span><b>${rel}</b>
     </div></section>
     <p class="hint">Move one of your armies into this district to attack it${atWar(state, me, a.factionId) ? "" : " (you will need to be at war)"}.</p>`;

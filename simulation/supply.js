@@ -7,6 +7,7 @@ import { BALANCE } from "../config/balance.js";
 import { addChronicle, armyTroops, neighbours, seasonName } from "./campaign.js";
 import { connectionBetween, lossesProportional, removeEmptyArmies } from "./armies.js";
 import { hasAccess } from "./diplomacy.js";
+import { restBonus } from "./orders.js";
 
 const S = BALANCE.supply;
 
@@ -77,6 +78,8 @@ export function resolveRecovery(state, notes) {
     if (!S.effects[army.supply].recovery) continue;
     army.morale = clampMorale(army.morale + R.moralePerSeason * BALANCE.battle.experience[army.experience].recoveryMult);
     army.fatigue = Math.max(0, army.fatigue - BALANCE.army.fatigueRecoveryPerSeason);
+    const rest = restBonus(army);
+    if (rest) { army.morale = clampMorale(army.morale + rest.morale); army.fatigue = Math.max(0, army.fatigue - rest.fatigue); }
     const d = state.districts[army.districtId];
     if (d.owner !== army.factionId) continue; // replacements only in friendly territory
     if (army.factionId === "rome") continue;  // Rome's numbers come only from reinforcements (capped)
@@ -86,7 +89,7 @@ export function resolveRecovery(state, notes) {
       const gap = f.max - f.troops;
       if (gap <= 0) continue;
       const cost100 = BALANCE.recruitCostWealthPer100[f.type] ?? 0;
-      let n = Math.min(gap, Math.ceil(f.max * R.replacementsPctPerSeason));
+      let n = Math.min(gap, Math.ceil(f.max * R.replacementsPctPerSeason * (rest?.replacementMult || 1)));
       n = Math.min(n, Math.max(0, d.population - d.basePopulation * BALANCE.workforceFloor));
       if (cost100) n = Math.min(n, Math.floor((res.wealth / cost100) * 100));
       if (n <= 0) continue;

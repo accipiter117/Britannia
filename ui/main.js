@@ -12,6 +12,7 @@ import { finishBattle, resolveAllyCall, resolveDefence, resolveEnding, resolveEv
 import { setPolicy } from "../simulation/governance.js";
 import { answerOverture } from "../simulation/overtures.js";
 import { endSeason } from "../simulation/season.js";
+import { setOrder } from "../simulation/orders.js";
 import { districtPanel, summaryCard } from "./drawer.js";
 import { armyPanel } from "./armyPanel.js";
 import { esc, factionColour, label } from "./format.js";
@@ -316,6 +317,12 @@ const actions = {
   "cancel-move": () => { Object.assign(ui, { moveArmyId: null, preview: null }); render(); },
   "commit-move": () => commitMove(),
   stance: (el) => { setStance(state, el.dataset.army, el.dataset.stance); render(); },
+  order: (el) => {
+    const r = setOrder(state, el.dataset.army, el.dataset.order || null, el.dataset.target || null);
+    if (!r.ok) toast(r.reason);
+    else sfx("march");
+    render();
+  },
   disband: (el) => {
     const r = disband(state, el.dataset.army, el.dataset.type);
     toast(r.ok ? `${r.n} ${label(el.dataset.type)} ${r.home ? "sent home to the land" : "disbanded"}` : r.reason);
