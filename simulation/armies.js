@@ -138,6 +138,7 @@ export function canRecruit(state, fid, districtId, type) {
   const def = BALANCE.formations[type];
   if (d.owner !== fid) return fail("Not your district");
   if (d.stage === "Occupied") return fail("Occupied districts will not raise troops");
+  if (d.siege) return fail("Under siege: no one can reach the muster");
   if (def.romanOnly) return fail("Roman only");
   if (def.requires && !d.buildings.includes(def.requires)) return fail(`Needs a ${def.requires.replace(/_/g, " ")} here`);
   if (BALANCE.professionalFormations.includes(type) && professionalsInService(state, fid) + batch > militaryCapacity(state, fid)) {

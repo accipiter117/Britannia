@@ -434,3 +434,11 @@ body.move-mode #objectives, body.playing #objectives { display: none; }
 #objectives li.ready small { color: #9fd38a; }
 #objectives .obj-box { flex: none; width: 18px; height: 18px; border: 1.5px solid #8d8268; border-radius: 4px; display: grid; place-items: center; font-size: 13px; color: #1d1b16; margin-top: 1px; }
 #objectives li.ready .obj-box { background: #8fc27a; border-color: #8fc27a; }
+
+/* ---------- sieges ---------- */
+.siege-label { font: 700 17px Georgia, serif; fill: #ffb3a3; text-anchor: middle; paint-order: stroke; stroke: #1d1b16; stroke-width: 5px; }
+.siege .stores { fill: #3a342a; stroke: #1d1b16; stroke-width: 1.5; }
+.siege .stores.on { fill: #e0a83a; }
+.siege-pips { display: flex; align-items: center; gap: 5px; }
+.supply-pip { width: 14px; height: 14px; border-radius: 3px; background: #3a342a; border: 1px solid #5c5340; display: inline-block; }
+.supply-pip.on { background: #e0a83a; }

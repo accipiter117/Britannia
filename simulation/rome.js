@@ -6,6 +6,7 @@
 import { BALANCE } from "../config/balance.js";
 import { addChronicle, armiesIn, armyTroops, districtsOf, logSeason, neighbours, newArmy, uid } from "./campaign.js";
 import { armyStrength, garrisonStrength, moveArmy, reachable, setStance } from "./armies.js";
+import { isBesieging, wallsBonus } from "./siege.js";
 import { atWar, declareWar } from "./diplomacy.js";
 import { engagePlayer, playerDefends, resolveEngagementAuto } from "./engagement.js";
 import { supplyState } from "./supply.js";
@@ -104,7 +105,7 @@ function reinforce(state, notes) {
 // Consolidate, Secure Supply, Advance.
 function advance(state, notes) {
   for (const army of state.armies.filter((a) => a.factionId === "rome")) {
-    if (!army.districtId || army.movesLeft <= 0) continue;
+    if (!army.districtId || army.movesLeft <= 0 || isBesieging(state, army)) continue;
     if (army.holdSeasons < R.holdSeasonsBeforeAdvance) {
       army.holdSeasons += 1;
       setStance(state, army.id, "Defensive");
@@ -140,7 +141,8 @@ function pickTarget(state, army) {
     const d = state.districts[did];
     if (d.owner === "rome" || (d.owner && (isRomanClient(state, d.owner) || inTruce(state, "rome", d.owner)))) continue;
     const defence = armiesIn(state, did).filter((a) => a.factionId !== "rome").reduce((n, a) => n + armyStrength(a), 0) + garrisonStrength(d);
-    if (armyStrength(army) < defence) continue;
+    // Rome's generals count the walls (their engineers halve them) and want a margin
+    if (armyStrength(army) < defence * (1 + wallsBonus(state, d, "rome")) * 1.1) continue;
     const score = d.population / 1000 + (d.special.length ? 0.5 : 0) - defence / Math.max(1, armyStrength(army)) * 2;
     if (!best || score > best.score) best = { did, score };
   }

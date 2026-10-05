@@ -10,6 +10,7 @@ import { applyEventChoice } from "./events.js";
 import { autoResolve } from "./battle.js";
 import { endChronicle } from "./victory.js";
 import { answerOverture, overtureView } from "./overtures.js";
+import { abandonSiege, besiegers, militia, stormEngagement } from "./siege.js";
 
 export function pendingText(state, p) {
   const fac = (id) => state.factions[id]?.name || "Unknown";
@@ -18,9 +19,24 @@ export function pendingText(state, p) {
   if (p.kind === "proposal") return p.action === "peace" ? `${fac(p.from)} sues for peace.` : `${fac(p.from)} proposes an alliance.`;
   if (p.kind === "event") return p.text;
   if (p.kind === "overture") return overtureView(state, p).text;
+  if (p.kind === "siege") {
+    const d = state.districts[p.districtId];
+    return `Your camp rings ${d.name}. Its stores will last ${d.siege?.supplies ?? 0} more season${d.siege?.supplies === 1 ? "" : "s"}; about ${militia(d)} of its people man the walls.`;
+  }
   if (p.kind === "dominance") return "Your people hold Decisive Dominance over Britannia.";
   if (p.kind === "defeat") return "Your people have no land and no army left.";
   return "";
+}
+
+// A siege the player is pressing: "storm" returns { eng } for the UI to fight; "wait" keeps
+// starving them; "lift" breaks the camp. A siege that has meanwhile ended just goes away.
+export function resolveSiege(state, p, choice) {
+  state.pending = state.pending.filter((x) => x !== p);
+  const d = state.districts[p.districtId];
+  if (!d.siege || d.siege.by !== state.playerFactionId || !besiegers(state, d).length) return { text: "The siege is over." };
+  if (choice === "storm") return { eng: stormEngagement(state, d.id) };
+  if (choice === "lift") { abandonSiege(state, d.id); return { text: `You broke camp at ${d.name}.` }; }
+  return { text: `The siege of ${d.name} goes on.` };
 }
 
 // Returns { battle } when a fight must happen, else { text }.
@@ -75,6 +91,7 @@ export function autoAnswerAll(state) {
     else if (p.kind === "proposal") resolveProposal(state, p, true);
     else if (p.kind === "overture") answerOverture(state, p, overtureView(state, p).choices.find((c) => c.ok).id);
     else if (p.kind === "event") resolveEvent(state, p, 0);
+    else if (p.kind === "siege") resolveSiege(state, p, "wait");
     else resolveEnding(state, p, false);
   }
   return log;

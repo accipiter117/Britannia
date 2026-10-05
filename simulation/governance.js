@@ -18,6 +18,7 @@ export function captureDistrict(state, districtId, fid) {
   const prev = d.owner;
   d.owner = fid;
   d.previousOwner = prev;
+  d.siege = null;
   logSeason(state, { t: "capture", district: districtId, from: prev, to: fid });
   d.stage = "Occupied";
   d.prosperity = Math.max(0, (d.prosperity ?? BALANCE.prosperity.start) + BALANCE.prosperity.conquest);

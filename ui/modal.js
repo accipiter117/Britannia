@@ -34,6 +34,18 @@ export function pendingHtml(state, p, index) {
     ], index) + more;
   }
   if (p.kind === "event") return eventHtml(state, p, index) + more;
+  if (p.kind === "siege") {
+    const d = state.districts[p.districtId];
+    const s = d.siege;
+    const pips = s ? Array.from({ length: s.max }, (_, i) => `<i class="supply-pip ${i < s.supplies ? "on" : ""}"></i>`).join("") : "";
+    return `<h2>${icon("fortification")} The siege of ${esc(d.name)}</h2><p>${esc(pendingText(state, p))}</p>
+      <p class="siege-pips">Stores ${pips}</p>
+      <div class="choices">
+        <button data-action="decide" data-kind="siege" data-value="storm" data-index="${index}"><b>Storm the walls</b><small class="muted">A battle against the town's militia behind its walls. Win and it is yours now.</small></button>
+        <button data-action="decide" data-kind="siege" data-value="wait" data-index="${index}"><b>Starve them out</b><small class="muted">Your camp loses a few men a season; the town falls when its stores run out.</small></button>
+        <button data-action="decide" data-kind="siege" data-value="lift" data-index="${index}"><b>Lift the siege</b><small class="muted">Break camp and march back to friendly ground.</small></button>
+      </div>${more}`;
+  }
   if (p.kind === "overture") {
     const v = overtureView(state, p);
     return `<h2>${icon(v.icon)} ${esc(v.title)}</h2><p>${esc(v.text)}</p><div class="choices">${v.choices.map((c) =>

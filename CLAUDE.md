@@ -125,6 +125,8 @@ Objectives and the feud (session 6):
 - Objectives (`simulation/objectives.js`, card in `ui/objectivesView.js`): eleven goals in four chapters (The Realm, The Feud, The Eagle, Britannia). Up to three open at once, checked at End Season (step after victory), small rewards, Chronicle entries, a flash in the playback. Each has a hint and, where useful, a district to jump to. Add goals to the list; chapters open by `when(state)`.
 - Rivalry (`simulation/rivalry.js`, `balance.rivalry`): Strath Mor and the Southern League share no border, so their feud runs through the player's land. Relations sour each season until war (about Year 2 Autumn); then each side asks the player for passage (grant for a toll, join one side, or refuse; refusals slow further requests). A granted host marches through the player's districts (`marchOnRival`, waits at the border until strong enough). Rome's warning ends the feud in a cold peace that can thaw into Celtic unity.
 
+Sieges (session 7, `simulation/siege.js`, `balance.siege`): a fortified district (hillfort or Fortification) left without a defending host is besieged, not taken. The camp shows round the town with its remaining stores as pips. Each End Season (step 10b, after the AI) the stores fall by one; at zero the town is starved out; production halves and loyalty sags meanwhile. The besieger can storm (a real battle against the town's militia, `militiaPct` of its people, behind its walls) or lift. The player besieging gets a decision each season; the AI storms when `aiStormRatio` stronger (Rome at `romeStormRatio`, and its engineers halve the walls). A relieving host attacks the camp; the siege ends when the camp is gone. Besieging hosts are left in place by the AI and Rome; no recruiting in a besieged district. Rome now counts walls before attacking.
+
 Saving: the game saves after every action (in `render()`), not only at End Season.
 
 Testing:
@@ -132,7 +134,7 @@ Testing:
 - `node tools/sim20.mjs [seasons]` plays the whole loop in Node with AI, events and Rome, round-tripping the save each season.
 
 ## End Season resolution order
-1 construction, 2 production, 3 consumption, 4 population, 5 army upkeep, 6 supply, 7 army recovery, 7b army orders (raids, digging in), 8 trade, 9 diplomacy, 10 AI decisions and actions, 11 rebellions, 12 events, 13 historical events (Rome), 14 region and control updates, 15 Chronicle entries, 16 advance season.
+1 construction, 2 production, 3 consumption, 4 population, 5 army upkeep, 6 supply, 7 army recovery, 7b army orders (raids, digging in), 8 trade, 9 diplomacy, 10 AI decisions and actions, 10b sieges, 11 rebellions, 12 events, 13 historical events (Rome), 14 region and control updates, 15 Chronicle entries, 16 advance season.
 
 ## UI
 - Map first. Permanent HUD: faction, Population, Food, Timber, Materials, Wealth, Year/Season, critical warning. Persistent END SEASON button.

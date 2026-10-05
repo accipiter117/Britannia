@@ -18,6 +18,7 @@ import { inTruce, resolveOvertures } from "./overtures.js";
 import { canOrder, orderOf, raidTargets, setOrder } from "./orders.js";
 import { chance } from "./random.js";
 import { marchOnRival, resolveRivalry } from "./rivalry.js";
+import { isBesieging } from "./siege.js";
 
 const A = BALANCE.ai;
 
@@ -73,7 +74,7 @@ function bestTarget(state, fid, ours) {
   const pers = A.personalities[state.factions[fid].personality] || {};
   const seenArmies = visibleArmies(state, fid);
   let best = null;
-  for (const army of state.armies.filter((a) => a.factionId === fid)) {
+  for (const army of state.armies.filter((a) => a.factionId === fid && !isBesieging(state, a))) {
     for (const [did, route] of Object.entries(reachable(state, army))) {
       const d = state.districts[did];
       if (d.owner === fid) continue;
@@ -155,7 +156,7 @@ function military(state, fid, view, notes) {
     strength += BALANCE.formations[type].strength;
   }
 
-  const armies = state.armies.filter((a) => a.factionId === fid && a.movesLeft > 0);
+  const armies = state.armies.filter((a) => a.factionId === fid && a.movesLeft > 0 && !isBesieging(state, a));
   if (f.mode === "SURVIVE") {
     const worst = Object.entries(view.threatened).sort((a, b) => b[1] - a[1])[0]?.[0];
     for (const a of armies) {
@@ -213,7 +214,7 @@ export function orders(state, fid, view) {
   const f = state.factions[fid];
   const O = BALANCE.orders;
   for (const a of state.armies.filter((x) => x.factionId === fid)) {
-    if (!canOrder(state, a, "dig").ok || orderOf(a)) continue;
+    if (!canOrder(state, a, "dig").ok || orderOf(a) || isBesieging(state, a)) continue;
     const ours = armyStrength(a);
     const targets = raidTargets(state, a).filter((did) => state.districts[did].owner).map((did) => {
       const d = state.districts[did];

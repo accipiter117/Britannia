@@ -10,6 +10,7 @@ import { addChronicle, districtsOf, neighbours } from "./campaign.js";
 import { armyStrength, entryKind, moveArmy, reachable } from "./armies.js";
 import { allied, atWar, changeRelation, declareWar, hasAccess, makePeace, relation } from "./diplomacy.js";
 import { inTruce } from "./overtures.js";
+import { isBesieging } from "./siege.js";
 
 const R = BALANCE.rivalry;
 const alive = (state, fid) => state.factions[fid] && !state.factions[fid].defeated && districtsOf(state, fid).length > 0;
@@ -68,7 +69,7 @@ function strength(state, fid) {
 export function marchOnRival(state, fid) {
   const enemies = Object.keys(state.factions).filter((e) => e !== fid && e !== "rome" && atWar(state, fid, e) && alive(state, e));
   if (!enemies.length) return false;
-  const host = state.armies.filter((a) => a.factionId === fid && a.movesLeft > 0).sort((x, y) => armyStrength(y) - armyStrength(x))[0];
+  const host = state.armies.filter((a) => a.factionId === fid && a.movesLeft > 0 && !isBesieging(state, a)).sort((x, y) => armyStrength(y) - armyStrength(x))[0];
   if (!host) return false;
   const targets = new Set(enemies.flatMap((e) => districtsOf(state, e).map((d) => d.id)));
   // breadth-first over districts the host may enter (its own, granted, or enemy land at the end)

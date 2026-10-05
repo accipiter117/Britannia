@@ -8,7 +8,7 @@ import { startBuilding, startRoad } from "../simulation/economy.js";
 import { disband, ghostsFor, mergeArmies, moveArmy, updateIntel, visibleDistricts, reachable, recruit, setStance, visibleArmies } from "../simulation/armies.js";
 import { aiResponse, resolveWithoutBattle, setupBattle } from "../simulation/engagement.js";
 import { cancelTrade, declareWar, playerAction } from "../simulation/diplomacy.js";
-import { finishBattle, resolveAllyCall, resolveDefence, resolveEnding, resolveEvent, resolveProposal } from "../simulation/decisions.js";
+import { finishBattle, resolveAllyCall, resolveDefence, resolveEnding, resolveEvent, resolveProposal, resolveSiege } from "../simulation/decisions.js";
 import { setPolicy } from "../simulation/governance.js";
 import { answerOverture } from "../simulation/overtures.js";
 import { endSeason } from "../simulation/season.js";
@@ -121,7 +121,7 @@ function showNextPending() {
   if (state.pending.length) {
     const p = state.pending[0];
     // decisions about a place are shown over the map, with that district lit
-    const where = p.eng?.districtId || p.ev?.districtId || p.district || null;
+    const where = p.eng?.districtId || p.ev?.districtId || p.district || p.districtId || null;
     if (where) { ui.highlight = where; map.focus(where); }
     modal(pendingHtml(state, p, 0), { anchored: !!where });
   }
@@ -398,6 +398,12 @@ function decide(kind, value, index) {
     if (r.battle) return startBattleChoice(r.battle);
     saveGame(state);
     return modal(messageHtml("The defence", r.text));
+  }
+  if (kind === "siege") {
+    const r = resolveSiege(state, p, value);
+    if (r.eng) return playerAttack(r.eng);
+    saveGame(state);
+    return modal(messageHtml("The siege", r.text));
   }
   if (kind === "ally") resolveAllyCall(state, p, value);
   if (kind === "proposal") resolveProposal(state, p, value === "yes");
