@@ -23,6 +23,7 @@ import { clearSave, loadGame, saveGame, saveLabel } from "./save.js";
 
 const $ = (id) => document.getElementById(id);
 const desktop = window.matchMedia("(min-width: 900px)");
+const sideways = window.matchMedia("(orientation: landscape) and (max-height: 520px)"); // phone on its side: no summary card
 
 let starter;
 let state;
@@ -119,7 +120,7 @@ function onTap(target) {
   } else {
     ui.selection = target;
     ui.panel = target.type;
-    ui.drawerOpen = desktop.matches; // mobile shows the summary card first
+    ui.drawerOpen = desktop.matches || sideways.matches; // portrait phones show the summary card first
     $("drawer-body").scrollTop = 0;
   }
   render();
@@ -340,6 +341,7 @@ function wire() {
   $("zoom-reset").onclick = () => map.reset();
   $("drawer-close").onclick = () => { ui.drawerOpen = false; render(); };
   desktop.addEventListener("change", render);
+  sideways.addEventListener("change", render);
   wireSwipe();
 }
 

@@ -128,7 +128,7 @@ Testing:
 | M8 | Events/Rome | minor/major events, Roman chain, invasion via Old Road | Done (session 2) |
 | M9 | Occupation | Occupied/Administered/Integrated, policies, loyalty, culture, rebellion | Done (session 2) |
 | M10 | Chronicle/Victory | Chronicle log, divergence, dominance, narrative summary | Done (session 2) |
-| M11 | Mobile | final touch and drawer polish | Partly: needs a real-phone pass |
+| M11 | Mobile | final touch and drawer polish | Done in emulation (portrait, landscape, small phone, tablet); needs a real-phone pass |
 | M12 | Art | only after the simulation is proven | Not started |
 
 Planned sessions: (1) M1 to M3, (2) M4, (3) M5 to M6, (4) M7, (5) M8 to M9, (6) M10 to M11.

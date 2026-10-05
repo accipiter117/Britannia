@@ -248,7 +248,8 @@ button.urgent, #end-season.urgent { background: var(--critical); color: #fff; an
   #hud .stats { order: 0; width: auto; gap: 16px; }
   #hud .date { order: 1; }
   .warn { order: 2; }
-  #main { display: grid; grid-template-columns: 1fr 390px; }
+  #main { display: grid; grid-template-columns: 1fr 390px; grid-template-rows: minmax(0, 1fr); }
+  #drawer { min-height: 0; }
   #map-wrap { position: relative; inset: auto; min-height: 0; overflow: hidden; }
   #drawer { position: static; max-height: none; transform: none; border-radius: 0; border-top: none; border-left: 1px solid var(--line); box-shadow: none; }
   .drawer-top { display: none; }
@@ -263,4 +264,33 @@ button.urgent, #end-season.urgent { background: var(--critical); color: #fff; an
   #end-season { padding: 12px 22px; font-size: 15px; }
   .b-cmds { grid-template-columns: repeat(6, auto); justify-content: center; }
   #battle { padding: 16px 10%; }
+}
+
+/* ---------- Phone in landscape: short screens get the side-drawer layout ---------- */
+@media (orientation: landscape) and (max-height: 520px) {
+  #hud { flex-wrap: nowrap; padding: 4px 10px; font-size: 12px; gap: 10px; overflow-x: auto; }
+  #hud .faction { white-space: nowrap; }
+  #hud .stats { order: 0; width: auto; flex-wrap: nowrap; white-space: nowrap; }
+  #hud .date { order: 1; white-space: nowrap; }
+  .warn { order: 2; white-space: nowrap; }
+  #main { display: grid; grid-template-columns: 1fr 44%; grid-template-rows: minmax(0, 1fr); }
+  #drawer { min-height: 0; }
+  #map-wrap { position: relative; inset: auto; min-height: 0; overflow: hidden; }
+  #drawer { position: static; max-height: none; transform: none; border-radius: 0; border-top: none; border-left: 1px solid var(--line); box-shadow: none; }
+  body:not(.drawer-open) #main { grid-template-columns: 1fr; }
+  body:not(.drawer-open) #drawer { display: none; }
+  #summary { display: none !important; }
+  #footer { display: flex; align-items: center; gap: 8px; padding: 4px 8px calc(4px + env(safe-area-inset-bottom)); }
+  #notifications { flex: 1; padding: 0; min-width: 0; }
+  #nav button { flex-direction: row; gap: 4px; font-size: 15px; padding: 4px 8px; }
+  #end-season { padding: 8px 14px; }
+  #map-controls button { width: 34px; height: 34px; }
+  #battle { display: grid; grid-template-columns: 1fr 220px; grid-template-rows: auto auto 1fr auto; gap: 6px 10px; padding: 6px 10px; }
+  #battle[hidden] { display: none; }
+  .b-head { grid-column: 1 / -1; }
+  .b-bars { grid-column: 2; grid-row: 2; grid-template-columns: 1fr; }
+  .b-field { grid-column: 1; grid-row: 2 / span 3; }
+  .b-hint { grid-column: 2; grid-row: 3; text-align: left; font-size: 12px; }
+  .b-cmds { grid-column: 2; grid-row: 4; grid-template-columns: 1fr 1fr; }
+  .b-cmds button { padding: 8px 4px; font-size: 12px; }
 }
