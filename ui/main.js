@@ -128,7 +128,9 @@ function onTap(target) {
 function moveTap(target) {
   const armyId = ui.moveArmyId;
   ui.moveArmyId = null;
-  if (!target || target.type !== "district") return render();
+  // tapping an army marker means its district
+  if (target?.type === "army") target = { type: "district", id: state.armies.find((a) => a.id === target.id)?.districtId };
+  if (!target || target.type !== "district" || !target.id) return render();
   const army = state.armies.find((a) => a.id === armyId);
   const route = reachable(state, army)[target.id];
   if (!route) { toast("Out of reach this season"); return render(); }

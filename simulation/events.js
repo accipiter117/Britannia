@@ -18,7 +18,11 @@ export function resolveEvents(state, notes, season) {
     const isPlayer = f.player;
     if (f.starvingSeasons >= E.famineTriggerSeasonsStarving && f.starvingSeasons % E.famineTriggerSeasonsStarving === 0) famine(state, f, owned, notes);
     if (chance(state, E.majorChancePerSeason)) major(state, f, owned, notes, isPlayer);
-    if (chance(state, E.minorChancePerSeason)) minor(state, f, owned, notes, isPlayer, season);
+    const cooling = isPlayer && state.turn - (f.lastEventTurn ?? -99) < E.playerChoiceCooldownSeasons;
+    if (!cooling && chance(state, E.minorChancePerSeason)) {
+      minor(state, f, owned, notes, isPlayer, season);
+      if (isPlayer) f.lastEventTurn = state.turn;
+    }
   }
 }
 

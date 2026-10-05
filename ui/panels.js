@@ -44,6 +44,7 @@ export function realmPanel(state) {
   return `
     <header class="panel-head" style="--fc:${f.colour}"><h2>${esc(f.name)}</h2>
       <p>${season} ${SEASON_ICON[season]} forecast for End Season</p></header>
+
     <section>
       <table class="prod"><tr><th></th><th>Stored</th><th>In</th><th>Out</th><th>Net</th></tr>${rows}</table>
       <p class="muted small">Out = people's food (${num(fc.consumption)}) and army upkeep (${ICON.food}${num(fc.upkeep.food)} ${ICON.wealth}${num(fc.upkeep.wealth)}). Surplus beyond storage spoils.</p>

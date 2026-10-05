@@ -4,6 +4,7 @@
 import { districtsOf, seasonName } from "../simulation/campaign.js";
 import { forecast, storageCaps } from "../simulation/economy.js";
 import { ICON, SEASON_ICON, esc, num, signed } from "./format.js";
+import { advice } from "./advisor.js";
 
 export function renderHud(el, state) {
   const fid = state.playerFactionId;
@@ -39,9 +40,8 @@ function warning(state, fc) {
 
 export function renderNotifications(el, state, onPick) {
   const list = state.notifications;
-  el.innerHTML = list.length
-    ? list.map((n, i) => `<button class="note ${n.level}" data-i="${i}">${esc(n.text)}</button>`).join("")
-    : `<span class="note info">Press End Season when your orders are given.</span>`;
+  el.innerHTML = `<span class="note advice">💡 ${esc(advice(state))}</span>` +
+    list.map((n, i) => `<button class="note ${n.level}" data-i="${i}">${esc(n.text)}</button>`).join("");
   el.onclick = (e) => {
     const b = e.target.closest("[data-i]");
     if (b) onPick(list[+b.dataset.i]);
