@@ -266,6 +266,7 @@ export const BALANCE = {
     garrisonBonus: 2,  // loyalty per season while garrisoned
     unrestOutputMult: 0.75,      // production while loyalty is below `unrest`
     starvingLoyalty: -5,         // per season the owner's people starve
+    suppressedLoyalty: 10,       // loyalty after a garrison puts down a rising (fear, not love)
     integratedTarget: 80,        // integrated districts drift back towards this loyalty
     integratedDrift: 2,
     rebelColour: "#5c7d5a",
@@ -305,6 +306,8 @@ export const BALANCE = {
     behaviour: ["Consolidate", "Secure Supply", "Advance"],
     holdSeasonsBeforeAdvance: 1,   // after capturing a district
     maxArmies: 3,
+    maxTotalTroops: 1100,          // reinforcements stop while Rome has this many troops on the island
+    celticUnityRelation: -20,      // once Rome lands, Celtic AIs ally against it above this relation
   },
 
   // ---------- VICTORY ----------

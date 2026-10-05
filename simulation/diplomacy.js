@@ -188,3 +188,59 @@ function bordering(state, a, b) {
     neighbours(state, army.districtId).some((n) => state.districts[n].owner === y));
   return !allied(state, a, b) && (near(a, b) || near(b, a));
 }
+
+// ---------- player actions (each returns { ok, text }) ----------
+
+export function playerAction(state, other, action, opts = {}) {
+  const me = state.playerFactionId;
+  const them = state.factions[other];
+  const res = state.factions[me].resources;
+  const no = (text) => ({ ok: false, text });
+  switch (action) {
+    case "war":
+      declareWar(state, me, other);
+      return { ok: true, text: `You are at war with the ${them.name}.` };
+    case "peace":
+      if (!willAccept(state, me, other, "peace")) return no(`The ${them.name} refuse peace while they hold the upper hand.`);
+      makePeace(state, me, other);
+      return { ok: true, text: `Peace with the ${them.name}.` };
+    case "alliance":
+      if (!willAccept(state, me, other, "alliance")) return no(`The ${them.name} want warmer relations first (${D.allianceMinRelation}+).`);
+      formAlliance(state, me, other);
+      return { ok: true, text: `You are allied with the ${them.name}.` };
+    case "access":
+      if (!willAccept(state, me, other, "access")) return no(`The ${them.name} will not open their lands to your armies (needs relations above ${D.accessMinRelation}).`);
+      grantAccess(state, other, me);
+      return { ok: true, text: `Your armies may pass through ${them.name} lands.` };
+    case "tribute": {
+      const r = opts.resource || "wealth";
+      if (res[r] < D.tributeAmount) return no(`You need ${D.tributeAmount} ${r}.`);
+      res[r] -= D.tributeAmount;
+      them.resources[r] += D.tributeAmount;
+      changeRelation(state, me, other, D.tributeRelationGain);
+      return { ok: true, text: `Tribute sent. The ${them.name} look on you more kindly.` };
+    }
+    case "trade": {
+      const check = canTrade(state, other);
+      if (!check.ok) return no(check.reason);
+      const t = opts.sell ? { from: me, to: other } : { from: other, to: me };
+      state.diplomacy.trades.push({ ...t, resource: opts.resource, amount: opts.amount });
+      return { ok: true, text: `Trade agreed: ${opts.amount} ${opts.resource} per season ${opts.sell ? "sold to" : "bought from"} the ${them.name}.` };
+    }
+    default:
+      return no("Unknown action");
+  }
+}
+
+export function canTrade(state, other) {
+  const me = state.playerFactionId;
+  if (!hasMarket(state, me)) return { ok: false, reason: "Build a Market first" };
+  if (atWar(state, me, other)) return { ok: false, reason: "At war" };
+  if (!tradeLinked(state, me, other)) return { ok: false, reason: "No safe route between your lands" };
+  if (!willAccept(state, me, other, "trade")) return { ok: false, reason: "They distrust you too much to trade" };
+  return { ok: true };
+}
+
+export function cancelTrade(state, index) {
+  state.diplomacy.trades.splice(index, 1);
+}

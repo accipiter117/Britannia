@@ -63,7 +63,7 @@ export function resolveSupply(state, notes, season) {
         notes.push({ level: st === "Starving" ? "critical" : "important", text: `${army.name} is ${st.toLowerCase()}: ${lost} lost to hunger and desertion.`, districtId: army.districtId });
       }
     }
-    if (armyTroops(army) === 0) addChronicle(state, `The ${army.name} melted away for want of supply.`, "DEFEAT");
+    if (armyTroops(army) === 0) addChronicle(state, `The ${army.name} melted away for want of supply.`, army.factionId === player ? "DEFEAT" : "LOG");
   }
   removeEmptyArmies(state);
 }

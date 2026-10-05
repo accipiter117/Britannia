@@ -31,11 +31,11 @@ export function effectText(effect) {
   for (const r of ["food", "timber", "materials", "wealth"]) if (effect[r]) parts.push(`+${effect[r]} ${label(r)}/season`);
   if (effect.storage === "granary") parts.push("Triples food storage here");
   if (effect.constructionCostMultiplier) parts.push(`−${Math.round((1 - effect.constructionCostMultiplier) * 100)}% building costs, realm-wide`);
-  if (effect.unlocks) parts.push(`Unlocks ${label(effect.unlocks)} (M4)`);
-  if (effect.militaryCapacity) parts.push(`+${effect.militaryCapacity} military capacity (M4)`);
-  if (effect.defence) parts.push(`+${Math.round(effect.defence * 100)}% defence (M7)`);
-  if (effect.enablesTrade) parts.push("Enables trade (M6)");
-  if (effect.supplyRange) parts.push(`+${effect.supplyRange} supply range (M4)`);
+  if (effect.unlocks) parts.push(`Unlocks ${label(effect.unlocks)} here`);
+  if (effect.militaryCapacity) parts.push(`+${effect.militaryCapacity} Warrior capacity`);
+  if (effect.defence) parts.push(`+${Math.round(effect.defence * 100)}% defence when holding`);
+  if (effect.enablesTrade) parts.push("Enables trade agreements");
+  if (effect.supplyRange) parts.push(`Supplies armies one district further`);
   return parts.join(" · ");
 }
 

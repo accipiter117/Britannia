@@ -181,7 +181,7 @@ export function applyBattle(state, battle) {
       const to = retreatTarget(state, a, eng.fromId);
       if (to) a.districtId = to;
       else {
-        addChronicle(state, `The ${a.name} was scattered with nowhere left to run.`, "DEFEAT");
+        addChronicle(state, `The ${a.name} was scattered with nowhere left to run.`, a.factionId === state.playerFactionId ? "DEFEAT" : "BATTLE");
         a.formations = [];
       }
     }

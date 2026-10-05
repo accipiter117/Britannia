@@ -82,6 +82,14 @@ small { font-size: 0.8em; }
 .cell { fill-opacity: 0.55; stroke: #2a2a22; stroke-width: 3; stroke-linejoin: round; cursor: pointer; }
 .cell.neutral { fill-opacity: 0.35; }
 .cell:hover { fill-opacity: 0.7; }
+.cell.occupied { fill-opacity: 0.4; }
+.cell.reach-move { fill-opacity: 0.85; stroke: #e8f5c8; stroke-width: 6; }
+.cell.reach-attack { fill: var(--critical); fill-opacity: 0.6; stroke: #ffd0c8; stroke-width: 6; }
+.cell.reach-blocked { fill-opacity: 0.2; }
+.threat { stroke: var(--critical); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 18 10; pointer-events: none; animation: march 1s linear infinite; }
+@keyframes march { to { stroke-dashoffset: -28; } }
+.rome-label { font-size: 22px; font-weight: 700; fill: #f0d6ff; paint-order: stroke; stroke: #241226; stroke-width: 5px; }
+.army.spent rect { opacity: 0.55; }
 .selected { fill: #fff; fill-opacity: 0.12; stroke: #fff6d0; stroke-width: 7; stroke-linejoin: round; }
 .link { stroke: #3a2f20; stroke-width: 4; stroke-dasharray: 10 9; opacity: 0.7; pointer-events: none; }
 .road { stroke: #e8d9a8; stroke-width: 8; stroke-linecap: round; pointer-events: none; }
@@ -174,6 +182,61 @@ ul.plain { list-style: none; padding: 0; margin: 0; display: grid; gap: 3px; }
 #toast { position: fixed; left: 50%; top: 18%; transform: translate(-50%, -10px); background: rgba(20, 22, 18, 0.92); border: 1px solid var(--accent); padding: 10px 18px; border-radius: 10px; opacity: 0; pointer-events: none; transition: 0.2s; z-index: 20; font-weight: 600; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 
+/* ---------- Controls shared by panels ---------- */
+button.primary { background: var(--accent); color: #1d1d1d; border: none; font-weight: 700; }
+button.urgent, #end-season.urgent { background: var(--critical); color: #fff; animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { filter: brightness(1.25); } }
+.seg { display: flex; flex-wrap: wrap; gap: 4px; }
+.seg button { flex: 1; padding: 6px 8px; font-size: 13px; }
+.seg button.on { background: var(--accent); color: #1d1d1d; border-color: var(--accent); font-weight: 700; }
+.bar { display: inline-block; width: 70px; height: 7px; background: var(--panel-2); border-radius: 4px; overflow: hidden; vertical-align: middle; }
+.bar i { display: block; height: 100%; }
+.bar i.good { background: var(--pos); } .bar i.mid { background: var(--important); } .bar i.bad { background: var(--neg); }
+.faction-card { border: 1px solid var(--line); border-left: 5px solid var(--fc); border-radius: 8px; padding: 8px 10px; margin: 10px 0; background: var(--panel-2); }
+.faction-card .swatch { background: var(--fc); }
+.fc-head { display: flex; justify-content: space-between; gap: 8px; }
+.faction-card .buttons button { padding: 6px 9px; font-size: 13px; }
+.trade { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.trade select { flex: 1 1 100%; min-width: 0; font: inherit; font-size: 13px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+.reason { font-size: 12px; color: var(--important); }
+.chronicle li.ch-VICTORY { color: var(--pos); } .chronicle li.ch-DEFEAT { color: var(--neg); }
+.chronicle li.ch-INVASION, .chronicle li.ch-HISTORICAL_DIVERGENCE { color: #d8b8ff; }
+
+#move-banner { position: absolute; left: 50%; top: 10px; transform: translateX(-50%); z-index: 4; background: rgba(20, 22, 18, 0.92); border: 1px solid var(--accent); border-radius: 10px; padding: 8px 12px; font-size: 13px; display: flex; gap: 10px; align-items: center; width: max-content; max-width: calc(100% - 80px); }
+#move-banner[hidden] { display: none; }
+#move-banner button { padding: 4px 10px; }
+
+/* ---------- Event window ---------- */
+#modal { position: fixed; inset: 0; background: rgba(8, 10, 8, 0.6); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
+#modal[hidden] { display: none; }
+#modal-card { background: var(--panel); border: 1px solid var(--accent); border-radius: 14px; padding: 18px; width: min(520px, 100%); max-height: 90dvh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6); }
+#modal-card h2 { margin: 0 0 8px; font-size: 20px; }
+.choices { display: grid; gap: 8px; margin-top: 12px; }
+.choices button { text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; }
+.choices button small { font-size: 12px; }
+.vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: center; text-align: center; margin: 8px 0; }
+.vs div { display: flex; flex-direction: column; background: var(--panel-2); border-radius: 8px; padding: 8px; }
+.vs span { font-size: 18px; font-weight: 700; }
+.vs small { color: var(--muted); }
+.vs .vs-mid { background: none; color: var(--accent); font-weight: 800; }
+
+/* ---------- Tactical battle ---------- */
+#battle { position: fixed; inset: 0; z-index: 25; background: #151a17; display: flex; flex-direction: column; padding: calc(8px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom)); gap: 6px; }
+#battle[hidden] { display: none; }
+.b-head { display: flex; align-items: center; gap: 10px; }
+.b-head #b-clock { color: var(--accent); font-variant-numeric: tabular-nums; }
+.b-ctl { margin-left: auto; display: flex; gap: 6px; }
+.b-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.b-bar { position: relative; background: var(--panel-2); border-radius: 6px; padding: 3px 6px 6px; font-size: 12px; overflow: hidden; }
+.b-bar.mine { outline: 1px solid var(--accent); }
+.b-bar i { display: block; height: 5px; border-radius: 3px; margin-top: 3px; }
+.b-bar small { position: absolute; right: 6px; top: 3px; color: var(--muted); }
+.b-field { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+#b-canvas { touch-action: none; border-radius: 6px; box-shadow: 0 0 0 2px #2c3530; }
+.b-hint { margin: 0; text-align: center; font-size: 13px; color: var(--muted); min-height: 1.2em; }
+.b-cmds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.b-cmds button { padding: 10px 4px; font-size: 13px; }
+
 /* ---------- Desktop ---------- */
 @media (min-width: 900px) {
   #hud { font-size: 14px; flex-wrap: nowrap; padding: 8px 16px; }
@@ -193,4 +256,6 @@ ul.plain { list-style: none; padding: 0; margin: 0; display: grid; gap: 3px; }
   #nav button { flex-direction: row; gap: 6px; font-size: 16px; padding: 8px 10px; }
   #nav button span { font-size: 13px; }
   #end-season { padding: 12px 22px; font-size: 15px; }
+  .b-cmds { grid-template-columns: repeat(6, auto); justify-content: center; }
+  #battle { padding: 16px 10%; }
 }

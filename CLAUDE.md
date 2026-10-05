@@ -25,7 +25,7 @@ data/         starter_campaign.json (map, factions, armies)
 simulation/   pure game logic, no DOM access
 ui/           rendering and input only
 docs/         original spec (reference only)
-tools/        Node scripts (sim20.mjs: 20-season sanity run, `node tools/sim20.mjs`)
+tools/        Node scripts (sim20.mjs: full-loop sanity run, `node tools/sim20.mjs 24`)
 ```
 `package.json` exists only to mark the repo as ES modules for Node. No dependencies.
 Rule: `simulation/` never touches the DOM. `ui/` never changes state directly; it calls simulation functions.
@@ -61,11 +61,33 @@ Tech tree, dynasties, marriage, characters beyond a commander quality value, det
 - Food storage is summed per district (Granary triples that district's share). Timber/Materials cap = per district + per completed building. Wealth is uncapped. Overflow spoils.
 - Construction progresses by the season's `construction` modifier, so Winter builds run long.
 - Workshop discount applies realm-wide once one is complete. Unique buildings use `maxPerDistrict` in `balance.js`.
-- Roads need one owned end; drawn on the map; movement/supply effects arrive in M4.
-- Army upkeep (step 5) is already deducted, as affordability only; unpaid upkeep is flagged on the army for M4 to use.
-- End Season steps 6 to 14 are stubbed with comments naming their milestone in `simulation/season.js`.
-- AI factions run the same economy but take no actions until M5, so they starve meanwhile.
+- Roads need one owned end; they cost 1 movement and carry supply.
+- Army upkeep (step 5) is affordability only; unpaid upkeep costs morale in step 7.
 - Balance finding: Wealth (+20/season net for the player after upkeep) is the real bottleneck, while Materials hit their cap within 3 seasons. See `node tools/sim20.mjs`.
+
+## Session 2 notes (M4 to M10)
+Where things live:
+- `simulation/armies.js` movement, stances, recruitment, capacity, visibility. `supply.js` steps 6 and 7.
+- `simulation/engagement.js` entering hostile districts: defender choice, battle setup, aftermath (retreat, capture, experience, commander death).
+- `simulation/battle.js` the tactical battle engine; auto-resolve runs the same engine with both sides on AI. `ui/battleView.js` draws it.
+- `simulation/ai.js` Celtic AI (step 10). `rome.js` Roman chain and Roman AI (step 13). `diplomacy.js` relations, war, alliances, access, trade (steps 8 and 9).
+- `simulation/governance.js` capture, stages, policies, loyalty, culture, rebellion (step 11), regions (step 14), eliminations.
+- `simulation/events.js` (step 12). `victory.js` dominance and the closing narrative. `decisions.js` the player's pending choices.
+- `simulation/random.js` seeded RNG stored in state, so a save replays identically.
+
+Decisions made:
+- Player moves happen immediately during the season; AI and Rome move at End Season. An AI attack on the player becomes a pending decision (Intercept / Hold / Ambush / Withdraw) shown at the start of the next season. End Season is blocked until decisions are made.
+- Intercept can use armies in the district or in a district next to both the target and the attacker's origin. Hold is a defensive battle around a stronghold (fortification and hillfort bonuses apply near it; hold for `defensiveTimerSeconds` to win). Ambush needs forest, hills or marsh.
+- Supply: road connections carry supply at no cost; a Supply Depot makes neighbouring districts count as friendly; foraging in fertile/plains in Summer/Autumn. Unreachable = Starving.
+- Warriors are limited realm-wide by military capacity (settlement tiers plus Warrior Hall and Fortification). Replacements need population and Wealth and only happen in your own district.
+- Moving into an empty unclaimed district claims it. Attacking a faction you are not at war with asks to declare war first.
+- Rome lands as an engagement "from the sea": beaten landings are thrown back into the sea. Rome pays no upkeep (paid from Gaul) and stops reinforcing at `rome.maxTotalTroops`. After the landing Celtic AIs will ally against Rome (`celticUnityRelation`).
+- Rebels: at most `maxEmergentFactions` rebel factions; further rebellions return the district to neutral militia. A garrison puts a rising down instead (with deaths).
+- The player sees only armies within `army.visibilityRange` of their land and armies; the AI uses the same rule.
+- Balance passes (all in `balance.js`): casualty and morale rates, `effectivenessExponent`, rout panic radius and flanking were tuned so battles last 1 to 3 minutes and Rome beats any single host but loses to about 1,600 Celts. The AI waits until `earliestWarSeason` before declaring war on Celts and builds arms in peacetime (`peacetimeArmsRatio`).
+
+Testing:
+- `node tools/sim20.mjs [seasons]` plays the whole loop in Node with AI, events and Rome, round-tripping the save each season.
 
 ## End Season resolution order
 1 construction, 2 production, 3 consumption, 4 population, 5 army upkeep, 6 supply, 7 army recovery, 8 trade, 9 diplomacy, 10 AI decisions and actions, 11 rebellions, 12 events, 13 historical events (Rome), 14 region and control updates, 15 Chronicle entries, 16 advance season.
@@ -92,14 +114,14 @@ Tech tree, dynasties, marriage, characters beyond a commander quality value, det
 | M1 | Map | 10 districts, 2 regions, connections, selection, camera, HUD | Done (session 1) |
 | M2 | Economy | population, workforce, resources, storage, buildings, construction | Done (session 1) |
 | M3 | Seasons | production, consumption, winter, population change, save/load | Done (session 1) |
-| M4 | Armies | recruitment, formations, movement, stances, supply, engagement choices | Not started |
-| M5 | AI | Survive / Prosper / Expand, threat/opportunity/need, personalities | Not started |
-| M6 | Diplomacy | relations, trade, access, alliance, tribute, war | Not started |
-| M7 | Battle | real-time with pause, 12x12 grid, morale, terrain, retreat, consequences | Not started |
-| M8 | Events/Rome | minor/major events, Roman chain, invasion via Old Road | Not started |
-| M9 | Occupation | Occupied/Administered/Integrated, policies, loyalty, culture, rebellion | Not started |
-| M10 | Chronicle/Victory | Chronicle log, divergence, dominance, narrative summary | Not started |
-| M11 | Mobile | final touch and drawer polish | Not started |
+| M4 | Armies | recruitment, formations, movement, stances, supply, engagement choices | Done (session 2) |
+| M5 | AI | Survive / Prosper / Expand, threat/opportunity/need, personalities | Done (session 2) |
+| M6 | Diplomacy | relations, trade, access, alliance, tribute, war | Done (session 2) |
+| M7 | Battle | real-time with pause, 12x12 grid, morale, terrain, retreat, consequences | Done (session 2) |
+| M8 | Events/Rome | minor/major events, Roman chain, invasion via Old Road | Done (session 2) |
+| M9 | Occupation | Occupied/Administered/Integrated, policies, loyalty, culture, rebellion | Done (session 2) |
+| M10 | Chronicle/Victory | Chronicle log, divergence, dominance, narrative summary | Done (session 2) |
+| M11 | Mobile | final touch and drawer polish | Partly: needs a real-phone pass |
 | M12 | Art | only after the simulation is proven | Not started |
 
 Planned sessions: (1) M1 to M3, (2) M4, (3) M5 to M6, (4) M7, (5) M8 to M9, (6) M10 to M11.

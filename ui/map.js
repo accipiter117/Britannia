@@ -3,6 +3,7 @@
 // selection highlight and camera (drag to pan, pinch or wheel to zoom, tap to select).
 // Reads state only; taps are reported through the onTap callback.
 
+import { BALANCE } from "../config/balance.js";
 import { settlementTier } from "../simulation/economy.js";
 import { MAP_BOUNDS, coastline, pathFrom, voronoiCells } from "./geometry.js";
 import { TERRAIN_ICON, TIER_ICON, esc, factionColour, num } from "./format.js";
@@ -24,6 +25,9 @@ export function createMap(svg, state, { onTap }) {
   svg.innerHTML = `
     <defs>
       <clipPath id="island"><path d="${coast}"/></clipPath>
+      <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+        <path d="M0 0 L10 5 L0 10 z" fill="var(--critical)"/>
+      </marker>
       <pattern id="waves" width="40" height="22" patternUnits="userSpaceOnUse">
         <path d="M0 11 q10 -6 20 0 t20 0" fill="none" stroke="var(--sea-line)" stroke-width="1.5"/>
       </pattern>
@@ -36,63 +40,76 @@ export function createMap(svg, state, { onTap }) {
     <g id="labels"></g>
     <g id="armies"></g>
     <g id="sel" clip-path="url(#island)" pointer-events="none"></g>
+    <g id="rome" pointer-events="none"></g>
     <text x="520" y="1225" class="sea-label">The Narrow Sea · Rome lies beyond</text>`;
 
-  function render(s, sel) {
+  // overlay: { reach: { districtId: { kind } }, threats: [{ from, to }], armies: [visible armies] }
+  function render(s, sel, overlay = {}) {
     state = s;
     selection = sel;
     const g = (id) => svg.querySelector(`#${id}`);
+    const reach = overlay.reach || {};
 
     g("cells").innerHTML = ids.map((id) => {
       const d = state.districts[id];
+      const r = reach[id] ? ` reach-${reach[id].kind}` : "";
       return `<path data-district="${id}" d="${cellPath[id]}" fill="${factionColour(state, d.owner)}"
-        class="cell ${d.owner ? "" : "neutral"}"/>`;
+        class="cell ${d.owner ? "" : "neutral"}${d.stage !== "Integrated" ? " occupied" : ""}${r}"/>`;
     }).join("");
 
     g("links").innerHTML = state.connections.map((c) => {
       const [a, b] = [state.districts[c.a].pos, state.districts[c.b].pos];
       const cls = c.road ? "road" : c.roadProgress !== null ? "road building" : "link";
       return `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" class="${cls}"/>`;
+    }).join("") + (overlay.threats || []).map((t) => {
+      const b = state.districts[t.to].pos;
+      const a = t.from ? state.districts[t.from].pos : [b[0] + 60, b[1] + 160]; // from the sea
+      const mx = a[0] + (b[0] - a[0]) * 0.8, my = a[1] + (b[1] - a[1]) * 0.8;
+      return `<line x1="${a[0]}" y1="${a[1]}" x2="${mx}" y2="${my}" class="threat" marker-end="url(#arrow)"/>`;
     }).join("");
 
     g("labels").innerHTML = ids.map((id) => {
       const d = state.districts[id];
       const [x, y] = d.pos;
       const tier = settlementTier(d).id;
-      const building = d.construction.length ? `<text x="${x + 34}" y="${y - 12}" class="badge">🚧</text>` : "";
+      const badges = [];
+      if (d.construction.length) badges.push("🚧");
+      if (!d.owner && d.garrison) badges.push("🗡️");
+      if (d.owner && d.stage !== "Integrated") badges.push("⛓️");
+      if (d.owner && d.loyalty < BALANCE.loyalty.unrest) badges.push("🔥");
       return `<g data-district="${id}">
         <circle cx="${x}" cy="${y}" r="30" class="seat"/>
         <text x="${x}" y="${y + 9}" class="icon">${TIER_ICON[tier]}</text>
         <text x="${x - 36}" y="${y - 12}" class="badge">${TERRAIN_ICON[d.terrain]}</text>
-        ${building}
+        ${badges.map((b, i) => `<text x="${x + 38}" y="${y - 10 + i * 24}" class="badge">${b}</text>`).join("")}
         <text x="${x}" y="${y + 56}" class="name">${esc(d.name)}</text>
         <text x="${x}" y="${y + 78}" class="pop">${num(d.population)}</text>
       </g>`;
     }).join("");
 
     const byDistrict = {};
-    for (const a of state.armies) (byDistrict[a.districtId] ||= []).push(a);
+    for (const a of overlay.armies || state.armies) (byDistrict[a.districtId] ||= []).push(a);
     g("armies").innerHTML = Object.entries(byDistrict).map(([did, list]) => {
       const [x, y] = state.districts[did].pos;
       return list.map((a, i) => {
         const troops = a.formations.reduce((n, f) => n + f.troops, 0);
-        const ax = x + 62 + i * 18, ay = y - 30 + i * 18;
+        const ax = x + 64 + (i % 2) * 8, ay = y - 34 + i * 36;
         const on = selection?.type === "army" && selection.id === a.id ? " on" : "";
-        return `<g data-army="${a.id}" class="army${on}">
-          <rect x="${ax - 26}" y="${ay - 16}" width="52" height="32" rx="7" fill="${factionColour(state, a.factionId)}"/>
-          <text x="${ax}" y="${ay + 6}" class="army-text">⚔${num(troops)}</text>
+        const mine = a.factionId === state.playerFactionId;
+        const spent = mine && a.movesLeft <= 0 ? " spent" : "";
+        return `<g data-army="${a.id}" class="army${on}${spent}">
+          <rect x="${ax - 30}" y="${ay - 16}" width="60" height="32" rx="7" fill="${factionColour(state, a.factionId)}"/>
+          <text x="${ax}" y="${ay + 6}" class="army-text">${a.factionId === "rome" ? "🦅" : "⚔"}${num(troops)}</text>
         </g>`;
       }).join("");
     }).join("");
 
-    const neutral = ids.filter((id) => !state.districts[id].owner);
-    g("labels").innerHTML += neutral.map((id) => {
-      const [x, y] = state.districts[id].pos;
-      return `<text x="${x + 40}" y="${y + 18}" class="badge" data-district="${id}">🗡️</text>`;
-    }).join("");
-
-    g("sel").innerHTML = selection?.type === "district"
-      ? `<path d="${cellPath[selection.id]}" class="selected"/>` : "";
+    const rome = state.rome;
+    const entry = state.districts[BALANCE.rome.entryDistrict].pos;
+    g("sel").innerHTML = selection?.type === "district" ? `<path d="${cellPath[selection.id]}" class="selected"/>` : "";
+    svg.querySelector("#rome").innerHTML = rome.stage === "warning"
+      ? `<line x1="${entry[0] + 80}" y1="${entry[1] + 200}" x2="${entry[0] + 20}" y2="${entry[1] + 50}" class="threat rome" marker-end="url(#arrow)"/>
+         <text x="${entry[0] + 90}" y="${entry[1] + 230}" class="rome-label">🦅 Rome lands in ${rome.countdown}</text>` : "";
     applyView();
   }
 

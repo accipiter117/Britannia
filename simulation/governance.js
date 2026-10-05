@@ -93,6 +93,15 @@ function shiftCulture(d, toward, pct) {
 
 function rebel(state, d, notes) {
   const oldOwner = d.owner;
+  // a garrison crushes the rising before it can take the district, at a cost in lives
+  if (armiesIn(state, d.id, oldOwner).length) {
+    const dead = Math.round(d.population * L.rebelArmyPctOfPop * 0.5);
+    d.population -= dead;
+    d.loyalty = Math.min(100, d.loyalty + L.suppressedLoyalty);
+    addChronicle(state, `A rising in ${d.name} was put down by the ${state.factions[oldOwner].name}; ${dead} died.`, "REBELLION");
+    if (oldOwner === state.playerFactionId) notes.push({ level: "critical", text: `Your garrison crushed a rising in ${d.name}. ${dead} dead.`, districtId: d.id });
+    return;
+  }
   const emergent = Object.values(state.factions).filter((f) => f.emergent && districtsOf(state, f.id).length);
   addChronicle(state, `${d.name} rose in rebellion against the ${state.factions[oldOwner].name}.`, "REBELLION");
   if (oldOwner === state.playerFactionId) notes.push({ level: "critical", text: `${d.name} has rebelled!`, districtId: d.id });

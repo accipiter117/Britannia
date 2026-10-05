@@ -1,15 +1,24 @@
 // ui/main.js
-// Owns app start-up and wiring: loads starter data or a save, holds UI selection state,
-// routes taps and buttons to simulation functions, and re-renders after every change.
+// Owns app start-up and wiring: loads starter data or a save, holds UI state (selection, open
+// panel, move mode, modal, battle), routes taps and buttons to simulation functions, and
+// re-renders after every change. Game rules never live here.
 
 import { createCampaign, dateLabel } from "../simulation/campaign.js";
 import { startBuilding, startRoad } from "../simulation/economy.js";
+import { mergeArmies, moveArmy, reachable, recruit, setStance, visibleArmies } from "../simulation/armies.js";
+import { aiResponse, resolveWithoutBattle, setupBattle } from "../simulation/engagement.js";
+import { cancelTrade, declareWar, playerAction } from "../simulation/diplomacy.js";
+import { finishBattle, resolveAllyCall, resolveDefence, resolveEnding, resolveEvent, resolveProposal } from "../simulation/decisions.js";
+import { setPolicy } from "../simulation/governance.js";
 import { endSeason } from "../simulation/season.js";
-import { armyPanel, districtPanel, summaryCard } from "./drawer.js";
-import { label } from "./format.js";
+import { districtPanel, summaryCard } from "./drawer.js";
+import { armyPanel } from "./armyPanel.js";
+import { factionColour, label } from "./format.js";
 import { renderHud, renderNotifications } from "./hud.js";
 import { createMap } from "./map.js";
 import { armiesPanel, diplomacyPanel, morePanel, realmPanel } from "./panels.js";
+import { endingHtml, messageHtml, pendingHtml, preBattleHtml, resultHtml, warConfirmHtml } from "./modal.js";
+import { openBattle } from "./battleView.js";
 import { clearSave, loadGame, saveGame, saveLabel } from "./save.js";
 
 const $ = (id) => document.getElementById(id);
@@ -18,7 +27,7 @@ const desktop = window.matchMedia("(min-width: 900px)");
 let starter;
 let state;
 let map;
-const ui = { selection: null, panel: null, drawerOpen: false };
+const ui = { selection: null, panel: null, drawerOpen: false, moveArmyId: null, modal: null, battle: null };
 
 async function boot() {
   starter = await fetch("data/starter_campaign.json").then((r) => r.json());
@@ -26,23 +35,39 @@ async function boot() {
   map = createMap($("map"), state, { onTap });
   wire();
   render();
+  showNextPending();
 }
 
 // ---------- rendering ----------
 
 function render() {
+  const player = state.playerFactionId;
   renderHud($("hud"), state);
   renderNotifications($("notifications"), state, onNotification);
-  map.render(state, ui.selection);
+
+  const overlay = { armies: visibleArmies(state, player), threats: state.pending.filter((p) => p.kind === "defend").map((p) => ({ from: p.eng.fromId, to: p.eng.districtId })) };
+  const mover = ui.moveArmyId && state.armies.find((a) => a.id === ui.moveArmyId);
+  if (mover) overlay.reach = reachable(state, mover);
+  else ui.moveArmyId = null;
+  map.render(state, ui.selection, overlay);
+
+  document.body.classList.toggle("move-mode", !!ui.moveArmyId);
+  $("move-banner").hidden = !ui.moveArmyId;
   $("summary").innerHTML = desktop.matches ? "" : summaryCard(state, ui.selection);
-  $("summary").hidden = desktop.matches || !ui.selection || ui.drawerOpen;
-  document.body.classList.toggle("drawer-open", ui.drawerOpen);
+  $("summary").hidden = desktop.matches || !ui.selection || ui.drawerOpen || !!ui.moveArmyId;
+  document.body.classList.toggle("drawer-open", ui.drawerOpen && !ui.moveArmyId);
   document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("on", b.dataset.panel === ui.panel && ui.drawerOpen));
+  const pend = state.pending.length;
+  $("end-season").textContent = pend ? `Decide (${pend})` : "End Season";
+  $("end-season").classList.toggle("urgent", pend > 0);
 
   const body = $("drawer-body");
   const scroll = body.scrollTop;
   body.innerHTML = drawerHtml();
   body.scrollTop = scroll;
+
+  $("modal").hidden = !ui.modal;
+  if (ui.modal) $("modal-card").innerHTML = ui.modal.html;
 }
 
 function drawerHtml() {
@@ -55,9 +80,34 @@ function drawerHtml() {
   return realmPanel(state);
 }
 
-// ---------- input ----------
+function modal(html, extra = {}) {
+  ui.modal = { html, ...extra };
+  render();
+}
+
+function closeModal() {
+  ui.modal = null;
+  render();
+  showNextPending();
+}
+
+function showNextPending() {
+  if (ui.modal || ui.battle) return;
+  if (state.victory.ended && !ui.endingShown) {
+    ui.endingShown = true;
+    return modal(endingHtml(state));
+  }
+  if (state.pending.length) {
+    const p = state.pending[0];
+    if (p.eng) map.focus(p.eng.districtId);
+    modal(pendingHtml(state, p, 0));
+  }
+}
+
+// ---------- map input ----------
 
 function onTap(target) {
+  if (ui.moveArmyId) return moveTap(target);
   const same = target && ui.selection && target.type === ui.selection.type && target.id === ui.selection.id;
   if (!target) {
     ui.selection = null;
@@ -75,18 +125,83 @@ function onTap(target) {
   render();
 }
 
+function moveTap(target) {
+  const armyId = ui.moveArmyId;
+  ui.moveArmyId = null;
+  if (!target || target.type !== "district") return render();
+  const army = state.armies.find((a) => a.id === armyId);
+  const route = reachable(state, army)[target.id];
+  if (!route) { toast("Out of reach this season"); return render(); }
+  if (route.kind === "blocked") {
+    const owner = state.districts[target.id].owner;
+    return modal(warConfirmHtml(state, owner, armyId, target.id));
+  }
+  doMove(armyId, target.id);
+}
+
+function doMove(armyId, districtId) {
+  const r = moveArmy(state, armyId, districtId);
+  if (!r.ok) { toast(r.reason); return render(); }
+  ui.selection = { type: "army", id: armyId };
+  ui.panel = "army";
+  if (r.engagement) return playerAttack(r.engagement);
+  toast(`Marched to ${state.districts[state.armies.find((a) => a.id === armyId).districtId].name}`);
+  saveGame(state);
+  render();
+}
+
+// The player attacks: the defender chooses a response, then the player fights or auto-resolves.
+function playerAttack(eng) {
+  const response = aiResponse(state, eng);
+  const quiet = resolveWithoutBattle(state, eng, response === "none" ? "none" : response);
+  if (quiet) {
+    saveGame(state);
+    return modal(messageHtml("The march", quiet));
+  }
+  startBattleChoice(setupBattle(state, eng, response, "attacker"));
+}
+
+function startBattleChoice(battle) {
+  ui.pendingBattle = battle;
+  modal(preBattleHtml(state, battle));
+}
+
+function fight() {
+  const battle = ui.pendingBattle;
+  ui.modal = null;
+  ui.battle = battle;
+  render();
+  const colours = {
+    attacker: factionColour(state, battle.sides.attacker.factionId),
+    defender: factionColour(state, battle.sides.defender.factionId),
+  };
+  openBattle($("battle"), battle, colours, (b, auto) => {
+    ui.battle = null;
+    afterBattle(finishBattle(state, b, auto));
+  });
+}
+
+function afterBattle(result) {
+  ui.pendingBattle = null;
+  saveGame(state);
+  modal(resultHtml(result, state));
+}
+
+function onNotification(n) {
+  if (n.districtId) select({ type: "district", id: n.districtId }, { open: desktop.matches });
+}
+
 function select(target, { open = true, focus = true } = {}) {
   ui.selection = target;
   ui.panel = target.type;
   ui.drawerOpen = open;
   $("drawer-body").scrollTop = 0;
   if (focus && target.type === "district") map.focus(target.id);
+  if (focus && target.type === "army") map.focus(state.armies.find((a) => a.id === target.id).districtId);
   render();
 }
 
-function onNotification(n) {
-  if (n.districtId) select({ type: "district", id: n.districtId }, { open: desktop.matches });
-}
+// ---------- buttons ----------
 
 const actions = {
   open: () => { ui.drawerOpen = true; ui.panel = ui.selection.type; render(); },
@@ -104,26 +219,86 @@ const actions = {
     toast(r.ok ? "Road ordered" : r.reason);
     render();
   },
+  recruit: (el) => {
+    const r = recruit(state, state.playerFactionId, el.dataset.district, el.dataset.type);
+    toast(r.ok ? `${label(el.dataset.type)} raised at ${state.districts[el.dataset.district].name}` : r.reason);
+    render();
+  },
+  "move-mode": () => {
+    const id = ui.selection?.type === "army" ? ui.selection.id : null;
+    if (!id) return;
+    ui.moveArmyId = id;
+    ui.drawerOpen = desktop.matches;
+    render();
+  },
+  "cancel-move": () => { ui.moveArmyId = null; render(); },
+  stance: (el) => { setStance(state, el.dataset.army, el.dataset.stance); render(); },
+  merge: (el) => { mergeArmies(state, el.dataset.into, el.dataset.from); toast("Armies merged"); render(); },
+  policy: (el) => { setPolicy(state, state.playerFactionId, el.dataset.district, el.dataset.policy); render(); },
   "select-district": (el) => select({ type: "district", id: el.dataset.district }),
-  "select-army": (el) => select({ type: "army", id: el.dataset.army }, { focus: false }),
+  "select-army": (el) => select({ type: "army", id: el.dataset.army }),
+  diplo: (el) => {
+    const opts = {};
+    if (el.dataset.do === "trade") {
+      const [dir, resource, amount] = document.querySelector(`[data-trade="${el.dataset.faction}"]`).value.split(":");
+      Object.assign(opts, { sell: dir === "sell", resource, amount: +amount });
+    }
+    if (el.dataset.do === "war" && !window.confirm(`Declare war on the ${state.factions[el.dataset.faction].name}?`)) return;
+    const r = playerAction(state, el.dataset.faction, el.dataset.do, opts);
+    toast(r.text);
+    render();
+  },
+  "cancel-trade": (el) => { cancelTrade(state, +el.dataset.index); render(); },
+  "war-and-move": (el) => {
+    declareWar(state, state.playerFactionId, el.dataset.faction);
+    ui.modal = null;
+    doMove(el.dataset.army, el.dataset.district);
+  },
+  decide: (el) => decide(el.dataset.kind, el.dataset.value, +el.dataset.index),
+  "battle-fight": fight,
+  "battle-auto": () => { ui.modal = null; afterBattle(finishBattle(state, ui.pendingBattle, true)); },
+  "close-modal": closeModal,
+  ending: () => modal(endingHtml(state)),
   save: () => { toast(saveGame(state) ? "Saved" : "Could not save: storage is blocked"); render(); },
   load: () => {
     const s = loadGame();
     if (!s) return toast("No save found");
     state = s;
-    ui.selection = null;
+    Object.assign(ui, { selection: null, moveArmyId: null, modal: null });
     toast(`Loaded ${dateLabel(state)}`);
     render();
+    showNextPending();
   },
   new: () => {
     if (!window.confirm("Start a new campaign? Your current save will be replaced.")) return;
     clearSave();
     state = createCampaign(starter);
-    Object.assign(ui, { selection: null, panel: "realm" });
+    Object.assign(ui, { selection: null, panel: "realm", moveArmyId: null, modal: null, endingShown: false });
     map.reset();
     render();
   },
 };
+
+function decide(kind, value, index) {
+  const p = state.pending[index];
+  if (!p) return closeModal();
+  ui.modal = null;
+  if (kind === "defend") {
+    const r = resolveDefence(state, p, value);
+    if (r.battle) return startBattleChoice(r.battle);
+    saveGame(state);
+    return modal(messageHtml("The defence", r.text));
+  }
+  if (kind === "ally") resolveAllyCall(state, p, value);
+  if (kind === "proposal") resolveProposal(state, p, value === "yes");
+  if (kind === "event") resolveEvent(state, p, +value);
+  if (kind === "ending") {
+    resolveEnding(state, p, value === "end");
+    if (value === "end") { saveGame(state); ui.endingShown = true; return modal(endingHtml(state)); }
+  }
+  saveGame(state);
+  closeModal();
+}
 
 function wire() {
   document.addEventListener("click", (e) => {
@@ -137,15 +312,19 @@ function wire() {
     const again = ui.drawerOpen && ui.panel === b.dataset.panel;
     ui.panel = b.dataset.panel;
     ui.drawerOpen = desktop.matches || !again;
+    ui.moveArmyId = null;
     $("drawer-body").scrollTop = 0;
     render();
   });
 
   $("end-season").addEventListener("click", () => {
+    if (state.pending.length) return showNextPending();
+    ui.moveArmyId = null;
     endSeason(state);
     saveGame(state);
     toast(`${dateLabel(state)}`);
     render();
+    showNextPending();
   });
 
   $("zoom-in").onclick = () => map.zoomBy(0.75);
@@ -183,7 +362,7 @@ function toast(text) {
   el.textContent = text;
   el.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 1800);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
 }
 
 boot().catch((err) => {

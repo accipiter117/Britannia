@@ -221,7 +221,9 @@ function diplomacy(state, fid, view) {
     }
     // close ranks against a shared enemy (above all Rome)
     const shared = Object.keys(f.memory.threat).some((e) => state.factions[other].memory?.threat?.[e]);
-    if (shared && !allied(state, fid, other) && !atWar(state, fid, other) && relation(state, fid, other) >= BALANCE.diplomacy.allianceMinRelation - 20) {
+    const unity = state.rome.stage === "invasion" && other !== "rome" && relation(state, fid, other) >= BALANCE.rome.celticUnityRelation;
+    if ((shared || unity) && !allied(state, fid, other) && !atWar(state, fid, other) && other !== "rome" &&
+        (unity || relation(state, fid, other) >= BALANCE.diplomacy.allianceMinRelation - 20)) {
       if (other === player) {
         if (!state.pending.some((p) => p.kind === "proposal" && p.from === fid)) state.pending.push({ kind: "proposal", from: fid, action: "alliance" });
       } else if (willAccept(state, fid, other, "alliance") || relation(state, fid, other) >= 0) formAlliance(state, fid, other);
