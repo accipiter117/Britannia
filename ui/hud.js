@@ -5,6 +5,7 @@ import { districtsOf, seasonName } from "../simulation/campaign.js";
 import { forecast, storageCaps } from "../simulation/economy.js";
 import { ICON, SEASON_ICON, esc, num, signed } from "./format.js";
 import { advice } from "./advisor.js";
+import { icon } from "./icons.js";
 
 export function renderHud(el, state) {
   const fid = state.playerFactionId;
@@ -33,14 +34,14 @@ export function renderHud(el, state) {
 
 function warning(state, fc) {
   const food = state.factions[state.playerFactionId].resources.food;
-  if (fc.famine) return `<span class="warn critical">⚠ Famine at End Season</span>`;
-  if (fc.net.food < 0 && food + fc.net.food * 2 < 0) return `<span class="warn important">⚠ Food runs out next season</span>`;
+  if (fc.famine) return `<span class="warn critical">${icon("warning")} Famine at End Season</span>`;
+  if (fc.net.food < 0 && food + fc.net.food * 2 < 0) return `<span class="warn important">${icon("warning")} Food runs out next season</span>`;
   return "";
 }
 
 export function renderNotifications(el, state, onPick) {
   const list = state.notifications;
-  el.innerHTML = `<span class="note advice">💡 ${esc(advice(state))}</span>` +
+  el.innerHTML = `<span class="note advice">${icon("advice")} ${esc(advice(state))}</span>` +
     list.map((n, i) => `<button class="note ${n.level}" data-i="${i}">${esc(n.text)}</button>`).join("");
   el.onclick = (e) => {
     const b = e.target.closest("[data-i]");

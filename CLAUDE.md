@@ -14,7 +14,7 @@ The owner (Matthew) is not a programmer and works mostly from his phone. He play
 - Entry point: `index.html` at repo root. Deployed by GitHub Pages from `main`.
 - Map rendered with SVG (district polygons). Tactical battle on a `<canvas>` or SVG grid.
 - Save/load via `localStorage`. Whole campaign state must be JSON serialisable.
-- Art is hand-drawn in code (SVG on the map, canvas in battle): no image generation, no image files. HUD and panel icons are still emoji.
+- Art is hand-drawn in code (SVG on the map, canvas in battle): no image generation, no image files. UI icons are an SVG sprite (`ui/icons.js`); use `icon(name)`, never emoji.
 
 ## Folder structure
 ```
@@ -100,6 +100,13 @@ Art (M12, session 3):
 - `ui/battleArt.js` paints the battlefield once to an offscreen canvas (grass, hills, trees, river, road) and draws blocks as ranks of shields (rectangular gilded scuta for legionaries) with a type letter in the corner.
 - Palette and lighting follow `docs/08_ART_AUDIO.md`: muted earth tones, light from the upper left, soft shadows.
 
+- `ui/icons.js`: one SVG sprite of ~45 woodcut-style icons (resources, seasons, settlements, terrain, buildings, nav, events). `ui/format.js` maps game ids to them.
+
+Audio (session 3):
+- `ui/audio.js` synthesises everything with Web Audio, no files: wind/rain/birds by season, generative lyre music with four moods (peace, tension, war, crisis) chosen from state each render, and effects (build, recruit, march, battle, clash, season, alert, victory, defeat). Muted by default; the speaker button in the map controls toggles it and the choice is remembered.
+
+Saving: the game saves after every action (in `render()`), not only at End Season.
+
 Testing:
 - `node tools/smartbot.mjs [seeds] [seasons]` plays the player's side sensibly and reports how the Confederation fares. Use it after balance changes.
 - `node tools/sim20.mjs [seasons]` plays the whole loop in Node with AI, events and Rome, round-tripping the save each season.
@@ -137,7 +144,7 @@ Testing:
 | M9 | Occupation | Occupied/Administered/Integrated, policies, loyalty, culture, rebellion | Done (session 2) |
 | M10 | Chronicle/Victory | Chronicle log, divergence, dominance, narrative summary | Done (session 2) |
 | M11 | Mobile | final touch and drawer polish | Done in emulation (portrait, landscape, small phone, tablet); needs a real-phone pass |
-| M12 | Art | only after the simulation is proven | Map and battlefield done (session 3, hand-drawn SVG/canvas); UI icons still emoji |
+| M12 | Art | only after the simulation is proven | Done (session 3): hand-drawn map, battlefield and UI icons; synthesised audio |
 
 Planned sessions: (1) M1 to M3, (2) M4, (3) M5 to M6, (4) M7, (5) M8 to M9, (6) M10 to M11.
 

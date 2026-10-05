@@ -19,6 +19,8 @@ import { createMap } from "./map.js";
 import { armiesPanel, diplomacyPanel, morePanel, realmPanel } from "./panels.js";
 import { confirmHtml, endingHtml, messageHtml, pendingHtml, preBattleHtml, resultHtml, warConfirmHtml } from "./modal.js";
 import { openBattle } from "./battleView.js";
+import { icon, injectIconSprite } from "./icons.js";
+import { initAudio, setScene, sfx, soundOn, toggleSound } from "./audio.js";
 import { clearSave, loadGame, saveGame, saveLabel } from "./save.js";
 
 const $ = (id) => document.getElementById(id);
@@ -31,6 +33,8 @@ let map;
 const ui = { selection: null, panel: null, drawerOpen: false, moveArmyId: null, modal: null, battle: null };
 
 async function boot() {
+  injectIconSprite();
+  initAudio();
   starter = await fetch("data/starter_campaign.json").then((r) => r.json());
   state = loadGame() || createCampaign(starter);
   map = createMap($("map"), state, { onTap });
@@ -43,6 +47,7 @@ async function boot() {
 
 function render() {
   const player = state.playerFactionId;
+  if (!ui.battle) saveGame(state); // every action is kept, so a reload or update loses nothing
   renderHud($("hud"), state);
   renderNotifications($("notifications"), state, onNotification);
 
@@ -51,6 +56,7 @@ function render() {
   if (mover) overlay.reach = reachable(state, mover);
   else ui.moveArmyId = null;
   map.render(state, ui.selection, overlay);
+  setScene(state);
 
   document.body.classList.toggle("move-mode", !!ui.moveArmyId);
   $("move-banner").hidden = !ui.moveArmyId;
@@ -148,6 +154,7 @@ function doMove(armyId, districtId) {
   ui.selection = { type: "army", id: armyId };
   ui.panel = "army";
   if (r.engagement) return playerAttack(r.engagement);
+  sfx("march");
   toast(`Marched to ${state.districts[state.armies.find((a) => a.id === armyId).districtId].name}`);
   saveGame(state);
   render();
@@ -178,14 +185,16 @@ function fight() {
     attacker: factionColour(state, battle.sides.attacker.factionId),
     defender: factionColour(state, battle.sides.defender.factionId),
   };
+  sfx("battle");
   openBattle($("battle"), battle, colours, (b, auto) => {
     ui.battle = null;
     afterBattle(finishBattle(state, b, auto));
-  });
+  }, { onClash: () => sfx("clash") });
 }
 
 function afterBattle(result) {
   ui.pendingBattle = null;
+  sfx(result.winner === state.playerFactionId ? "victory" : result.loser === state.playerFactionId ? "defeat" : "battle");
   saveGame(state);
   modal(resultHtml(result, state));
 }
@@ -214,16 +223,19 @@ const actions = {
   },
   build: (el) => {
     const r = startBuilding(state, state.playerFactionId, el.dataset.district, el.dataset.building);
+    if (r.ok) sfx("build");
     toast(r.ok ? `${label(el.dataset.building)} ordered at ${state.districts[el.dataset.district].name}` : r.reason);
     render();
   },
   road: (el) => {
     const r = startRoad(state, state.playerFactionId, +el.dataset.connection);
+    if (r.ok) sfx("build");
     toast(r.ok ? "Road ordered" : r.reason);
     render();
   },
   recruit: (el) => {
     const r = recruit(state, state.playerFactionId, el.dataset.district, el.dataset.type);
+    if (r.ok) sfx("recruit");
     toast(r.ok ? `${label(el.dataset.type)} raised at ${state.districts[el.dataset.district].name}` : r.reason);
     render();
   },
@@ -337,11 +349,14 @@ function wire() {
     ui.moveArmyId = null;
     endSeason(state);
     saveGame(state);
+    sfx(state.notifications.some((n) => n.level === "critical") ? "alert" : "season");
     toast(`${dateLabel(state)}`);
     render();
     showNextPending();
   });
 
+  $("sound-toggle").onclick = () => { toggleSound(); paintSoundButton(); };
+  paintSoundButton();
   $("zoom-in").onclick = () => map.zoomBy(0.75);
   $("zoom-out").onclick = () => map.zoomBy(1.33);
   $("zoom-reset").onclick = () => map.reset();
@@ -370,6 +385,12 @@ function wireSwipe() {
     startY = null;
     if (dy > 80 && !desktop.matches) { ui.drawerOpen = false; render(); }
   });
+}
+
+function paintSoundButton() {
+  const b = $("sound-toggle");
+  b.innerHTML = icon(soundOn() ? "sound_on" : "sound_off");
+  b.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on");
 }
 
 let toastTimer;

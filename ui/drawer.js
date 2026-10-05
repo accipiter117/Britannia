@@ -14,6 +14,7 @@ import {
   BUILDING_ICON, ICON, SEASON_ICON, TERRAIN_ICON, TIER_ICON, costText, effectText, esc,
   factionColour, factionName, label, num, signed,
 } from "./format.js";
+import { icon } from "./icons.js";
 
 export function districtPanel(state, id) {
   const d = state.districts[id];
@@ -36,7 +37,7 @@ export function districtPanel(state, id) {
     ? d.buildings.map((b) => `<li>${BUILDING_ICON[b]} ${label(b)}</li>`).join("") : `<li class="muted">None yet</li>`;
   const queue = d.construction.map((c) => {
     const need = BALANCE.buildings[c.building].seasons;
-    return `<li>🚧 ${label(c.building)} <span class="muted">${c.progress}/${need} seasons</span></li>`;
+    return `<li>${icon("workshop")} ${label(c.building)} <span class="muted">${c.progress}/${need} seasons</span></li>`;
   }).join("");
 
   return `
@@ -136,8 +137,8 @@ function roadRows(state, fid, id) {
   return state.connections.map((c, i) => {
     if (c.a !== id && c.b !== id) return "";
     const other = state.districts[c.a === id ? c.b : c.a];
-    if (c.road) return `<div class="build"><div>🛣️ to ${esc(other.name)} <span class="pos">Built</span></div></div>`;
-    if (c.roadProgress !== null) return `<div class="build"><div>🚧 to ${esc(other.name)} <span class="muted">${c.roadProgress}/${BALANCE.road.seasons}</span></div></div>`;
+    if (c.road) return `<div class="build"><div>${icon("move")} to ${esc(other.name)} <span class="pos">Built</span></div></div>`;
+    if (c.roadProgress !== null) return `<div class="build"><div>${icon("workshop")} to ${esc(other.name)} <span class="muted">${c.roadProgress}/${BALANCE.road.seasons}</span></div></div>`;
     const check = canBuildRoad(state, fid, i);
     return `<div class="build ${check.ok ? "" : "off"}">
       <div><b>Road to ${esc(other.name)}</b> <small>${BALANCE.road.seasons} season</small>
@@ -156,7 +157,7 @@ export function summaryCard(state, sel) {
   if (sel.type === "army") {
     const a = state.armies.find((x) => x.id === sel.id);
     const troops = a.formations.reduce((n, f) => n + f.troops, 0);
-    return `<div class="sum-main" data-action="open"><b>⚔ ${esc(a.name)}</b><span>${num(troops)} troops · ${esc(state.districts[a.districtId].name)}</span></div>
+    return `<div class="sum-main" data-action="open"><b>${icon(a.factionId === "rome" ? "eagle" : "sword")} ${esc(a.name)}</b><span>${num(troops)} troops · ${esc(state.districts[a.districtId].name)}</span></div>
       <div class="sum-actions">${a.factionId === state.playerFactionId ? `<button data-action="move-mode" ${a.movesLeft > 0 ? "" : "disabled"}>Move</button>` : ""}<button data-action="open">More</button></div>`;
   }
   const d = state.districts[sel.id];

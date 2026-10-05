@@ -10,6 +10,7 @@ import { sideSummary } from "../simulation/battle.js";
 import { narrative } from "../simulation/victory.js";
 import { pendingText } from "../simulation/decisions.js";
 import { esc, num } from "./format.js";
+import { icon } from "./icons.js";
 
 const fac = (state, id) => (id ? state.factions[id].name : "Local militia");
 
@@ -18,27 +19,27 @@ export function pendingHtml(state, p, index) {
   const more = total > 1 ? `<p class="muted small">${total - 1} more decision${total > 2 ? "s" : ""} waiting.</p>` : "";
   if (p.kind === "defend") return defendHtml(state, p, index) + more;
   if (p.kind === "allyCall") {
-    return box("⚔ Your ally calls", pendingText(state, p), [
+    return box(`${icon("diplomacy")} Your ally calls`, pendingText(state, p), [
       ["ally", "honour", "Honour the alliance (declare war)"],
       ["ally", "limited", "Send limited help (Wealth)"],
       ["ally", "refuse", "Refuse (relations suffer)"],
     ], index) + more;
   }
   if (p.kind === "proposal") {
-    return box(p.action === "peace" ? "🕊 An offer of peace" : "🤝 An offer of alliance", pendingText(state, p), [
+    return box(p.action === "peace" ? `${icon("dove")} An offer of peace` : `${icon("diplomacy")} An offer of alliance`, pendingText(state, p), [
       ["proposal", "yes", "Accept"], ["proposal", "no", "Decline"],
     ], index) + more;
   }
   if (p.kind === "event") {
-    return box(`📜 ${esc(p.title)}`, esc(p.text), p.choices.map((c, i) => ["event", String(i), c.label]), index) + more;
+    return box(`${icon("scroll")} ${esc(p.title)}`, esc(p.text), p.choices.map((c, i) => ["event", String(i), c.label]), index) + more;
   }
   if (p.kind === "dominance") {
-    return box("👑 Decisive Dominance", "No power in Britannia can stand against you. The bards are already composing. Will you close the Chronicle here, or play on?", [
+    return box(`${icon("crown")} Decisive Dominance`, "No power in Britannia can stand against you. The bards are already composing. Will you close the Chronicle here, or play on?", [
       ["ending", "continue", "Continue the campaign"], ["ending", "end", "End the Chronicle"],
     ], index);
   }
   if (p.kind === "defeat") {
-    return box("🕯 The last fire goes out", "Your people hold no land and field no army. Their story may yet be told.", [
+    return box(`${icon("candle")} The last fire goes out`, "Your people hold no land and field no army. Their story may yet be told.", [
       ["ending", "end", "Close the Chronicle"], ["ending", "continue", "Watch on"],
     ], index);
   }
@@ -57,8 +58,8 @@ function defendHtml(state, p, index) {
   const troops = att.reduce((n, a) => n + armyTroops(a), 0);
   const opts = defenceOptions(state, eng);
   const fromSea = !eng.fromId;
-  return `<h2>⚠ ${fromSea ? "The legions land" : "Attack"} at ${esc(d.name)}</h2>
-    <p>${esc(fac(state, eng.attackerFactionId))} ${fromSea ? "come ashore" : `march from ${esc(state.districts[eng.fromId].name)}`} with about ${num(Math.round(troops / 100) * 100)} troops (${att.map((a) => esc(a.name)).join(", ")}).</p>
+  return `<h2>${icon("warning")} ${fromSea ? "The legions land" : "Attack"} at ${esc(d.name)}</h2>
+    <p>${esc(fac(state, eng.attackerFactionId))} ${fromSea ? "comes ashore" : `marches from ${esc(state.districts[eng.fromId].name)}`} with about ${num(Math.round(troops / 100) * 100)} troops (${att.map((a) => esc(a.name)).join(", ")}).</p>
     <div class="choices">${opts.map((o) => `<button data-action="decide" data-kind="defend" data-value="${o.id}" data-index="${index}" ${o.ok ? "" : "disabled"}>
         <b>${o.label}</b>${o.ok && o.id !== "withdraw" ? ` <small>${oddsText(state, eng, "defender", o.armyIds)}</small>` : ""}
         <small class="muted">${o.ok ? esc(o.hint) : esc(o.reason)}</small></button>`).join("")}</div>`;
@@ -71,7 +72,7 @@ export function preBattleHtml(state, battle) {
   const a = sideSummary(battle, "attacker"), df = sideSummary(battle, "defender");
   const odds = playerSide === "attacker" ? oddsText(state, eng, "attacker") : oddsText(state, eng, "defender", battle.defenderArmyIds);
   const kind = battle.type === "defensive" ? `Defensive battle: the defenders must hold the stronghold for ${Math.round(BALANCE.battle.defensiveTimerSeconds / 60)} minutes${battle.fortification ? ` (+${Math.round(battle.fortification * 100)}% defence near it)` : ""}.` : "Field battle: break the enemy army.";
-  return `<h2>⚔ Battle of ${esc(d.name)}</h2>
+  return `<h2>${icon("armies")} Battle of ${esc(d.name)}</h2>
     <div class="vs">
       <div><b>${esc(fac(state, battle.sides.attacker.factionId))}</b><span>${num(a.start)} troops</span><small>${battle.sides.attacker.commander} commander</small></div>
       <div class="vs-mid">vs</div>
@@ -88,7 +89,7 @@ export function resultHtml(result, state) {
   const player = state.playerFactionId;
   const won = result.winner === player;
   const lost = result.loser === player;
-  return `<h2>${won ? "🏆 Victory" : lost ? "💀 Defeat" : "⚔ Battle"}</h2>
+  return `<h2>${won ? `${icon("trophy")} Victory` : lost ? `${icon("skull")} Defeat` : `${icon("armies")} Battle`}</h2>
     <p>${esc(result.text)}</p>
     <div class="choices"><button class="primary" data-action="close-modal">Continue</button></div>`;
 }
@@ -103,7 +104,7 @@ export function warConfirmHtml(state, factionId, armyId, districtId) {
 }
 
 export function endingHtml(state) {
-  return `<h2>📜 The Chronicle of Britannia</h2>
+  return `<h2>${icon("scroll")} The Chronicle of Britannia</h2>
     ${narrative(state).map((l) => `<p>${esc(l)}</p>`).join("")}
     <div class="choices">
       <button data-action="close-modal">Look upon the land</button>

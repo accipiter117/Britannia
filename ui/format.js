@@ -1,16 +1,16 @@
 // ui/format.js
 // Owns display text and icons: names, numbers, terrain and building labels. No state changes.
 
-export const ICON = { population: "👥", food: "🍞", timber: "🪵", materials: "🪨", wealth: "🪙" };
-export const TERRAIN_ICON = { fertile: "🌾", forest: "🌲", hills: "⛰️", plains: "🌿", marsh: "🐸", coast: "🌊" };
-export const SEASON_ICON = { Spring: "🌱", Summer: "☀️", Autumn: "🍂", Winter: "❄️" };
-export const TIER_ICON = { village: "🛖", town: "🏘️", major_town: "🏰" };
+import { icon } from "./icons.js";
+
+const set = (names, cls = "") => Object.fromEntries(names.map(([k, n]) => [k, icon(n, cls)]));
+export const ICON = Object.fromEntries(["population", "food", "timber", "materials", "wealth"].map((k) => [k, icon(k === "population" ? "people" : k, `res res-${k}`)]));
+export const TERRAIN_ICON = set(["fertile", "forest", "hills", "plains", "marsh", "coast"].map((t) => [t, t]));
+export const SEASON_ICON = { Spring: icon("spring", "season"), Summer: icon("summer", "season"), Autumn: icon("autumn", "season"), Winter: icon("winter", "season") };
+export const TIER_ICON = set(["village", "town", "major_town"].map((t) => [t, t]));
 export const NEUTRAL_COLOUR = "#9d9784";
 
-export const BUILDING_ICON = {
-  farm: "🌾", granary: "🏚️", timber_camp: "🪓", mine: "⛏️", workshop: "🔨",
-  warrior_hall: "🛡️", fortification: "🧱", market: "⚖️", supply_depot: "📦",
-};
+export const BUILDING_ICON = set(["farm", "granary", "timber_camp", "mine", "workshop", "warrior_hall", "fortification", "market", "supply_depot"].map((b) => [b, b]));
 
 export const label = (id) => id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 

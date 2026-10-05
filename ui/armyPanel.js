@@ -8,6 +8,7 @@ import { canRecruit, militaryCapacity, movementPoints, professionalsInService } 
 import { supplyDistance } from "../simulation/supply.js";
 import { atWar, relation, relationState } from "../simulation/diplomacy.js";
 import { ICON, esc, factionColour, factionName, label, num } from "./format.js";
+import { icon } from "./icons.js";
 
 const STANCE_HINT = {
   Normal: "Balanced.",
@@ -15,7 +16,7 @@ const STANCE_HINT = {
   Aggressive: "Attack ×1.2, defence ×0.85.",
   "Forced March": "+1 movement, but fatigue and −10 morale; weak in battle.",
 };
-const SUPPLY_ICON = { "Well Supplied": "🟢", Adequate: "🟡", Strained: "🟠", Starving: "🔴" };
+const SUPPLY_ICON = Object.fromEntries(["Well Supplied", "Adequate", "Strained", "Starving"].map((s, i) => [s, `<i class="dot sup-${i}"></i>`]));
 
 export function armyPanel(state, id) {
   const a = state.armies.find((x) => x.id === id);
@@ -23,7 +24,7 @@ export function armyPanel(state, id) {
   const mine = a.factionId === state.playerFactionId;
   const where = state.districts[a.districtId];
   const head = `<header class="panel-head" style="--fc:${factionColour(state, a.factionId)}">
-      <h2>${a.factionId === "rome" ? "🦅" : "⚔"} ${esc(a.name)}</h2>
+      <h2>${icon(a.factionId === "rome" ? "eagle" : "sword")} ${esc(a.name)}</h2>
       <p><i class="swatch"></i>${esc(factionName(state, a.factionId))} · at ${esc(where.name)}</p>
     </header>`;
   if (!mine) return head + foreignArmy(state, a);
@@ -40,7 +41,7 @@ export function armyPanel(state, id) {
 
   return head + `
     <section class="buttons">
-      <button class="primary" data-action="move-mode" ${a.movesLeft > 0 ? "" : "disabled"}>🧭 Move (${a.movesLeft}/${full})</button>
+      <button class="primary" data-action="move-mode" ${a.movesLeft > 0 ? "" : "disabled"}>${icon("move")} Move (${a.movesLeft}/${full})</button>
       ${others.map((o) => `<button data-action="merge" data-into="${a.id}" data-from="${o.id}">Absorb ${esc(o.name)}</button>`).join("")}
     </section>
     <section>

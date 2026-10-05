@@ -7,11 +7,12 @@ import { BALANCE } from "../config/balance.js";
 import { isActive, orderUnits, retreatAll, sideSummary, tick } from "../simulation/battle.js";
 import { esc, num } from "./format.js";
 import { drawBlock, drawStronghold, paintTerrain } from "./battleArt.js";
+import { icon } from "./icons.js";
 
 const B = BALANCE.battle;
 const N = B.gridSize;
 
-export function openBattle(root, battle, colours, onEnd) {
+export function openBattle(root, battle, colours, onEnd, hooks = {}) {
   const player = battle.playerSide;
   let selected = new Set();
   let paused = true;
@@ -23,7 +24,7 @@ export function openBattle(root, battle, colours, onEnd) {
 
   root.innerHTML = `
     <header class="b-head">
-      <b>⚔ ${esc(battle.districtName)}</b>
+      <b>${icon("armies")} ${esc(battle.districtName)}</b>
       <span id="b-clock"></span>
       <span class="b-ctl">
         <button id="b-play">▶ Play</button>
@@ -103,7 +104,11 @@ export function openBattle(root, battle, colours, onEnd) {
     last = now;
     if (!paused && !finished) {
       acc += dt * speed;
-      while (acc >= B.tickSeconds && !battle.over) { tick(battle); acc -= B.tickSeconds; }
+      while (acc >= B.tickSeconds && !battle.over) {
+        tick(battle);
+        acc -= B.tickSeconds;
+        if (hooks.onClash && battle.units.some((u) => u.state === "Engaging") && Math.random() < 0.35) hooks.onClash();
+      }
       if (battle.over) end();
     }
     draw();

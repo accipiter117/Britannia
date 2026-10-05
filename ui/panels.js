@@ -10,11 +10,12 @@ import { visibleArmies } from "../simulation/armies.js";
 import { regionStatus } from "../simulation/governance.js";
 import { RESOURCES, forecast, settlementTier, storageCaps } from "../simulation/economy.js";
 import { ICON, SEASON_ICON, TIER_ICON, esc, factionColour, label, num, signed } from "./format.js";
+import { icon } from "./icons.js";
 
 const CH_ICON = {
-  FOUNDING: "📜", BATTLE: "⚔️", VICTORY: "🏆", DEFEAT: "💀", SETTLEMENT_FOUNDED: "🏘️", SETTLEMENT_DESTROYED: "🔥",
-  FACTION_DEFEATED: "🕯️", ALLIANCE: "🤝", REBELLION: "🔥", INVASION: "🦅", COMMANDER_DEATH: "⚰️",
-  MAJOR_DISASTER: "☠️", HISTORICAL_DIVERGENCE: "✨",
+  FOUNDING: icon("scroll"), BATTLE: icon("armies"), VICTORY: icon("trophy"), DEFEAT: icon("skull"), SETTLEMENT_FOUNDED: icon("village"),
+  SETTLEMENT_DESTROYED: icon("warning"), FACTION_DEFEATED: icon("candle"), ALLIANCE: icon("diplomacy"), REBELLION: icon("warning"),
+  INVASION: icon("eagle"), COMMANDER_DEATH: icon("skull"), MAJOR_DISASTER: icon("warning"), HISTORICAL_DIVERGENCE: icon("crown"),
 };
 
 export function realmPanel(state) {
@@ -32,7 +33,7 @@ export function realmPanel(state) {
   }).join("");
 
   const districts = districtsOf(state, fid).map((d) => {
-    const jobs = d.construction.map((c) => `🚧 ${label(c.building)}`).join(", ");
+    const jobs = d.construction.map((c) => `${icon("workshop")} ${label(c.building)}`).join(", ");
     return `<button class="row" data-action="select-district" data-district="${d.id}">
       <span>${TIER_ICON[settlementTier(d).id]} <b>${esc(d.name)}</b></span>
       <span class="muted">${ICON.population}${num(d.population)} ${jobs ? "· " + jobs : ""}</span></button>`;
