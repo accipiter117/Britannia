@@ -14,6 +14,7 @@ import { allied, atWar, declareWar, formAlliance, relation, warWeary, willAccept
 import { engagePlayer, playerDefends, resolveEngagementAuto } from "./engagement.js";
 import { supplyDistance } from "./supply.js";
 import { aiGovern } from "./governance.js";
+import { inTruce, resolveOvertures } from "./overtures.js";
 
 const A = BALANCE.ai;
 
@@ -29,6 +30,7 @@ export function resolveAI(state, notes) {
     military(state, f.id, view, notes);
     diplomacy(state, f.id, view);
   }
+  resolveOvertures(state);
 }
 
 // ---------- perception ----------
@@ -72,7 +74,7 @@ function bestTarget(state, fid, ours) {
       if (d.owner === fid) continue;
       if (route.kind === "move" && d.owner) continue; // passing through friends is not a conquest
       const notAtWar = d.owner && !atWar(state, fid, d.owner);
-      if (notAtWar && (allied(state, fid, d.owner) || d.owner === "rome")) continue;
+      if (notAtWar && (allied(state, fid, d.owner) || d.owner === "rome" || inTruce(state, fid, d.owner))) continue;
       const defence = seenArmies.filter((a) => a.districtId === did && a.factionId !== fid && (!d.owner || a.factionId === d.owner || atWar(state, fid, a.factionId)))
         .reduce((n, a) => n + armyStrength(a), 0) + garrisonStrength(d);
       const mine = armyStrength(army);
@@ -166,7 +168,7 @@ function military(state, fid, view, notes) {
       if (state.turn < A.earliestWarSeason) return;
       const pers = A.personalities[f.personality] || {};
       const rel = relation(state, fid, t.owner);
-      const bold = (pers.expand || 1) >= 1.1 && rel <= BALANCE.diplomacy.states.Neutral;
+      const bold = ((pers.expand || 1) >= 1.1 && rel <= BALANCE.diplomacy.states.Neutral) || f.memory.grudge === t.owner;
       if (!bold && rel > BALANCE.diplomacy.states.Suspicious) return;
       // declare now, march next season: the enemy gets one season of warning
       declareWar(state, fid, t.owner);
@@ -222,7 +224,8 @@ function diplomacy(state, fid, view) {
     // sue for peace when losing
     if (atWar(state, fid, other) && warWeary(state, fid, other) && view.threat > 0.5) {
       if (other === player) {
-        if (!state.pending.some((p) => p.kind === "proposal" && p.from === fid)) state.pending.push({ kind: "proposal", from: fid, action: "peace" });
+        // a faction that can pay offers tribute instead (overtures.js)
+        if (f.resources.wealth < BALANCE.overtures.tributeAmount && !state.pending.some((p) => p.from === fid)) state.pending.push({ kind: "proposal", from: fid, action: "peace" });
       } else if (willAccept(state, fid, other, "peace")) makePeace(state, fid, other);
     }
     // close ranks against a shared enemy (above all Rome)

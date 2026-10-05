@@ -10,6 +10,7 @@ import { aiResponse, resolveWithoutBattle, setupBattle } from "../simulation/eng
 import { cancelTrade, declareWar, playerAction } from "../simulation/diplomacy.js";
 import { finishBattle, resolveAllyCall, resolveDefence, resolveEnding, resolveEvent, resolveProposal } from "../simulation/decisions.js";
 import { setPolicy } from "../simulation/governance.js";
+import { answerOverture } from "../simulation/overtures.js";
 import { endSeason } from "../simulation/season.js";
 import { districtPanel, summaryCard } from "./drawer.js";
 import { armyPanel } from "./armyPanel.js";
@@ -319,6 +320,7 @@ function decide(kind, value, index) {
   if (kind === "ally") resolveAllyCall(state, p, value);
   if (kind === "proposal") resolveProposal(state, p, value === "yes");
   if (kind === "event") resolveEvent(state, p, +value);
+  if (kind === "overture") answerOverture(state, p, value);
   if (kind === "ending") {
     resolveEnding(state, p, value === "end");
     if (value === "end") { saveGame(state); ui.endingShown = true; return modal(endingHtml(state)); }

@@ -223,6 +223,20 @@ export const BALANCE = {
     battleRelationPenalty: -10,
   },
 
+  // ---------- OVERTURES (what rivals ask of you) ----------
+  overtures: {
+    cooldownSeasons: 4,          // a faction makes at most one approach in this many seasons
+    tributeAmount: 100,          // Wealth demanded by the strong, or offered by the beaten
+    demandBelowRelation: 10,     // only factions cooler than this demand tribute
+    demandStrengthRatio: 1.5,    // ... and only when this much stronger than you
+    tradeSurplus: 400,           // a faction offers to sell a resource it holds this much of
+    aidWealth: 100,              // aid sent to a people struck by Rome
+    exploitWealth: 120,          // tribute squeezed from a people struck by Rome
+    clientTribute: 40,           // Wealth per season paid by Rome's clients
+    clientResentment: -15,       // other Celts' view of a Roman client
+    truceSeasons: 4,
+  },
+
   // ---------- AI ----------
   ai: {
     priorities: ["SURVIVE", "PROSPER", "EXPAND"],
@@ -310,6 +324,7 @@ export const BALANCE = {
     maxArmies: 3,
     maxTotalTroops: 1100,          // reinforcements stop while Rome has this many troops on the island
     celticUnityRelation: -20,      // once Rome lands, Celtic AIs ally against it above this relation
+    settleAfterSeasons: 8,         // after this long ashore, Rome offers peace on the borders as they stand
   },
 
   // ---------- VICTORY ----------

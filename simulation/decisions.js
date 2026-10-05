@@ -9,6 +9,7 @@ import { applyBattle, defenceOptions, engagementStillValid, resolveWithoutBattle
 import { applyEventChoice } from "./events.js";
 import { autoResolve } from "./battle.js";
 import { endChronicle } from "./victory.js";
+import { answerOverture, overtureView } from "./overtures.js";
 
 export function pendingText(state, p) {
   const fac = (id) => state.factions[id]?.name || "Unknown";
@@ -16,6 +17,7 @@ export function pendingText(state, p) {
   if (p.kind === "allyCall") return `${fac(p.victim)} is attacked by ${fac(p.aggressor)} and calls on your alliance.`;
   if (p.kind === "proposal") return p.action === "peace" ? `${fac(p.from)} sues for peace.` : `${fac(p.from)} proposes an alliance.`;
   if (p.kind === "event") return p.text;
+  if (p.kind === "overture") return overtureView(state, p).text;
   if (p.kind === "dominance") return "Your people hold Decisive Dominance over Britannia.";
   if (p.kind === "defeat") return "Your people have no land and no army left.";
   return "";
@@ -71,6 +73,7 @@ export function autoAnswerAll(state) {
       log.push(r.battle ? finishBattle(state, r.battle, true).text : r.text);
     } else if (p.kind === "allyCall") resolveAllyCall(state, p, "limited");
     else if (p.kind === "proposal") resolveProposal(state, p, true);
+    else if (p.kind === "overture") answerOverture(state, p, overtureView(state, p).choices.find((c) => c.ok).id);
     else if (p.kind === "event") resolveEvent(state, p, 0);
     else resolveEnding(state, p, false);
   }

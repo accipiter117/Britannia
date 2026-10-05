@@ -11,6 +11,7 @@ import { narrative } from "../simulation/victory.js";
 import { pendingText } from "../simulation/decisions.js";
 import { defById } from "../simulation/eventDefs.js";
 import { choiceStatus } from "../simulation/events.js";
+import { overtureView } from "../simulation/overtures.js";
 import { esc, num } from "./format.js";
 import { icon } from "./icons.js";
 
@@ -33,6 +34,12 @@ export function pendingHtml(state, p, index) {
     ], index) + more;
   }
   if (p.kind === "event") return eventHtml(state, p, index) + more;
+  if (p.kind === "overture") {
+    const v = overtureView(state, p);
+    return `<h2>${icon(v.icon)} ${esc(v.title)}</h2><p>${esc(v.text)}</p><div class="choices">${v.choices.map((c) =>
+      `<button data-action="decide" data-kind="overture" data-value="${c.id}" data-index="${index}" ${c.ok ? "" : "disabled"}>
+        <b>${esc(c.label)}</b>${c.hint || !c.ok ? `<small class="muted">${esc(c.ok ? c.hint : c.reason)}</small>` : ""}</button>`).join("")}</div>${more}`;
+  }
   if (p.kind === "dominance") {
     return box(`${icon("crown")} Decisive Dominance`, "No power in Britannia can stand against you. The bards are already composing. Will you close the Chronicle here, or play on?", [
       ["ending", "continue", "Continue the campaign"], ["ending", "end", "End the Chronicle"],

@@ -7,6 +7,8 @@ import { districtsOf, seasonName } from "../simulation/campaign.js";
 import { allied, atWar, canTrade, hasAccess, hasMarket, relation, relationState, tradePrice } from "../simulation/diplomacy.js";
 import { dominanceLevel } from "../simulation/victory.js";
 import { visibleArmies } from "../simulation/armies.js";
+import { inTruce, isRomanClient } from "../simulation/overtures.js";
+import { pairKey } from "../simulation/diplomacy.js";
 import { regionStatus } from "../simulation/governance.js";
 import { RESOURCES, forecast, settlementTier, storageCaps } from "../simulation/economy.js";
 import { ICON, SEASON_ICON, TIER_ICON, esc, factionColour, label, num, signed } from "./format.js";
@@ -63,9 +65,15 @@ export function realmPanel(state) {
     </section>`;
 }
 
+function truceEnd(state, a, b) {
+  const t = state.diplomacy.truces[pairKey(a, b)];
+  const n = t - state.turn + 1;
+  return `${n} more season${n === 1 ? "" : "s"}`;
+}
+
 function romeText(state) {
   const r = state.rome;
-  return { consolidation: "Busy in Gaul", presence: "Envoys in the south", infrastructure: "Building roads", warning: `Lands in ${r.countdown} season${r.countdown === 1 ? "" : "s"}!`, invasion: `Invading (${districtsOf(state, "rome").length} districts)`, repulsed: "Driven into the sea" }[r.stage] || r.stage;
+  return { consolidation: "Busy in Gaul", presence: "Envoys in the south", infrastructure: "Building roads", warning: `Lands in ${r.countdown} season${r.countdown === 1 ? "" : "s"}!`, invasion: `${state.rome.settled ? "Settled" : "Invading"} (${districtsOf(state, "rome").length} districts)${isRomanClient(state, state.playerFactionId) ? ", you are a client" : ""}`, repulsed: "Driven into the sea" }[r.stage] || r.stage;
 }
 
 export function armiesPanel(state) {
@@ -93,6 +101,8 @@ export function diplomacyPanel(state) {
     const war = atWar(state, me, f.id);
     const ally = allied(state, me, f.id);
     const access = hasAccess(state, me, f.id);
+    const truce = inTruce(state, me, f.id) ? ` · truce until ${truceEnd(state, me, f.id)}` : "";
+    const client = isRomanClient(state, f.id) ? " · Rome's client" : "";
     const status = war ? `<b class="neg">At war</b>` : ally ? `<b class="pos">Allied</b>` : f.id === "rome" ? (state.rome.stage === "invasion" ? `<b class="neg">Invader</b>` : "Watching") : relationState(rel);
     const trade = canTrade(state, f.id);
     const btn = (action, text, extra = "", ok = true) => `<button data-action="diplo" data-faction="${f.id}" data-do="${action}" ${extra} ${ok ? "" : "disabled"}>${text}</button>`;
@@ -116,7 +126,7 @@ export function diplomacyPanel(state) {
       </div>`;
     return `<div class="faction-card" style="--fc:${f.colour}">
       <div class="fc-head"><b><i class="swatch"></i>${esc(f.name)}</b><span>${status} <small class="muted">${rel > 0 ? "+" : ""}${rel}</small></span></div>
-      <p class="muted small">${n ? `${n} district${n > 1 ? "s" : ""}` : f.id === "rome" ? "Beyond the sea" : "Landless"} · ${f.personality}${f.id === "rome" ? "" : ` · ${f.mode}`}${access && !ally ? " · grants you access" : ""}</p>
+      <p class="muted small">${n ? `${n} district${n > 1 ? "s" : ""}` : f.id === "rome" ? "Beyond the sea" : "Landless"} · ${f.personality}${f.id === "rome" ? "" : ` · ${f.mode}`}${access && !ally ? " · grants you access" : ""}${truce}${client}</p>
       <div class="buttons">${actions}</div>
       ${tradeUi}
     </div>`;
