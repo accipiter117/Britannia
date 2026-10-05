@@ -115,3 +115,9 @@ export function messageHtml(title, text) {
   return `<h2>${esc(title)}</h2><p>${esc(text)}</p><div class="choices"><button class="primary" data-action="close-modal">Continue</button></div>`;
 }
 
+
+// In-page confirmation (browser confirm() dialogs are not available everywhere the game runs).
+export function confirmHtml(title, text, attrs, yes) {
+  return `<h2>${esc(title)}</h2><p>${esc(text)}</p>
+    <div class="choices"><button class="danger" ${attrs}>${esc(yes)}</button><button data-action="close-modal">Cancel</button></div>`;
+}

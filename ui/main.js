@@ -17,7 +17,7 @@ import { factionColour, label } from "./format.js";
 import { renderHud, renderNotifications } from "./hud.js";
 import { createMap } from "./map.js";
 import { armiesPanel, diplomacyPanel, morePanel, realmPanel } from "./panels.js";
-import { endingHtml, messageHtml, pendingHtml, preBattleHtml, resultHtml, warConfirmHtml } from "./modal.js";
+import { confirmHtml, endingHtml, messageHtml, pendingHtml, preBattleHtml, resultHtml, warConfirmHtml } from "./modal.js";
 import { openBattle } from "./battleView.js";
 import { clearSave, loadGame, saveGame, saveLabel } from "./save.js";
 
@@ -252,7 +252,11 @@ const actions = {
       const [dir, resource, amount] = document.querySelector(`[data-trade="${el.dataset.faction}"]`).value.split(":");
       Object.assign(opts, { sell: dir === "sell", resource, amount: +amount });
     }
-    if (el.dataset.do === "war" && !window.confirm(`Declare war on the ${state.factions[el.dataset.faction].name}?`)) return;
+    if (el.dataset.do === "war" && !el.dataset.confirmed) {
+      return modal(confirmHtml(`Declare war on the ${state.factions[el.dataset.faction].name}?`, "Their allies may join them.",
+        `data-action="diplo" data-do="war" data-faction="${el.dataset.faction}" data-confirmed="1"`, "Declare war"));
+    }
+    ui.modal = null;
     const r = playerAction(state, el.dataset.faction, el.dataset.do, opts);
     toast(r.text);
     render();
@@ -278,8 +282,10 @@ const actions = {
     render();
     showNextPending();
   },
-  new: () => {
-    if (!window.confirm("Start a new campaign? Your current save will be replaced.")) return;
+  new: (el) => {
+    if (!el.dataset.confirmed) {
+      return modal(confirmHtml("Start a new campaign?", "Your current campaign and its save will be replaced.", 'data-action="new" data-confirmed="1"', "Start anew"));
+    }
     clearSave();
     state = createCampaign(starter);
     Object.assign(ui, { selection: null, panel: "realm", moveArmyId: null, modal: null, endingShown: false });
