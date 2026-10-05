@@ -1,495 +1,327 @@
 // ui/main.js
-// Owns app start-up and wiring: loads starter data or a save, holds UI state (selection, open
-// panel, move mode, modal, battle), routes taps and buttons to simulation functions, and
-// re-renders after every change. Game rules never live here.
+// Owns the app: loading and saving, the campaign screen (map, top bar, the host and region
+// panel), the season's flow (End Season, then Rome's attacks as decisions), and handing clashes
+// to the battle screen and back. Simulation code does the rules; this wires taps to it.
 
-import { createCampaign, dateLabel } from "../simulation/campaign.js";
-import { startBuilding, startRoad } from "../simulation/economy.js";
-import { disband, ghostsFor, mergeArmies, moveArmy, updateIntel, visibleDistricts, reachable, recruit, setStance, visibleArmies } from "../simulation/armies.js";
-import { aiResponse, resolveWithoutBattle, setupBattle } from "../simulation/engagement.js";
-import { cancelTrade, declareWar, playerAction } from "../simulation/diplomacy.js";
-import { finishBattle, resolveAllyCall, resolveDefence, resolveEnding, resolveEvent, resolveProposal, resolveSiege } from "../simulation/decisions.js";
-import { setPolicy } from "../simulation/governance.js";
-import { answerOverture } from "../simulation/overtures.js";
-import { endSeason } from "../simulation/season.js";
-import { setOrder } from "../simulation/orders.js";
-import { districtPanel, summaryCard } from "./drawer.js";
-import { armyPanel } from "./armyPanel.js";
-import { esc, factionColour, label } from "./format.js";
-import { renderHud, renderNotifications } from "./hud.js";
-import { createMap } from "./map.js";
-import { armiesPanel, diplomacyPanel, morePanel, realmPanel } from "./panels.js";
-import { confirmHtml, endingHtml, messageHtml, pendingHtml, preBattleHtml, resultHtml, warConfirmHtml } from "./modal.js";
+import { BALANCE } from "../config/balance.js";
+import {
+  armiesIn, armyMen, armyPower, createCampaign, dateLabel, deserialise, garrisonPower, neighbours, rankOf, regionsOf, seasonName, serialise,
+} from "../simulation/state.js";
+import {
+  applyBattle, canRaiseArmy, clashAt, disband, endTurn, income, moveArmy, pendingBattle, raiseArmy, recruit, recruitOptions, transfer, upgrade, upgradeCost,
+} from "../simulation/campaign.js";
+import { autoResolve } from "../simulation/battle/engine.js";
+import { createMap } from "./mapView.js";
 import { openBattle } from "./battleView.js";
-import { chronicleHtml } from "./chronicle.js";
-import { playSeason, seasonReportHtml } from "./playback.js";
-import { objectivesHtml } from "./objectivesView.js";
 import { icon, injectIconSprite } from "./icons.js";
 import { initAudio, setScene, sfx, soundOn, toggleSound } from "./audio.js";
-import { clearSave, loadGame, saveGame, saveLabel } from "./save.js";
 
+const KEY = "caledonia.save.v1";
 const $ = (id) => document.getElementById(id);
-const desktop = window.matchMedia("(min-width: 900px)");
-const sideways = window.matchMedia("(orientation: landscape) and (max-height: 520px)"); // phone on its side: no summary card
+const U = BALANCE.units;
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 
-let starter;
-let state;
-let map;
-const ui = { selection: null, panel: null, drawerOpen: false, moveArmyId: null, modal: null, battle: null };
+let data, state, map;
+const ui = { army: null, region: null, queue: [] };
 
-async function boot() {
+// ---------- start ----------
+
+async function start() {
   injectIconSprite();
-  initAudio();
-  starter = await fetch("data/starter_campaign.json").then((r) => r.json());
-  state = loadGame() || createCampaign(starter);
-  map = createMap($("map"), state, { onTap });
+  data = await (await fetch("data/caledonia.json")).json();
+  state = load() || createCampaign(data, Date.now() % 100000);
+  map = createMap($("map"), { onRegion: tapRegion, onArmy: tapArmy });
+  ui.army = state.armies.find((a) => a.faction === "picts")?.id || null;
   wire();
   render();
-  showNextPending();
+  if (!localStorage.getItem("caledonia.seenHelp")) { help(); try { localStorage.setItem("caledonia.seenHelp", "1"); } catch { /* storage blocked */ } }
+  else nextPending();
 }
 
-// ---------- rendering ----------
+function load() {
+  try { const s = localStorage.getItem(KEY); return s ? deserialise(s) : null; } catch { return null; }
+}
+function save() {
+  try { localStorage.setItem(KEY, serialise(state)); } catch { /* storage blocked: play on */ }
+}
+
+// ---------- render ----------
 
 function render() {
-  const player = state.playerFactionId;
-  if (!ui.battle) saveGame(state); // every action is kept, so a reload or update loses nothing
-  renderHud($("hud"), state);
-  renderNotifications($("notifications"), state, onNotification);
-
-  updateIntel(state, player);
-  const overlay = { highlight: ui.modal?.anchored ? ui.highlight : null, armies: visibleArmies(state, player), ghosts: ghostsFor(state, player), threats: state.pending.filter((p) => p.kind === "defend").map((p) => ({ from: p.eng.fromId, to: p.eng.districtId })) };
-  const mover = ui.moveArmyId && state.armies.find((a) => a.id === ui.moveArmyId);
-  if (mover) {
-    overlay.reach = reachable(state, mover);
-    if (ui.preview) overlay.path = overlay.reach[ui.preview.districtId]?.path;
+  save();
+  const army = state.armies.find((a) => a.id === ui.army);
+  if (!army) ui.army = null;
+  const view = { selected: ui.army, focus: ui.region };
+  if (army && army.faction === "picts" && army.moves > 0) {
+    const near = neighbours(state, army.region);
+    view.attack = near.filter((n) => clashAt(state, "picts", n));
+    view.reach = near.filter((n) => !view.attack.includes(n));
   }
-  else ui.moveArmyId = null;
-  map.render(state, ui.selection, overlay);
-  setScene(state);
-
-  document.body.classList.toggle("move-mode", !!ui.moveArmyId);
-  $("move-banner").hidden = !ui.moveArmyId;
-  ui.objOpen ??= window.innerWidth > 700;
-  $("objectives").innerHTML = objectivesHtml(state, ui.objOpen);
-  $("move-banner").innerHTML = ui.moveArmyId ? moveBanner() : "";
-  $("summary").innerHTML = desktop.matches ? "" : summaryCard(state, ui.selection);
-  $("summary").hidden = desktop.matches || !ui.selection || ui.drawerOpen || !!ui.moveArmyId;
-  document.body.classList.toggle("drawer-open", ui.drawerOpen && !ui.moveArmyId);
-  document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("on", b.dataset.panel === ui.panel && ui.drawerOpen));
-  const pend = state.pending.length;
-  $("end-season").textContent = pend ? `Decide (${pend})` : "End Season";
-  $("end-season").classList.toggle("urgent", pend > 0);
-
-  const body = $("drawer-body");
-  const scroll = body.scrollTop;
-  body.innerHTML = drawerHtml();
-  body.scrollTop = scroll;
-
-  $("modal").hidden = !ui.modal;
-  if (ui.modal) $("modal-card").innerHTML = ui.modal.html;
+  map.render(state, view);
+  hud();
+  $("panel").innerHTML = army ? armyPanel(army) : ui.region ? regionPanel(state.regions[ui.region]) : overview();
+  const romanNear = state.armies.some((a) => a.faction === "rome" && neighbours(state, a.region).some((n) => state.regions[n].owner === "picts"));
+  setScene({ season: seasonName(state), mood: regionsOf(state, "picts").length < 3 ? "crisis" : state.pending.length ? "war" : romanNear ? "tension" : "peace" });
 }
 
-function drawerHtml() {
-  const panel = ui.panel || "realm";
-  if (panel === "district" && ui.selection?.type === "district") return districtPanel(state, ui.selection.id);
-  if (panel === "army" && ui.selection?.type === "army") return armyPanel(state, ui.selection.id);
-  if (panel === "armies") return armiesPanel(state);
-  if (panel === "diplomacy") return diplomacyPanel(state);
-  if (panel === "more") return morePanel(state, saveLabel());
-  return realmPanel(state);
+function hud() {
+  const inc = income(state);
+  $("hud").innerHTML = `
+    <span class="brand">${icon("crown")} Caledonia</span>
+    <span class="silver" title="Silver: income ${inc.gross}, upkeep ${inc.upkeep}">◉ ${state.silver} <small class="${inc.net < 0 ? "neg" : "pos"}">${inc.net >= 0 ? "+" : ""}${inc.net}</small></span>
+    <span class="date">${dateLabel(state)}</span>
+    <span class="spacer"></span>
+    <button class="icon-btn" data-action="help" title="How to play">?</button>
+    <button class="icon-btn" data-action="sound" title="Sound">${icon(soundOn() ? "sound_on" : "sound_off")}</button>
+    <button class="icon-btn" data-action="menu" title="Campaign">☰</button>
+    <button id="end-turn" class="primary" data-action="end-turn">${state.pending.length ? `Rome attacks (${state.pending.length})` : "End Season"}</button>`;
 }
 
-function modal(html, extra = {}) {
-  ui.modal = { html, ...extra };
-  render();
-  $("modal").classList.toggle("anchored", !!extra.anchored);
+function overview() {
+  const hosts = state.armies.filter((a) => a.faction === "picts");
+  const inc = income(state);
+  return `<h2>The Picts</h2>
+    <p class="muted">Seven provinces of the north stand against Rome. Take Eboracum and Rome's grip on the north is broken.</p>
+    <div class="kv"><span>Provinces</span><b>${regionsOf(state, "picts").length}</b><span>Silver</span><b>${state.silver} (${inc.net >= 0 ? "+" : ""}${inc.net} a season)</b><span>Roman armies</span><b>${state.armies.filter((a) => a.faction === "rome").length}</b></div>
+    <h3>Your hosts</h3>
+    ${hosts.map((a) => `<button class="list-row" data-action="select-army" data-army="${a.id}"><b>${esc(a.name)}</b><span>${a.units.length} units · ${armyMen(a)} men · ${state.regions[a.region].name}${a.moves ? "" : " · marched"}</span></button>`).join("") || `<p class="muted">You have no host. Raise one in a province you hold.</p>`}
+    <h3>Chronicle</h3>
+    <ul class="chron">${state.log.slice(-8).reverse().map((l) => `<li class="${l.kind}">${esc(l.text)}</li>`).join("")}</ul>`;
 }
 
-function closeModal() {
-  ui.modal = null;
-  render();
-  showNextPending();
-}
-
-function showNextPending() {
-  if (ui.modal || ui.battle || ui.playing) return;
-  if (state.victory.ended && !ui.endingShown) {
-    ui.endingShown = true;
-    return modal(endingHtml(state));
+function armyPanel(a) {
+  const mine = a.faction === "picts";
+  const r = state.regions[a.region];
+  const home = r.owner === "picts";
+  const others = armiesIn(state, a.region, "picts").filter((x) => x.id !== a.id);
+  const stars = "★".repeat(a.general.rank) + "☆".repeat(3 - a.general.rank);
+  const head = `<header class="army-head ${a.faction}">
+      <h2>${esc(a.name)}</h2>
+      <p>${a.faction === "rome" ? "Legate" : "Chieftain"} ${esc(a.general.name)} <span class="stars">${stars}</span> · ${esc(r.name)}${mine ? ` · ${a.moves ? `${a.moves} march${a.moves > 1 ? "es" : ""} left` : "has marched"}` : ""}</p>
+    </header>`;
+  if (!mine) {
+    return head + `<p class="muted">About ${Math.round(armyMen(a) / 50) * 50} men in ${a.units.length} units.</p>
+      <ul class="unit-list">${a.units.map((u) => `<li class="unit-row foe"><b>${U[u.type].name}</b><span class="muted">${Math.round(u.men / 10) * 10} men</span></li>`).join("")}</ul>
+      <button data-action="deselect">Back</button>`;
   }
-  ui.highlight = null;
-  if (state.pending.length) {
-    const p = state.pending[0];
-    // decisions about a place are shown over the map, with that district lit
-    const where = p.eng?.districtId || p.ev?.districtId || p.district || p.districtId || null;
-    if (where) { ui.highlight = where; map.focus(where); }
-    modal(pendingHtml(state, p, 0), { anchored: !!where });
-  }
+  const units = a.units.map((u, i) => {
+    const rank = rankOf(u);
+    const pct = u.men / u.maxMen;
+    const canUp = home && !U[u.type].general;
+    return `<li class="unit-row">
+      <div class="unit-main"><b>${U[u.type].name}</b><span class="rank r${rank}" title="${BALANCE.ranks[rank].label}">${"▲".repeat(rank) || "·"}</span>
+        <span class="men"><i style="width:${pct * 100}%"></i></span><small>${u.men}/${u.maxMen}</small></div>
+      <div class="unit-sub">
+        <span class="pips" title="Weapons">⚔ ${"●".repeat(u.weapons)}${"○".repeat(3 - u.weapons)}</span>
+        <span class="pips" title="Armour">⛨ ${"●".repeat(u.armour)}${"○".repeat(3 - u.armour)}</span>
+        ${canUp && u.weapons < 3 ? `<button class="mini" data-action="upgrade" data-index="${i}" data-kind="weapons">+⚔ ${upgradeCost(u, "weapons")}</button>` : ""}
+        ${canUp && u.armour < 3 ? `<button class="mini" data-action="upgrade" data-index="${i}" data-kind="armour">+⛨ ${upgradeCost(u, "armour")}</button>` : ""}
+        ${others.length && !U[u.type].general ? `<button class="mini" data-action="transfer" data-index="${i}" data-to="${others[0].id}">→ ${esc(others[0].name.replace("Host of ", ""))}</button>` : ""}
+        ${!U[u.type].general ? `<button class="mini ghost" data-action="disband" data-index="${i}" title="Disband">✕</button>` : ""}
+      </div></li>`;
+  }).join("");
+  const rec = home ? recruitOptions(state, a).map((o) => `<button class="recruit ${o.ok ? "" : "off"}" data-action="recruit" data-type="${o.type}" ${o.ok ? "" : "disabled"} title="${esc(o.reason || U[o.type].desc)}">
+      <b>${U[o.type].name}</b><small>◉ ${o.cost}${o.ok ? "" : ` · ${esc(o.reason)}`}</small></button>`).join("") : "";
+  return head + `
+    <p class="hint">${a.moves ? "Tap a lit region to march there. Red means battle." : "This host has marched this season."}${home ? "" : " Far from home, it loses men each season."}</p>
+    <ul class="unit-list">${units}</ul>
+    <p class="muted small">${a.units.length}/${BALANCE.maxUnitsPerArmy} units · strength ${Math.round(armyPower(a))}${home ? " · regaining men at home" : ""}</p>
+    ${home ? `<h3>Recruit at ${esc(r.name)}</h3><div class="recruit-grid">${rec}</div>` : ""}
+    <div class="row"><button data-action="deselect">Close</button></div>`;
 }
 
-// End Season: resolve, play the season back on the board, sum it up, then the decisions.
-async function endSeasonFlow() {
-  if (ui.playing) return;
-  if (state.pending.length) return showNextPending();
-  Object.assign(ui, { moveArmyId: null, preview: null });
-  const player = state.playerFactionId;
-  const before = { resources: { ...state.factions[player].resources } };
-  const visible = visibleDistricts(state, player);
-  endSeason(state);
-  saveGame(state);
-  visibleDistricts(state, player).forEach((d) => visible.add(d));
-  sfx(state.notifications.some((n) => n.level === "critical") ? "alert" : "season");
-  ui.playing = { skip: false };
-  document.body.classList.add("playing");
-  $("playback").hidden = false;
-  await playSeason(state, map, visible, ui.playing);
-  ui.playing = null;
-  document.body.classList.remove("playing");
-  $("playback").hidden = true;
-  render();
-  modal(seasonReportHtml(state, before));
+function regionPanel(r) {
+  const owner = state.factions[r.owner];
+  const hosts = state.armies.filter((a) => a.region === r.id);
+  const raise = r.owner === "picts" ? canRaiseArmy(state, r.id) : null;
+  const walls = r.walls ? (r.owner === "rome" ? "Roman fort: a siege to take it" : "Walled oppidum: a siege to take it") : "Open ground";
+  return `<header class="army-head ${r.owner}"><h2>${esc(r.name)}</h2><p>${owner.name} · ${r.terrain} · ${r.settlement}${r.capital ? " · capital" : ""}</p></header>
+    <div class="kv"><span>Defences</span><b>${walls}</b>
+      <span>Garrison</span><b>${r.garrison.length ? r.garrison.map((u) => U[u.type].name).join(", ") : "none"}</b>
+      ${r.owner !== "picts" ? `<span>Defence</span><b>${Math.round(garrisonPower(r) + hosts.filter((a) => a.faction === r.owner).reduce((n, a) => n + armyPower(a), 0))}</b>` : ""}
+      ${r.fortAt ? `<span>Rome</span><b class="neg">raising a fort</b>` : ""}</div>
+    ${hosts.map((a) => `<button class="list-row" data-action="select-army" data-army="${a.id}"><b>${esc(a.name)}</b><span>${a.units.length} units · ${armyMen(a)} men</span></button>`).join("")}
+    ${raise ? `<button class="primary" data-action="raise" ${raise.ok ? "" : "disabled"}>Raise a host here (◉ ${BALANCE.newArmyCost})</button>${raise.ok ? "" : `<p class="muted small">${esc(raise.reason)}</p>`}` : ""}
+    <div class="row"><button data-action="deselect">Close</button></div>`;
 }
 
-// ---------- map input ----------
+// ---------- taps ----------
 
-function onTap(target) {
-  if (ui.playing) { ui.playing.skip = true; return; }
-  if (ui.moveArmyId) return moveTap(target);
-  const same = target && ui.selection && target.type === ui.selection.type && target.id === ui.selection.id;
-  if (!target) {
-    ui.selection = null;
-    ui.drawerOpen = false;
-    if (desktop.matches) ui.panel = "realm";
-  } else if (same) {
-    ui.panel = target.type;
-    ui.drawerOpen = true; // tap selected = drawer
-  } else {
-    ui.selection = target;
-    ui.panel = target.type;
-    ui.drawerOpen = desktop.matches || sideways.matches; // portrait phones show the summary card first
-    $("drawer-body").scrollTop = 0;
-  }
+function tapArmy(id) {
+  const a = state.armies.find((x) => x.id === id);
+  if (ui.army && ui.army !== id && a.faction !== "picts") return tapRegion(a.region);
+  ui.army = ui.army === id ? null : id;
+  ui.region = null;
   render();
 }
 
-// Move mode: the first tap on a destination previews the route and its cost; a second tap
-// on the same district (or the March button) commits.
-function moveTap(target) {
-  const armyId = ui.moveArmyId;
-  // tapping an army marker means its district
-  if (target?.type === "army") target = { type: "district", id: state.armies.find((a) => a.id === target.id)?.districtId };
-  const army = state.armies.find((a) => a.id === armyId);
-  if (!target || target.type !== "district" || !target.id || target.id === army.districtId) {
-    Object.assign(ui, { moveArmyId: null, preview: null });
+function tapRegion(id) {
+  const army = state.armies.find((a) => a.id === ui.army && a.faction === "picts");
+  if (army && army.moves > 0 && neighbours(state, army.region).includes(id)) {
+    const clash = clashAt(state, "picts", id);
+    if (clash) return confirmAttack(army, clash);
+    moveArmy(state, army.id, id);
+    sfx("march");
     return render();
   }
-  const route = reachable(state, army)[target.id];
-  if (!route) { toast("Out of reach this season"); return render(); }
-  if (ui.preview?.districtId !== target.id) {
-    ui.preview = { districtId: target.id };
-    return render();
-  }
-  commitMove();
-}
-
-function commitMove() {
-  const armyId = ui.moveArmyId, districtId = ui.preview?.districtId;
-  Object.assign(ui, { moveArmyId: null, preview: null });
-  if (!armyId || !districtId) return render();
-  const army = state.armies.find((a) => a.id === armyId);
-  const route = reachable(state, army)[districtId];
-  if (route?.kind === "blocked") return modal(warConfirmHtml(state, state.districts[districtId].owner, armyId, districtId));
-  doMove(armyId, districtId);
-}
-
-function moveBanner() {
-  const army = state.armies.find((a) => a.id === ui.moveArmyId);
-  if (!army) return "";
-  const route = ui.preview && reachable(state, army)[ui.preview.districtId];
-  if (!route) return `<span>${icon("move")} Choose where the ${esc(army.name)} marches (${army.movesLeft} movement left). Red means battle.</span><button data-action="cancel-move">Cancel</button>`;
-  const to = state.districts[ui.preview.districtId].name;
-  const what = route.kind === "attack" ? `Attack ${esc(to)}` : route.kind === "blocked" ? `Declare war and march on ${esc(to)}` : `March to ${esc(to)}`;
-  return `<span><b>${what}</b> · ${route.path.length - 1} step${route.path.length > 2 ? "s" : ""}, ${route.cost} movement</span>
-    <button class="primary" data-action="commit-move">${route.kind === "move" ? "March" : "Attack"}</button><button data-action="cancel-move">Cancel</button>`;
-}
-
-async function doMove(armyId, districtId) {
-  const route = reachable(state, state.armies.find((a) => a.id === armyId))[districtId];
-  const r = moveArmy(state, armyId, districtId);
-  if (!r.ok) { toast(r.reason); return render(); }
-  ui.selection = { type: "army", id: armyId };
-  ui.panel = "army";
-  sfx("march");
-  // the host marches across the board, stopping short of an enemy it means to attack
-  const steps = r.engagement ? route.path.slice(0, -1) : route.path;
-  ui.animating = true;
-  await map.animateArmy(armyId, steps);
-  ui.animating = false;
-  if (r.engagement) return playerAttack(r.engagement);
-  toast(`Marched to ${state.districts[state.armies.find((a) => a.id === armyId).districtId].name}`);
-  saveGame(state);
+  ui.region = ui.region === id && !ui.army ? null : id;
+  ui.army = null;
   render();
 }
 
-// The player attacks: the defender chooses a response, then the player fights or auto-resolves.
-function playerAttack(eng) {
-  const response = aiResponse(state, eng);
-  const quiet = resolveWithoutBattle(state, eng, response === "none" ? "none" : response);
-  if (quiet) {
-    saveGame(state);
-    return modal(messageHtml("The march", quiet));
-  }
-  startBattleChoice(setupBattle(state, eng, response, "attacker"));
+function confirmAttack(army, clash) {
+  const r = state.regions[clash.regionId];
+  const theirs = clash.armies.reduce((n, a) => n + armyPower(a), 0) + garrisonPower({ ...r, garrison: clash.garrison });
+  const ours = armyPower(army);
+  const odds = ours / Math.max(1, theirs);
+  const word = odds > 1.6 ? "Overwhelming" : odds > 1.15 ? "Favourable" : odds > 0.85 ? "Even" : odds > 0.6 ? "Unfavourable" : "Desperate";
+  modal(`<h2>${icon("sword")} ${clash.siege ? "Besiege" : "Attack"} ${esc(r.name)}?</h2>
+    <p>${clash.armies.length ? `${clash.armies.map((a) => esc(a.name)).join(" and ")} (${clash.armies.reduce((n, a) => n + a.units.length, 0)} units)` : ""}${clash.armies.length && clash.garrison.length ? " with " : ""}${clash.garrison.length ? `a garrison of ${clash.garrison.length}` : ""} hold${clash.armies.length + (clash.garrison.length ? 1 : 0) > 1 ? "" : "s"} ${esc(r.name)}.${clash.siege ? " Behind walls: batter the gate or climb, then hold the centre." : ""}</p>
+    <p class="odds">Odds: <b>${word}</b></p>
+    <div class="choices"><button class="primary" data-action="attack-fight">Lead the attack</button><button data-action="attack-auto">Auto-resolve</button><button data-action="close-modal">Not yet</button></div>`);
+  ui.attack = { armyId: army.id, to: clash.regionId };
 }
 
-function startBattleChoice(battle) {
-  ui.pendingBattle = battle;
-  modal(preBattleHtml(state, battle));
-}
+// ---------- battles ----------
 
-function fight() {
-  const battle = ui.pendingBattle;
-  ui.modal = null;
-  ui.battle = battle;
-  render();
-  const colours = {
-    attacker: factionColour(state, battle.sides.attacker.factionId),
-    defender: factionColour(state, battle.sides.defender.factionId),
-  };
+function fight(battle, auto) {
+  const before = snapshot(battle);
+  closeModal();
+  if (auto) { autoResolve(battle); return finish(battle, before); }
   sfx("battle");
-  openBattle($("battle"), battle, colours, (b, auto) => {
-    ui.battle = null;
-    afterBattle(finishBattle(state, b, auto));
-  }, { onClash: () => sfx("clash") });
+  $("toast").hidden = true;
+  document.body.classList.add("in-battle");
+  openBattle($("battle"), battle, {
+    factions: { attacker: battle.sides.attacker.faction, defender: battle.sides.defender.faction },
+    sfx,
+    onEnd: (b, autoNow) => { document.body.classList.remove("in-battle"); if (autoNow && !b.over) autoResolve(b); finish(b, before); },
+  });
 }
 
-function afterBattle(result) {
-  ui.pendingBattle = null;
-  sfx(result.winner === state.playerFactionId ? "victory" : result.loser === state.playerFactionId ? "defeat" : "battle");
-  saveGame(state);
-  modal(resultHtml(result, state));
+function snapshot(b) {
+  return b.units.filter((u) => u.side === b.playerSide).map((u) => ({ id: u.id, name: U[u.type].name, men: u.men, rank: u.rank, ref: u.ref }));
 }
 
-function onNotification(n) {
-  if (n.districtId) select({ type: "district", id: n.districtId }, { open: desktop.matches });
-}
-
-function select(target, { open = true, focus = true } = {}) {
-  ui.selection = target;
-  ui.panel = target.type;
-  ui.drawerOpen = open;
-  $("drawer-body").scrollTop = 0;
-  if (focus && target.type === "district") map.focus(target.id);
-  if (focus && target.type === "army") map.focus(state.armies.find((a) => a.id === target.id).districtId);
+function finish(b, before) {
+  const res = applyBattle(state, b);
+  sfx(res.won ? "victory" : "defeat");
+  const rows = before.map((x) => {
+    const u = b.units.find((y) => y.id === x.id);
+    const left = Math.round(u.men);
+    return `<tr><td>${x.name}</td><td>${Math.round(x.men)}</td><td class="${left < x.men ? "neg" : ""}">${left}</td></tr>`;
+  }).join("");
+  const killed = b.units.filter((u) => u.side !== b.playerSide).reduce((n, u) => n + (u.start - u.men), 0);
+  modal(`<h2>${icon(res.won ? "trophy" : "skull")} ${res.won ? "Victory" : "Defeat"}</h2>
+    <p>${esc(b.result.reason)}${b.sides[b.playerSide].generalSlain ? " Your chieftain fell in the fighting." : ""}${b.sides[b.playerSide === "attacker" ? "defender" : "attacker"].generalSlain ? " The enemy general is dead." : ""}</p>
+    <p class="muted">Enemy losses: about ${Math.round(killed / 10) * 10} men.</p>
+    <table class="results"><tr><th>Unit</th><th>Before</th><th>After</th></tr>${rows}</table>
+    <div class="choices"><button class="primary" data-action="close-modal">Continue</button></div>`, { after: nextPending });
+  ui.army = state.armies.find((a) => b.clash.attackerIds.includes(a.id) && a.faction === "picts")?.id || ui.army;
   render();
 }
 
-// ---------- buttons ----------
+// Rome's attacks queued at End Season, one decision at a time.
+function nextPending() {
+  if (state.over) return gameOver();
+  const p = state.pending[0];
+  if (!p) return render();
+  const battle = pendingBattle(state, p);
+  if (!battle) { state.pending.shift(); render(); return nextPending(); }
+  const r = state.regions[p.regionId];
+  const att = state.armies.find((a) => a.id === p.attackerIds[0]);
+  const defenders = armiesIn(state, r.id, "picts");
+  sfx("alert");
+  ui.region = r.id; ui.army = null;
+  render();
+  modal(`<h2>${icon("eagle")} ${esc(att.name)} marches on ${esc(r.name)}!</h2>
+    <p>${att.units.length} Roman units under ${esc(att.general.name)}. ${defenders.length ? `${defenders.map((a) => esc(a.name)).join(" and ")} stand${defenders.length > 1 ? "" : "s"} to meet them` : r.garrison.length ? `Only the local militia (${r.garrison.length} units) stands in the way` : "No one stands in the way"}${r.walls ? ", behind the walls of the oppidum" : ""}.</p>
+    <div class="choices"><button class="primary" data-action="pending-fight">Take command</button><button data-action="pending-auto">Auto-resolve</button></div>`);
+  ui.pendingBattle = battle;
+}
+
+function gameOver() {
+  modal(`<h2>${icon(state.over.won ? "crown" : "candle")} ${state.over.won ? "The north is free" : "The north has fallen"}</h2><p>${esc(state.over.text)}</p>
+    <div class="choices"><button class="primary" data-action="new">New campaign</button><button data-action="close-modal">Look at the map</button></div>`);
+}
+
+// ---------- modal ----------
+
+let modalAfter = null;
+function modal(html, opts = {}) {
+  $("modal-card").innerHTML = html;
+  $("modal").hidden = false;
+  modalAfter = opts.after || null;
+}
+function closeModal() {
+  $("modal").hidden = true;
+  const after = modalAfter;
+  modalAfter = null;
+  if (after) after();
+}
+
+function help() {
+  modal(`<h2>${icon("scroll")} Caledonia</h2>
+    <p>You lead the Picts of the north. Rome holds the south and its legions are coming. Take <b>Eboracum</b> to break Rome's grip; lose every province and the north is Rome's.</p>
+    <ul class="help">
+      <li><b>The map:</b> tap your host, then a lit region to march (one region a season; all-horse hosts two). Red regions mean battle; walls mean a siege.</li>
+      <li><b>Silver</b> comes from your provinces each season. Recruit and upgrade in your own land. Hosts far from home lose men; at home they regain them.</li>
+      <li><b>Battles:</b> drag your units into place, then begin. Tap a unit to select, tap ground to march, drag to march and face, tap an enemy to attack. Use formations: shield wall against horse and arrows, wedge to charge.</li>
+      <li><b>Win battles</b> by hitting flanks and rears, charging downhill, and ambushing from woods. Your chieftain's War Cry, Rally and Fury can turn a fight.</li>
+      <li><b>Sieges:</b> batter the gate or climb the walls, then hold the centre.</li>
+    </ul>
+    <div class="choices"><button class="primary" data-action="close-modal">To war</button></div>`, { after: nextPending });
+}
+
+// ---------- actions ----------
 
 const actions = {
-  open: () => { ui.drawerOpen = true; ui.panel = ui.selection.type; render(); },
-  "open-build": () => {
-    actions.open();
-    document.getElementById("build")?.scrollIntoView({ block: "start" });
-  },
-  build: (el) => {
-    const r = startBuilding(state, state.playerFactionId, el.dataset.district, el.dataset.building);
-    if (r.ok) sfx("build");
-    toast(r.ok ? `${label(el.dataset.building)} ordered at ${state.districts[el.dataset.district].name}` : r.reason);
+  "end-turn": () => {
+    if (state.pending.length) return nextPending();
+    if (state.over) return gameOver();
+    const notes = endTurn(state);
+    sfx("season");
+    ui.region = null;
     render();
+    toast(notes.slice(-1)[0]);
+    nextPending();
   },
-  road: (el) => {
-    const r = startRoad(state, state.playerFactionId, +el.dataset.connection);
-    if (r.ok) sfx("build");
-    toast(r.ok ? "Road ordered" : r.reason);
-    render();
-  },
-  recruit: (el) => {
-    const r = recruit(state, state.playerFactionId, el.dataset.district, el.dataset.type);
-    if (r.ok) sfx("recruit");
-    toast(r.ok ? `${label(el.dataset.type)} raised at ${state.districts[el.dataset.district].name}` : r.reason);
-    render();
-  },
-  "move-mode": () => {
-    const id = ui.selection?.type === "army" ? ui.selection.id : null;
-    if (!id) return;
-    ui.moveArmyId = id;
-    ui.drawerOpen = desktop.matches;
-    render();
-  },
-  "cancel-move": () => { Object.assign(ui, { moveArmyId: null, preview: null }); render(); },
-  "commit-move": () => commitMove(),
-  stance: (el) => { setStance(state, el.dataset.army, el.dataset.stance); render(); },
-  order: (el) => {
-    const r = setOrder(state, el.dataset.army, el.dataset.order || null, el.dataset.target || null);
-    if (!r.ok) toast(r.reason);
-    else sfx("march");
-    render();
-  },
-  disband: (el) => {
-    const r = disband(state, el.dataset.army, el.dataset.type);
-    toast(r.ok ? `${r.n} ${label(el.dataset.type)} ${r.home ? "sent home to the land" : "disbanded"}` : r.reason);
-    if (!state.armies.some((a) => a.id === el.dataset.army)) { ui.selection = null; ui.panel = "armies"; }
-    render();
-  },
-  merge: (el) => { mergeArmies(state, el.dataset.into, el.dataset.from); toast("Armies merged"); render(); },
-  policy: (el) => { setPolicy(state, state.playerFactionId, el.dataset.district, el.dataset.policy); render(); },
-  "select-district": (el) => select({ type: "district", id: el.dataset.district }),
-  "select-army": (el) => select({ type: "army", id: el.dataset.army }),
-  diplo: (el) => {
-    const opts = {};
-    if (el.dataset.do === "trade") {
-      const [dir, resource, amount] = document.querySelector(`[data-trade="${el.dataset.faction}"]`).value.split(":");
-      Object.assign(opts, { sell: dir === "sell", resource, amount: +amount });
-    }
-    if (el.dataset.do === "war" && !el.dataset.confirmed) {
-      return modal(confirmHtml(`Declare war on the ${state.factions[el.dataset.faction].name}?`, "Their allies may join them.",
-        `data-action="diplo" data-do="war" data-faction="${el.dataset.faction}" data-confirmed="1"`, "Declare war"));
-    }
-    ui.modal = null;
-    const r = playerAction(state, el.dataset.faction, el.dataset.do, opts);
-    toast(r.text);
-    render();
-  },
-  "cancel-trade": (el) => { cancelTrade(state, +el.dataset.index); render(); },
-  "war-and-move": (el) => {
-    declareWar(state, state.playerFactionId, el.dataset.faction);
-    ui.modal = null;
-    doMove(el.dataset.army, el.dataset.district);
-  },
-  decide: (el) => decide(el.dataset.kind, el.dataset.value, +el.dataset.index),
-  "battle-fight": fight,
-  "battle-auto": () => { ui.modal = null; afterBattle(finishBattle(state, ui.pendingBattle, true)); },
+  "select-army": (el) => { ui.army = el.dataset.army; ui.region = null; render(); },
+  deselect: () => { ui.army = null; ui.region = null; render(); },
+  recruit: (el) => { const r = recruit(state, ui.army, el.dataset.type); if (r.ok) sfx("recruit"); else toast(r.reason); render(); },
+  upgrade: (el) => { const r = upgrade(state, ui.army, +el.dataset.index, el.dataset.kind); if (r.ok) sfx("build"); else toast(r.reason); render(); },
+  disband: (el) => { disband(state, ui.army, +el.dataset.index); render(); },
+  transfer: (el) => { transfer(state, ui.army, +el.dataset.index, el.dataset.to); render(); },
+  raise: () => { const r = raiseArmy(state, ui.region); if (r.ok) { ui.army = r.army.id; ui.region = null; sfx("recruit"); } else toast(r.reason); render(); },
+  "attack-fight": () => { const m = moveArmy(state, ui.attack.armyId, ui.attack.to); if (m.battle) fight(m.battle, false); else closeModal(); },
+  "attack-auto": () => { const m = moveArmy(state, ui.attack.armyId, ui.attack.to); if (m.battle) fight(m.battle, true); else closeModal(); },
+  "pending-fight": () => { state.pending.shift(); fight(ui.pendingBattle, false); },
+  "pending-auto": () => { state.pending.shift(); fight(ui.pendingBattle, true); },
   "close-modal": closeModal,
-  "toggle-objectives": () => { ui.objOpen = !ui.objOpen; render(); },
-  "skip-playback": () => { if (ui.playing) ui.playing.skip = true; },
-  ending: () => modal(endingHtml(state)),
-  "open-chronicle": () => { ui.chronicle = "all"; renderChronicle(); },
-  "chronicle-filter": (el) => { ui.chronicle = el.dataset.filter; renderChronicle(); },
-  "close-chronicle": () => { ui.chronicle = null; renderChronicle(); },
-  save: () => { toast(saveGame(state) ? "Saved" : "Could not save: storage is blocked"); render(); },
-  load: () => {
-    const s = loadGame();
-    if (!s) return toast("No save found");
-    state = s;
-    Object.assign(ui, { selection: null, moveArmyId: null, modal: null });
-    toast(`Loaded ${dateLabel(state)}`);
-    render();
-    showNextPending();
+  help,
+  sound: () => { initAudio(); toggleSound(); render(); },
+  menu: () => modal(`<h2>Campaign</h2><p>${dateLabel(state)} · the game saves itself after every action.</p>
+    <div class="choices"><button data-action="new">Start a new campaign</button><button data-action="close-modal">Back</button></div>`),
+  new: () => {
+    modal(`<h2>Start again?</h2><p>This campaign will be lost.</p><div class="choices"><button class="danger" data-action="new-confirm">Start a new campaign</button><button data-action="close-modal">Keep playing</button></div>`);
   },
-  new: (el) => {
-    if (!el.dataset.confirmed) {
-      return modal(confirmHtml("Start a new campaign?", "Your current campaign and its save will be replaced.", 'data-action="new" data-confirmed="1"', "Start anew"));
-    }
-    clearSave();
-    state = createCampaign(starter);
-    Object.assign(ui, { selection: null, panel: "realm", moveArmyId: null, modal: null, endingShown: false });
-    map.reset();
-    render();
-  },
+  "new-confirm": () => { state = createCampaign(data, Date.now() % 100000); ui.army = state.armies.find((a) => a.faction === "picts").id; ui.region = null; closeModal(); render(); },
 };
-
-function decide(kind, value, index) {
-  const p = state.pending[index];
-  if (!p) return closeModal();
-  ui.modal = null;
-  if (kind === "defend") {
-    const r = resolveDefence(state, p, value);
-    if (r.battle) return startBattleChoice(r.battle);
-    saveGame(state);
-    return modal(messageHtml("The defence", r.text));
-  }
-  if (kind === "siege") {
-    const r = resolveSiege(state, p, value);
-    if (r.eng) return playerAttack(r.eng);
-    saveGame(state);
-    return modal(messageHtml("The siege", r.text));
-  }
-  if (kind === "ally") resolveAllyCall(state, p, value);
-  if (kind === "proposal") resolveProposal(state, p, value === "yes");
-  if (kind === "event") resolveEvent(state, p, +value);
-  if (kind === "overture") answerOverture(state, p, value);
-  if (kind === "ending") {
-    resolveEnding(state, p, value === "end");
-    if (value === "end") { saveGame(state); ui.endingShown = true; return modal(endingHtml(state)); }
-  }
-  saveGame(state);
-  closeModal();
-}
 
 function wire() {
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-action]");
     if (el && !el.disabled && actions[el.dataset.action]) actions[el.dataset.action](el);
   });
-
-  $("nav").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-panel]");
-    if (!b) return;
-    const again = ui.drawerOpen && ui.panel === b.dataset.panel;
-    ui.panel = b.dataset.panel;
-    ui.drawerOpen = desktop.matches || !again;
-    ui.moveArmyId = null;
-    $("drawer-body").scrollTop = 0;
-    render();
-  });
-
-  $("end-season").addEventListener("click", endSeasonFlow);
-
-  $("sound-toggle").onclick = () => { toggleSound(); paintSoundButton(); };
-  paintSoundButton();
-  $("zoom-in").onclick = () => map.zoomBy(0.75);
-  $("zoom-out").onclick = () => map.zoomBy(1.33);
-  $("zoom-reset").onclick = () => map.reset();
-  $("drawer-close").onclick = () => { ui.drawerOpen = false; render(); };
-  desktop.addEventListener("change", render);
-  sideways.addEventListener("change", render);
-  wireSwipe();
+  document.addEventListener("pointerdown", () => initAudio(), { once: true });
 }
 
-// Swipe the drawer down to close it (mobile). Only starts when the content is scrolled to the top.
-function wireSwipe() {
-  const drawer = $("drawer");
-  let startY = null;
-  drawer.addEventListener("touchstart", (e) => {
-    startY = $("drawer-body").scrollTop <= 0 ? e.touches[0].clientY : null;
-  }, { passive: true });
-  drawer.addEventListener("touchmove", (e) => {
-    if (startY === null) return;
-    const dy = e.touches[0].clientY - startY;
-    drawer.style.transform = dy > 0 ? `translateY(${dy}px)` : "";
-  }, { passive: true });
-  drawer.addEventListener("touchend", (e) => {
-    if (startY === null) return;
-    const dy = e.changedTouches[0].clientY - startY;
-    drawer.style.transform = "";
-    startY = null;
-    if (dy > 80 && !desktop.matches) { ui.drawerOpen = false; render(); }
-  });
-}
-
-function paintSoundButton() {
-  const b = $("sound-toggle");
-  b.innerHTML = icon(soundOn() ? "sound_on" : "sound_off");
-  b.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on");
-}
-
-function renderChronicle() {
-  const el = $("chronicle-view");
-  el.hidden = !ui.chronicle;
-  el.innerHTML = ui.chronicle ? chronicleHtml(state, ui.chronicle) : "";
-}
-
-let toastTimer;
+let toastTimer = 0;
 function toast(text) {
-  const el = $("toast");
-  el.textContent = text;
-  el.classList.add("show");
+  if (!text) return;
+  $("toast").textContent = text;
+  $("toast").hidden = false;
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+  toastTimer = setTimeout(() => { $("toast").hidden = true; }, 2600);
 }
 
-boot().catch((err) => {
-  document.body.innerHTML = `<p style="padding:1rem">Britannia failed to start: ${err.message}</p>`;
-  console.error(err);
-});
+start();

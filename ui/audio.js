@@ -4,10 +4,7 @@
 // tension, war, crisis); short effects for building, recruiting, marching, battle and the
 // turning season. Starts muted; the speaker button turns it on (browsers need a tap first).
 
-import { atWar } from "../simulation/diplomacy.js";
-import { districtsOf, seasonName } from "../simulation/campaign.js";
-
-const PREF = "britannia.sound";
+const PREF = "caledonia.sound";
 let ctx = null, master = null, musicBus = null, ambBus = null;
 let enabled = false;
 let mood = "peace", season = "Spring";
@@ -85,14 +82,8 @@ function noiseLayer(freq, type, q) {
 
 // ---------- scene ----------
 
-export function setScene(state) {
-  const fid = state.playerFactionId;
-  const nextSeason = seasonName(state);
-  const atWarNow = Object.keys(state.factions).some((o) => o !== fid && !state.factions[o].defeated && atWar(state, fid, o) &&
-    state.armies.some((a) => a.factionId === o));
-  const starving = state.factions[fid].lastFoodStatus === "starving" || !districtsOf(state, fid).length;
-  const next = starving ? "crisis" : atWarNow || state.pending.some((p) => p.kind === "defend") ? "war"
-    : ["warning", "invasion"].includes(state.rome.stage) ? "tension" : "peace";
+// scene: { season: "Spring"..., mood: "peace" | "tension" | "war" | "crisis" }
+export function setScene({ season: nextSeason, mood: next }) {
   if (next !== mood) {
     mood = next;
     if (ctx) musicBus.gain.setTargetAtTime(MOODS[mood].vol, ctx.currentTime, 1.5);
