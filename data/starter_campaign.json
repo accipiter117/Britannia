@@ -1,0 +1,255 @@
+{
+  "campaign": {
+    "year": 1,
+    "season": "Spring",
+    "phase": "Celtic Age"
+  },
+  "resources": [
+    "population",
+    "food",
+    "timber",
+    "materials",
+    "wealth"
+  ],
+  "districts": [
+    {
+      "id": "dunarraidh",
+      "region": "western_highlands",
+      "terrain": "hills",
+      "special": [
+        "ancient_hillfort"
+      ],
+      "owner": null,
+      "population": 1200
+    },
+    {
+      "id": "strath_mor",
+      "region": "western_highlands",
+      "terrain": "fertile",
+      "special": [
+        "river"
+      ],
+      "owner": "strath_mor",
+      "population": 3100
+    },
+    {
+      "id": "coille_dubh",
+      "region": "western_highlands",
+      "terrain": "forest",
+      "special": [
+        "dense_forest"
+      ],
+      "owner": "strath_mor",
+      "population": 2400
+    },
+    {
+      "id": "loch_abar",
+      "region": "western_highlands",
+      "terrain": "hills",
+      "special": [
+        "iron_deposit"
+      ],
+      "owner": "dun_fhada",
+      "population": 2200
+    },
+    {
+      "id": "dun_fhada",
+      "region": "western_highlands",
+      "terrain": "hills",
+      "special": [
+        "hillfort"
+      ],
+      "owner": "dun_fhada",
+      "population": 2800
+    },
+    {
+      "id": "avon_vale",
+      "region": "southern_lowlands",
+      "terrain": "fertile",
+      "special": [
+        "river"
+      ],
+      "owner": "southern_league",
+      "population": 3000
+    },
+    {
+      "id": "caer_bryn",
+      "region": "southern_lowlands",
+      "terrain": "hills",
+      "special": [
+        "ancient_hillfort"
+      ],
+      "owner": "southern_league",
+      "population": 2000
+    },
+    {
+      "id": "white_harbour",
+      "region": "southern_lowlands",
+      "terrain": "coast",
+      "special": [
+        "natural_harbour"
+      ],
+      "owner": null,
+      "population": 1800
+    },
+    {
+      "id": "fenmere",
+      "region": "southern_lowlands",
+      "terrain": "marsh",
+      "special": [
+        "river_crossing"
+      ],
+      "owner": null,
+      "population": 1400
+    },
+    {
+      "id": "old_road",
+      "region": "southern_lowlands",
+      "terrain": "plains",
+      "special": [
+        "roman_road"
+      ],
+      "owner": null,
+      "population": 1200
+    }
+  ],
+  "connections": [
+    [
+      "dunarraidh",
+      "coille_dubh"
+    ],
+    [
+      "dunarraidh",
+      "strath_mor"
+    ],
+    [
+      "strath_mor",
+      "coille_dubh"
+    ],
+    [
+      "strath_mor",
+      "dun_fhada"
+    ],
+    [
+      "coille_dubh",
+      "loch_abar"
+    ],
+    [
+      "loch_abar",
+      "dun_fhada"
+    ],
+    [
+      "dun_fhada",
+      "caer_bryn"
+    ],
+    [
+      "caer_bryn",
+      "avon_vale"
+    ],
+    [
+      "caer_bryn",
+      "fenmere"
+    ],
+    [
+      "avon_vale",
+      "white_harbour"
+    ],
+    [
+      "white_harbour",
+      "fenmere"
+    ],
+    [
+      "white_harbour",
+      "old_road"
+    ],
+    [
+      "fenmere",
+      "old_road"
+    ]
+  ],
+  "factions": [
+    {
+      "id": "dun_fhada",
+      "name": "Dun Fhada Confederation",
+      "culture": "celtic",
+      "player": true
+    },
+    {
+      "id": "strath_mor",
+      "name": "Strath Mor Kingdom",
+      "culture": "celtic",
+      "player": false
+    },
+    {
+      "id": "southern_league",
+      "name": "Southern League",
+      "culture": "celtic",
+      "player": false
+    },
+    {
+      "id": "rome",
+      "name": "Rome",
+      "culture": "roman",
+      "player": false
+    }
+  ],
+  "armies": [
+    {
+      "id": "western_host",
+      "name": "Western Host",
+      "factionId": "dun_fhada",
+      "districtId": "dun_fhada",
+      "formations": [
+        [
+          "levies",
+          400
+        ],
+        [
+          "warriors",
+          200
+        ],
+        [
+          "skirmishers",
+          100
+        ]
+      ]
+    },
+    {
+      "id": "strath_host",
+      "name": "Strath Host",
+      "factionId": "strath_mor",
+      "districtId": "strath_mor",
+      "formations": [
+        [
+          "levies",
+          500
+        ],
+        [
+          "warriors",
+          200
+        ]
+      ]
+    },
+    {
+      "id": "southern_host",
+      "name": "Southern Host",
+      "factionId": "southern_league",
+      "districtId": "caer_bryn",
+      "formations": [
+        [
+          "levies",
+          400
+        ],
+        [
+          "warriors",
+          250
+        ]
+      ]
+    }
+  ],
+  "roman_invasion": {
+    "stage": "consolidation",
+    "countdown": 4,
+    "entryDistrict": "old_road"
+  }
+}

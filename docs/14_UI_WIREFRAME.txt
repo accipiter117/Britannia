@@ -1,0 +1,39 @@
+BRITANNIA — SIMPLE WIREFRAME
+
+DESKTOP
+┌─────────────────────────────────────────────────────────────────────┐
+│ FACTION | POP | FOOD | TIMBER | MATERIALS | WEALTH | YEAR/SEASON  │
+├───────────────────────────────────────────────────────────────┬─────┤
+│                                                               │     │
+│                         MAP                                   │     │
+│                                                               │DIST │
+│  District polygons / settlements / roads / armies             │RICT │
+│                                                               │DRAW │
+│                                                               │ER   │
+├───────────────────────────────────────────────────────────────┴─────┤
+│ Notifications                                         END SEASON   │
+└─────────────────────────────────────────────────────────────────────┘
+
+MOBILE
+┌───────────────────────┐
+│ POP FOOD MAT WEALTH   │
+│ Year / Season         │
+├───────────────────────┤
+│                       │
+│         MAP           │
+│                       │
+│  Districts / Armies   │
+│                       │
+├───────────────────────┤
+│ Selected object       │
+│ Summary               │
+│ [BUILD] [MOVE] [MORE] │
+│                       │
+│ END SEASON            │
+└───────────────────────┘
+
+Tap select.
+Tap selected object = drawer.
+Drag = pan.
+Pinch = zoom.
+Swipe drawer = close.
