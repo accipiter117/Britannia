@@ -49,7 +49,7 @@ export function districtPanel(state, id) {
         <span>${ICON.population} Population</span><b>${num(d.population)}</b>
         <span>Workforce</span><b>${num(workforce(d))}${prod.workforceMult < 1 ? ` <small class="neg">(${Math.round(prod.workforceMult * 100)}% output)</small>` : ""}</b>
         <span>Food eaten</span><b>${num(eat)} /season</b>
-        <span>Culture</span><b>${label(d.culture)}</b>
+        <span>Culture</span><b>${d.culture.celtic}% Celtic${d.culture.roman ? `, ${d.culture.roman}% Roman` : ""}</b>
         ${d.garrison ? `<span>Militia</span><b>${d.garrison.levies} levies, ${d.garrison.stance}</b>` : ""}
       </div>
       ${d.garrison ? `<p class="hint">Neutral. Can only be taken by military occupation (armies arrive in M4).</p>` : ""}

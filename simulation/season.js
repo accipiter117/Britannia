@@ -1,12 +1,20 @@
 // simulation/season.js
-// Owns End Season resolution, in the fixed order from CLAUDE.md. Steps not yet built are
-// marked with the milestone that adds them. No DOM; returns notifications for the UI.
+// Owns End Season resolution, in the fixed order from CLAUDE.md. Steps 1 to 5 and 16 live here;
+// the rest call into their own system files. No DOM; returns notifications for the UI.
 
 import { BALANCE } from "../config/balance.js";
 import { chronicleEntry, dateLabel, districtsOf, seasonName } from "./campaign.js";
 import {
   RESOURCES, armyUpkeep, districtConsumption, factionProduction, settlementTier, storageCaps,
 } from "./economy.js";
+import { resetMovement } from "./armies.js";
+import { resolveRecovery, resolveSupply } from "./supply.js";
+import { resolveDiplomacy, resolveTrade } from "./diplomacy.js";
+import { resolveAI } from "./ai.js";
+import { resolveGovernance, resolveRegions, checkEliminations } from "./governance.js";
+import { resolveEvents } from "./events.js";
+import { resolveRome } from "./rome.js";
+import { resolveVictory } from "./victory.js";
 
 const label = (id) => id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -19,11 +27,21 @@ export function endSeason(state) {
   for (const fid of playing) resolveEconomy(state, ctx, fid);       // 2 production, 3 consumption
   for (const fid of playing) resolvePopulation(state, ctx, fid);    // 4
   for (const fid of playing) resolveArmyUpkeep(state, ctx, fid);    // 5
-  // 6 supply, 7 army recovery: M4. 8 trade, 9 diplomacy: M6. 10 AI: M5.
-  // 11 rebellions: M9. 12 events, 13 Rome: M8. 14 region/control: M9-M10.
+  resolveSupply(state, ctx.notes, season);                          // 6
+  resolveRecovery(state, ctx.notes);                                // 7
+  resolveTrade(state, ctx.notes);                                   // 8
+  resolveDiplomacy(state);                                          // 9
+  resolveAI(state, ctx.notes);                                      // 10
+  resolveGovernance(state, ctx.notes);                              // 11
+  resolveEvents(state, ctx.notes, season);                          // 12
+  resolveRome(state, ctx.notes);                                    // 13
+  resolveRegions(state, ctx.notes);                                 // 14
+  checkEliminations(state);
+  resolveVictory(state, ctx.notes);
   const before = dateLabel(state);
   state.chronicle.push(...ctx.chronicle.map((t) => ({ ...chronicleEntry(state, t), date: before }))); // 15
   advanceSeason(state);                                             // 16
+  resetMovement(state);
 
   ctx.notes.push(note("info", `${dateLabel(state)} begins.`));
   const order = { critical: 0, important: 1, info: 2 };
@@ -127,6 +145,7 @@ function resolvePopulation(state, ctx, fid) {
 // ---------- 5. Army upkeep (affordability only; supply is M4) ----------
 
 function resolveArmyUpkeep(state, ctx, fid) {
+  if (fid === "rome") return; // the legions are paid from Gaul
   const upkeep = armyUpkeep(state, fid);
   if (!upkeep.food && !upkeep.wealth) return;
   const res = state.factions[fid].resources;

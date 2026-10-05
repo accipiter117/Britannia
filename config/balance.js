@@ -109,6 +109,20 @@ export const BALANCE = {
   },
   recruitCostWealthPer100: { levies: 20, warriors: 80, skirmishers: 50 },
   recruitBatch: 100,
+  // Warriors are professionals: total Warriors across the realm cannot exceed the sum of
+  // settlement militaryCapacity plus building militaryCapacity in owned districts.
+  professionalFormations: ["warriors"],
+
+  army: {
+    startMorale: 70,
+    maxMorale: 100,
+    defaultCommander: "Average",
+    startingCommanders: { western_host: "Skilled", strath_host: "Average", southern_host: "Average" },
+    maxArmiesPerFaction: 4,
+    fatigueRecoveryPerSeason: 20,
+    unpaidMoralePenalty: 10,        // per season of unpaid upkeep (food or wealth)
+    visibilityRange: 1,             // connections from owned districts and armies that a faction can see
+  },
 
   movement: {
     basePoints: 3,
@@ -156,9 +170,24 @@ export const BALANCE = {
     },
     flankMultiplier: 1.3,
     rearMultiplier: 1.6,
-    casualtyRatePerTick: 0.015,
+    casualtyRatePerTick: 0.006,
+    effectivenessExponent: 0.6,     // casualties scale with (attack/defence)^this, softening one-sided fights
+    engagedMoralePerTick: 0.3,      // morale drain while in melee, scaled by enemy/own effectiveness
+    moraleFactorMin: 0.5,           // power multiplier at 0 morale (1.0 at start morale)
+    skirmisherRange: 2,             // ranged formations attack from this many cells
+    rangedDamageMult: 0.6,          // ranged attacks inflict less than melee
+    pursuitLossPct: 0.2,            // routed troops lost to pursuit after the battle
+    maxBlocksPerSide: 24,           // larger armies use bigger blocks
+    ambushMoraleHit: 10,            // attacker morale loss when ambushed
+    objectiveRadius: 1,             // defensive battle: cells around the objective that count as held
+    objectiveCaptureSeconds: 15,    // attackers holding the objective uncontested this long win
+    fortifiedRadius: 2,             // fortification and hillfort bonuses apply this close to the objective
+    rallyMorale: 20,                // routed units that survive rallyDelaySeconds return at this morale
+    speeds: [1, 2, 4],              // playback speed options (ticks per second multiplier)
+
     morale: { start: 70, normal: 50, shaken: 30, breaking: 15, routed: 0 },
     moraleLoss: { per10PctCasualties: 8, flanked: 10, nearbyRout: 12, commanderDeath: 20, fatiguePer20: 5 },
+    routPanicRadius: 1,             // a routing block shakes friends this close
     rallyDelaySeconds: 30,  // routed units cannot rejoin before this
     experience: {
       Green:    { power: 1.0,  moraleLossMult: 1.0,  next: 2 },  // battles needed to advance
@@ -185,6 +214,12 @@ export const BALANCE = {
     declareWar: -50,
     borderArmyPenalty: -3,  // per season with armies next to their territory
     decayToNeutralPerSeason: 2,
+    accessMinRelation: 30,          // military access granted above this
+    limitedAssistanceWealth: 100,   // "limited assistance" to an ally sends this much Wealth
+    peaceStrengthRatio: 0.7,        // a faction this much weaker than its enemy accepts peace
+    tradeAmounts: [50, 100, 200],   // per-season trade agreement sizes offered in the UI
+    tributeAmount: 100,             // Wealth, Food or Materials sent as tribute
+    battleRelationPenalty: -10,
   },
 
   // ---------- AI ----------
@@ -197,6 +232,9 @@ export const BALANCE = {
       distance: -0.6, defence: -1.0, supplyDifficulty: -0.7, diplomaticRisk: -0.5,
     },
     attackStrengthRatio: 1.3,     // only attacks with this strength advantage
+    earliestWarSeason: 7,
+    peacetimeArmsRatio: 1.1,      // in PROSPER, match the strongest visible rival by this much (x personality expand)         // AI will not declare war on a Celtic faction before this season
+    loyaltyForAutonomy: 40,       // AI switches conquered districts to Autonomy below this loyalty
     personalities: {
       Warrior:     { expand: 1.3, prosper: 0.8, prefers: ["hills", "chokepoint"] },
       Trader:      { expand: 0.8, prosper: 1.3, prefers: ["coast", "river", "market"] },
@@ -226,6 +264,11 @@ export const BALANCE = {
     rebelArmyPctOfPop: 0.1,
     maxEmergentFactions: 2,
     garrisonBonus: 2,  // loyalty per season while garrisoned
+    unrestOutputMult: 0.75,      // production while loyalty is below `unrest`
+    starvingLoyalty: -5,         // per season the owner's people starve
+    integratedTarget: 80,        // integrated districts drift back towards this loyalty
+    integratedDrift: 2,
+    rebelColour: "#5c7d5a",
   },
 
   // ---------- REGIONS ----------

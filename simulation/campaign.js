@@ -5,7 +5,7 @@
 import { BALANCE } from "../config/balance.js";
 import { foodStorageCap } from "./economy.js";
 
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export function createCampaign(data) {
   const factions = {};
@@ -19,6 +19,10 @@ export function createCampaign(data) {
       resources: { food: 0, timber: 0, materials: 0, wealth: 0 },
       starvingSeasons: 0,
       lastFoodStatus: "stable",
+      personality: BALANCE.ai.factionPersonalities[f.id] || "Defender",
+      mode: "PROSPER",       // AI priority this season (M5)
+      memory: { threat: {}, battles: [] },
+      emergent: false,       // rebel factions born in play (M9)
     };
   }
 
@@ -33,7 +37,11 @@ export function createCampaign(data) {
       owner: d.owner,
       population: d.population,
       basePopulation: d.population, // workforce reference: production only scales down below this
-      culture: "celtic",
+      culture: { celtic: 100, roman: 0 }, // percentage shares; shifts slowly under Integrate (M9)
+      stage: "Integrated",   // Occupied / Administered / Integrated (M9)
+      stageSeasons: 0,
+      loyalty: d.owner ? 80 : 60,
+      policy: "Integrate",
       buildings: [],
       construction: [], // { building, progress }
       garrison: d.owner ? null : { ...BALANCE.neutralGarrison },
@@ -52,14 +60,15 @@ export function createCampaign(data) {
     districts,
     connections: data.connections.map(([a, b]) => ({ a, b, road: false, roadProgress: null, roadOwner: null })),
     factions,
-    armies: data.armies.map((a) => ({
-      id: a.id,
-      name: a.name,
-      factionId: a.factionId,
-      districtId: a.districtId,
-      formations: a.formations.map(([type, troops]) => ({ type, troops })),
-    })),
-    romanInvasion: { ...data.roman_invasion },
+    armies: data.armies.map((a) => newArmy(a.id, a.name, a.factionId, a.districtId,
+      a.formations.map(([type, troops]) => ({ type, troops })),
+      BALANCE.army.startingCommanders[a.id] || BALANCE.army.defaultCommander)),
+    diplomacy: { relations: {}, wars: [], alliances: [], access: [], trades: [] },
+    pending: [],          // decisions waiting for the player (defence choices, alliance calls, events)
+    events: [],           // ongoing event effects { kind, districtId, factionId, until }
+    rome: { stage: data.roman_invasion.stage, countdown: null, nextReinforcement: null },
+    victory: { offered: false, ended: false, score: {} },
+    nextId: 1,
     notifications: [],
     chronicle: [],
   };
@@ -74,8 +83,29 @@ export function createCampaign(data) {
     f.resources.wealth = start.wealth;
   }
 
-  state.chronicle.push(chronicleEntry(state, "The Chronicle begins. Three Celtic peoples share the land; rumours speak of Rome across the sea."));
+  state.chronicle.push(chronicleEntry(state, "The Chronicle begins. Three Celtic peoples share the land; rumours speak of Rome across the sea.", "FOUNDING"));
   return state;
+}
+
+export function newArmy(id, name, factionId, districtId, formations, commander = BALANCE.army.defaultCommander) {
+  return {
+    id, name, factionId, districtId,
+    formations: formations.map((f) => ({ type: f.type, troops: f.troops, max: f.max ?? f.troops })),
+    morale: BALANCE.army.startMorale,
+    fatigue: 0,
+    experience: "Green",
+    battles: 0,
+    commander,
+    stance: "Normal",
+    movesLeft: BALANCE.movement.basePoints,
+    supply: "Well Supplied",
+    unpaid: [],
+    holdSeasons: 0,
+  };
+}
+
+export function uid(state, prefix) {
+  return `${prefix}_${state.nextId++}`;
 }
 
 export function seasonName(state) {
@@ -86,8 +116,23 @@ export function dateLabel(state) {
   return `Year ${state.year} ${seasonName(state)}`;
 }
 
-export function chronicleEntry(state, text) {
-  return { turn: state.turn, date: dateLabel(state), text };
+// type is one of the Chronicle categories: FOUNDING, BATTLE, VICTORY, DEFEAT, SETTLEMENT_FOUNDED,
+// SETTLEMENT_DESTROYED, FACTION_DEFEATED, ALLIANCE, REBELLION, INVASION, COMMANDER_DEATH,
+// MAJOR_DISASTER, HISTORICAL_DIVERGENCE, or LOG for everyday entries.
+export function chronicleEntry(state, text, type = "LOG") {
+  return { turn: state.turn, date: dateLabel(state), text, type };
+}
+
+export function addChronicle(state, text, type = "LOG") {
+  state.chronicle.push(chronicleEntry(state, text, type));
+}
+
+export function armyTroops(army) {
+  return army.formations.reduce((n, f) => n + f.troops, 0);
+}
+
+export function armiesIn(state, districtId, factionId = null) {
+  return state.armies.filter((a) => a.districtId === districtId && (!factionId || a.factionId === factionId));
 }
 
 export function districtsOf(state, factionId) {

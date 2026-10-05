@@ -4,6 +4,7 @@
 
 import { BALANCE } from "../config/balance.js";
 import { districtsOf, seasonName } from "./campaign.js";
+import { governanceMultiplier, regionBonus } from "./governance.js";
 
 export const RESOURCES = ["food", "timber", "materials", "wealth"];
 
@@ -52,12 +53,27 @@ export function districtProduction(state, district, season = seasonName(state)) 
 
   const mod = BALANCE.seasonModifiers[season];
   const wf = workforceMultiplier(district);
+  const gov = district.owner ? governanceMultiplier(district) : 1;
+  const region = district.owner ? regionBonus(state, district.owner, district.region).wealth || 0 : 0;
+  const events = eventMultipliers(state, district, season);
   const total = zero();
   for (const r of RESOURCES) {
     const seasonMult = r === "food" ? mod.foodProduction : mod.production;
-    total[r] = Math.round((base[r] + fromBuildings[r]) * seasonMult * wf);
+    const extra = (r === "wealth" ? 1 + region : 1) * (events[r] ?? 1);
+    total[r] = Math.round((base[r] + fromBuildings[r]) * seasonMult * wf * gov * extra);
   }
-  return { total, base, buildings: fromBuildings, seasonMult: { food: mod.foodProduction, other: mod.production }, workforceMult: wf };
+  return { total, base, buildings: fromBuildings, seasonMult: { food: mod.foodProduction, other: mod.production }, workforceMult: wf, governanceMult: gov, regionWealth: region, events };
+}
+
+// Ongoing event effects (harvest failure, mine collapse) on one district's output.
+function eventMultipliers(state, district, season) {
+  const out = {};
+  for (const e of state.events || []) {
+    if (e.districtId !== district.id) continue;
+    if (e.kind === "harvestFailure" && BALANCE.events.harvestFailure.seasons.includes(season)) out.food = BALANCE.events.harvestFailure.foodMultiplier;
+    if (e.kind === "mineCollapse") out.materials = BALANCE.events.mineCollapse.materialsMultiplier;
+  }
+  return out;
 }
 
 export function factionProduction(state, factionId, season) {
