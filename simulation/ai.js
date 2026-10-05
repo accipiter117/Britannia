@@ -108,7 +108,8 @@ function economy(state, fid, view) {
   const wishes = [];
   if (hungry || view.fc.season === "Autumn") wishes.push("farm", "farm");
   if (view.fc.season === "Summer" || view.fc.season === "Autumn") wishes.push("granary");
-  if (pers === "Trader") wishes.push("market");
+  if (pers === "Trader") wishes.push("market", "harbour");
+  if (districtsOf(state, fid).some((d) => d.loyalty < 50)) wishes.push("sacred_site");
   if (pers === "Warrior" || state.factions[fid].mode === "EXPAND") wishes.push("warrior_hall");
   if (state.factions[fid].mode === "SURVIVE") wishes.push("fortification");
   wishes.push("farm", "market", "mine", "timber_camp", "workshop");

@@ -41,6 +41,7 @@ export function createCampaign(data) {
       stage: "Integrated",   // Occupied / Administered / Integrated (M9)
       stageSeasons: 0,
       loyalty: d.owner ? 80 : 60,
+      prosperity: d.owner ? BALANCE.prosperity.start : BALANCE.prosperity.neutralStart,
       policy: "Integrate",
       buildings: [],
       construction: [], // { building, progress }
@@ -155,6 +156,7 @@ export function deserialise(json) {
   if (!state || state.version !== SAVE_VERSION) throw new Error("Save is from a different version");
   // older saves of this version: events engine v2 and modifiers
   state.modifiers ||= [];
+  for (const d of Object.values(state.districts)) d.prosperity ??= BALANCE.prosperity.start;
   state.events = (state.events || []).filter((e) => e.def);
   state.pending = (state.pending || []).filter((p) => p.kind !== "event" || p.def);
   return state;

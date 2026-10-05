@@ -10,7 +10,7 @@ export const SEASON_ICON = { Spring: icon("spring", "season"), Summer: icon("sum
 export const TIER_ICON = set(["village", "town", "major_town"].map((t) => [t, t]));
 export const NEUTRAL_COLOUR = "#9d9784";
 
-export const BUILDING_ICON = set(["farm", "granary", "timber_camp", "mine", "workshop", "warrior_hall", "fortification", "market", "supply_depot"].map((b) => [b, b]));
+export const BUILDING_ICON = set(["farm", "granary", "timber_camp", "mine", "workshop", "warrior_hall", "fortification", "market", "supply_depot", "harbour", "sacred_site"].map((b) => [b, b]));
 
 export const label = (id) => id.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
@@ -36,6 +36,8 @@ export function effectText(effect) {
   if (effect.defence) parts.push(`+${Math.round(effect.defence * 100)}% defence when holding`);
   if (effect.enablesTrade) parts.push("Enables trade agreements");
   if (effect.supplyRange) parts.push(`Supplies armies one district further`);
+  if (effect.loyalty) parts.push(`+${effect.loyalty} loyalty/season here`);
+  if (effect.prosperity) parts.push(`+${effect.prosperity} prosperity/season`);
   return parts.join(" · ");
 }
 

@@ -44,6 +44,11 @@ export function workforceMultiplier(district) {
 
 // ---------- Production ----------
 
+export function prosperityMult(district) {
+  const P = BALANCE.prosperity;
+  return P.wealthMin + ((district.prosperity ?? P.start) / 100) * P.wealthSpan;
+}
+
 // Returns { total, base, buildings, seasonMult, workforceMult } for the given season (defaults to current).
 export function districtProduction(state, district, season = seasonName(state)) {
   const base = { ...zero(), ...pick(BALANCE.terrainProduction[district.terrain]) };
@@ -60,7 +65,7 @@ export function districtProduction(state, district, season = seasonName(state)) 
   const total = zero();
   for (const r of RESOURCES) {
     const seasonMult = r === "food" ? mod.foodProduction : mod.production;
-    const extra = (r === "wealth" ? 1 + region : 1) * (events[r] ?? 1);
+    const extra = (r === "wealth" ? (1 + region) * prosperityMult(district) : 1) * (events[r] ?? 1);
     total[r] = Math.round((base[r] + fromBuildings[r]) * seasonMult * wf * gov * extra);
   }
   return { total, base, buildings: fromBuildings, seasonMult: { food: mod.foodProduction, other: mod.production }, workforceMult: wf, governanceMult: gov, regionWealth: region, events };
@@ -156,6 +161,7 @@ export function canBuild(state, factionId, districtId, buildingId) {
   const fail = (reason) => ({ ok: false, reason, cost });
   if (d.owner !== factionId) return fail("Not your district");
   if (def.requiresTerrain && !def.requiresTerrain.includes(d.terrain)) return fail(`Requires ${def.requiresTerrain.join(" or ")} terrain`);
+  if (def.requiresCoast && d.terrain !== "coast" && !d.special.includes("natural_harbour")) return fail("Requires a coast or natural harbour");
   const count = d.buildings.filter((b) => b === buildingId).length + d.construction.filter((c) => c.building === buildingId).length;
   if (def.maxPerDistrict && count >= def.maxPerDistrict) return fail("Already built here");
   if (usedSlots(d) >= totalSlots(d)) return fail("No free development slots");

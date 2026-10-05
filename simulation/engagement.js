@@ -127,6 +127,7 @@ export function applyBattle(state, battle) {
   const factions = { attacker: eng.attackerFactionId, defender: battle.sides.defender.factionId };
   const lost = { attacker: 0, defender: 0 };
   const d = state.districts[eng.districtId];
+  d.lastBattleTurn = state.turn;
 
   // write surviving troops back to each army
   const touched = new Set();

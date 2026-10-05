@@ -38,6 +38,8 @@ const SYMBOLS = {
   warrior_hall: `<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z" ${S}/><path d="M12 8v7M9 11.5h6" ${S}/>`,
   fortification: `<path d="M3 20h18M4 20v-9l2-2 2 2v-2l2-2 2 2v-2l2-2 2 2v2l2-2 2 2v9" ${S}/><path d="M10 20v-4h4v4" ${S}/>`,
   market: `<path d="M12 4v16M8 20h8M5 7h14M5 7l-2 6h4zM19 7l-2 6h4z" ${S}/>`,
+  harbour: `<path d="M12 4v14M8 7h8M5 13q0 6 7 6t7-6M3 13h4M17 13h4" ${S}/><circle cx="12" cy="4" r="1.5" ${S}/>`,
+  sacred_site: `<path d="M6 20V9M18 20V9M4 9h16M12 20v-7" ${S}/><circle cx="12" cy="10" r="2" ${S}/><path d="M4 20h16" ${S}/>`,
   supply_depot: `<path d="M4 9l8-4 8 4v9l-8 4-8-4z" ${S}/><path d="M4 9l8 4 8-4M12 13v9" ${S}/>`,
   // navigation and actions
   realm: `<path d="M4 17l2-9 4 4 2-6 2 6 4-4 2 9z" ${S}/><path d="M4 20h16" ${S}/>`,
