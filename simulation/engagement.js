@@ -42,12 +42,15 @@ export function defenceOptions(state, eng) {
   const terrain = state.districts[eng.districtId].terrain;
   const dug = def.armies.some((a) => a.dugAt === eng.districtId && a.districtId === eng.districtId);
   const canRetreat = def.armies.length && def.armies.every((a) => retreatTarget(state, a, eng.fromId));
-  return [
+  const opts = [
     { id: "intercept", label: "Intercept", ok: here.length + near.length > 0, armyIds: [...here, ...near], reason: "No army in or beside the district", hint: "Meet them in the open before they arrive. Armies from neighbouring districts can join." },
     { id: "hold", label: "Hold Position", ok: here.length > 0, armyIds: here, reason: "No army in the district", hint: `Defend the district's stronghold. Fortifications and hillforts help; hold until nightfall to win.${dug ? ` Your host is dug in: defence ×${1 + BALANCE.orders.dig.defence}.` : ""}` },
     { id: "ambush", label: "Ambush", ok: here.length > 0 && AMBUSH_TERRAIN.includes(terrain), armyIds: here, reason: here.length ? "Needs forest, hills or marsh" : "No army in the district", hint: "Strike from cover: the enemy starts shaken and closer." },
     { id: "withdraw", label: "Withdraw", ok: !!canRetreat, armyIds: here, reason: here.length ? "Nowhere safe to fall back" : "No army to withdraw", hint: "Fall back to a neighbouring friendly district. The district is lost for now." },
   ];
+  // nothing can answer in time (e.g. the hosts have since marched away): the district must yield
+  if (!opts.some((o) => o.ok)) opts.push({ id: "yield", label: "Yield", ok: true, armyIds: [], hint: "No host can reach it in time. The district falls." });
+  return opts;
 }
 
 function fortification(state, districtId) {
@@ -243,7 +246,7 @@ export function resolveEngagementAuto(state, eng) {
 // the district simply falls. Returns { pending } or { text }.
 export function engagePlayer(state, eng) {
   const opts = defenceOptions(state, eng);
-  if (!opts.some((o) => o.ok)) return { text: resolveWithoutBattle(state, eng, "none") };
+  if (!opts.some((o) => o.ok && o.id !== "yield")) return { text: resolveWithoutBattle(state, eng, "none") };
   state.pending.push({ kind: "defend", eng });
   return { pending: true };
 }

@@ -17,6 +17,7 @@ import { aiGovern } from "./governance.js";
 import { inTruce, resolveOvertures } from "./overtures.js";
 import { canOrder, orderOf, raidTargets, setOrder } from "./orders.js";
 import { chance } from "./random.js";
+import { marchOnRival, resolveRivalry } from "./rivalry.js";
 
 const A = BALANCE.ai;
 
@@ -33,6 +34,7 @@ export function resolveAI(state, notes) {
     orders(state, f.id, view);
     diplomacy(state, f.id, view);
   }
+  resolveRivalry(state, notes);
   resolveOvertures(state);
 }
 
@@ -184,14 +186,13 @@ function military(state, fid, view, notes) {
     setStance(state, army.id, "Aggressive");
     const r = moveArmy(state, army.id, t.districtId);
     if (!r.ok || !r.engagement) return;
-    const eng = r.engagement;
-    if (playerDefends(state, eng)) {
-      const out = engagePlayer(state, eng);
-      notes.push({ level: "critical", text: out.pending ? `${army.name} of ${f.name} marches on ${state.districts[t.districtId].name}! Choose your response.` : out.text, districtId: t.districtId });
-    } else {
-      const text = resolveEngagementAuto(state, eng);
-      if (visibleToPlayer(state, t.districtId)) notes.push({ level: "important", text, districtId: t.districtId });
-    }
+    settle(state, f, army, r.engagement, notes);
+    return;
+  }
+  // at war with a kingdom out of reach: march toward it through any land we may cross
+  const march = marchOnRival(state, fid);
+  if (march) {
+    if (march.engagement) settle(state, f, state.armies.find((a) => a.id === march.engagement.armyIds[0]), march.engagement, notes);
     return;
   }
   // PROSPER: armies drift home and stand easy
@@ -227,6 +228,17 @@ export function orders(state, fid, view) {
     } else if (a.morale < 50 && state.districts[a.districtId].owner === fid) {
       setOrder(state, a.id, "rest");
     }
+  }
+}
+
+function settle(state, f, army, eng, notes) {
+  const where = state.districts[eng.districtId].name;
+  if (playerDefends(state, eng)) {
+    const out = engagePlayer(state, eng);
+    notes.push({ level: "critical", text: out.pending ? `${army.name} of ${f.name} marches on ${where}! Choose your response.` : out.text, districtId: eng.districtId });
+  } else {
+    const text = resolveEngagementAuto(state, eng);
+    if (visibleToPlayer(state, eng.districtId)) notes.push({ level: "important", text, districtId: eng.districtId });
   }
 }
 

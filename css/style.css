@@ -417,3 +417,20 @@ button.wide { width: 100%; margin-top: 10px; }
 @keyframes bob { 0%, 100% { translate: 0 0; rotate: -1.5deg; } 50% { translate: 0 4px; rotate: 1.5deg; } }
 .castra rect { fill: none; stroke: #a3242b; stroke-width: 5; stroke-dasharray: 3 3; opacity: 0.85; }
 .castra .gate { stroke: #f2cf5b; stroke-width: 6; }
+
+/* ---------- objectives card ---------- */
+#objectives { position: absolute; left: 10px; top: 10px; z-index: 4; max-width: min(310px, calc(100% - 70px)); background: rgba(24, 27, 22, 0.92); border: 1px solid #5c5340; border-radius: 10px; color: #f4ecd4; box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
+#objectives:empty { display: none; }
+body.move-mode #objectives, body.playing #objectives { display: none; }
+#objectives .obj-head { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; color: inherit; padding: 8px 10px; font: inherit; cursor: pointer; text-align: left; }
+#objectives .obj-head b { color: #e6c766; text-transform: uppercase; letter-spacing: 0.06em; font-size: 12px; }
+#objectives .obj-head small { color: #a99f84; margin-left: auto; }
+#objectives .obj-head .ico { width: 18px; height: 18px; color: #e6c766; }
+#objectives ul { list-style: none; margin: 0; padding: 0 8px 8px; display: grid; gap: 6px; }
+#objectives li { display: flex; gap: 8px; align-items: flex-start; padding: 6px; border-radius: 6px; background: rgba(255,255,255,0.03); cursor: pointer; }
+#objectives li:hover { background: rgba(255,255,255,0.07); }
+#objectives li b { display: block; font-size: 13px; }
+#objectives li small { display: block; color: #b7ad92; font-size: 12px; line-height: 1.35; }
+#objectives li.ready small { color: #9fd38a; }
+#objectives .obj-box { flex: none; width: 18px; height: 18px; border: 1.5px solid #8d8268; border-radius: 4px; display: grid; place-items: center; font-size: 13px; color: #1d1b16; margin-top: 1px; }
+#objectives li.ready .obj-box { background: #8fc27a; border-color: #8fc27a; }
