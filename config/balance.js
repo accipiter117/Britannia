@@ -105,7 +105,7 @@ export const BALANCE = {
     levies:      { strength: 1.0, food: 10, wealth: 2,  requires: null },
     warriors:    { strength: 2.0, food: 10, wealth: 8,  requires: "warrior_hall" },
     skirmishers: { strength: 1.2, food: 10, wealth: 6,  requires: null, ranged: true },
-    legionaries: { strength: 3.0, food: 12, wealth: 10, romanOnly: true },
+    legionaries: { strength: 2.5, food: 12, wealth: 10, romanOnly: true },
   },
   recruitCostWealthPer100: { levies: 20, warriors: 80, skirmishers: 50 },
   recruitBatch: 100,
@@ -177,11 +177,11 @@ export const BALANCE = {
     skirmisherRange: 2,             // ranged formations attack from this many cells
     rangedDamageMult: 0.6,          // ranged attacks inflict less than melee
     pursuitLossPct: 0.2,            // routed troops lost to pursuit after the battle
-    maxBlocksPerSide: 24,           // larger armies use bigger blocks
+    maxBlocksPerSide: 14,           // larger armies use bigger blocks, so numbers count on a 12-wide field
     ambushMoraleHit: 10,            // attacker morale loss when ambushed
     objectiveRadius: 1,             // defensive battle: cells around the objective that count as held
     objectiveCaptureSeconds: 15,    // attackers holding the objective uncontested this long win
-    fortifiedRadius: 2,             // fortification and hillfort bonuses apply this close to the objective
+    fortifiedRadius: 3,             // fortification and hillfort bonuses apply this close to the objective
     rallyMorale: 20,                // routed units that survive rallyDelaySeconds return at this morale
     speeds: [1, 2, 4],              // playback speed options (ticks per second multiplier)
 

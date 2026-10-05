@@ -92,6 +92,8 @@ Session 3 changes (recovery and fairness):
 - Disband (army drawer, −100 per formation): cuts upkeep; troops return to the district's population if it is yours.
 - Trade no longer needs a Market; without one the price is cut by `noMarketRate` (sell for half, buy at double).
 
+- Rome rebalanced (session 3): legionary strength 2.5 (from 3.0); battles cap at `maxBlocksPerSide` 14 so big armies form bigger blocks and numbers count on the 12-wide field; defenders in a Hold battle stay on their walls, the stronghold holds while any defender stands within `fortifiedRadius` (3), and walls reduce defenders' morale loss. Measured: Rome's 700 beats a single 700 host every time; 1,000 Celts behind hillfort plus Fortification beat it 8/10; 2,000 Celts beat Rome's 1,100 in the open 7/10.
+
 Testing:
 - `node tools/smartbot.mjs [seeds] [seasons]` plays the player's side sensibly and reports how the Confederation fares. Use it after balance changes.
 - `node tools/sim20.mjs [seasons]` plays the whole loop in Node with AI, events and Rome, round-tripping the save each season.

@@ -171,9 +171,9 @@ export function tick(battle) {
     const before = t.troops;
     t.troops = Math.max(0, t.troops - lost);
     const pctLost = (before - t.troops) / t.start;
-    t.morale -= (pctLost / 0.1) * B.moraleLoss.per10PctCasualties * moraleMult(t);
+    t.morale -= (pctLost / 0.1) * B.moraleLoss.per10PctCasualties * moraleMult(t, battle);
     const pressure = attackers.reduce((n, a) => n + attackEff(battle, a) * a.troops, 0) / Math.max(1, defenceEff(battle, t) * t.troops);
-    t.morale -= B.engagedMoralePerTick * Math.min(3, Math.pow(pressure, B.effectivenessExponent)) * moraleMult(t);
+    t.morale -= B.engagedMoralePerTick * Math.min(3, Math.pow(pressure, B.effectivenessExponent)) * moraleMult(t, battle);
     if (attackers.length > 1 && !t.flankedHit) { t.morale -= B.moraleLoss.flanked * moraleMult(t); t.flankedHit = true; }
   }
   // melee is mutual: an engaged unit also feels pressure from whoever it is fighting (handled above per target)
@@ -238,8 +238,10 @@ function goalFor(battle, u, target) {
   }
   if (o.kind === "hold") return null;
   if (!target) return null;
-  // AI defenders in a defensive battle wait near the objective until the enemy is close
-  if (o.kind === "auto" && battle.type === "defensive" && u.side === "defender" && dist(u, target) > 4) {
+  // AI defenders in a defensive battle stay on their walls: they only strike at enemies who
+  // come within the fortified ground, and otherwise fall back to it
+  if (o.kind === "auto" && battle.type === "defensive" && u.side === "defender") {
+    if (dist(target, battle.objective) <= B.fortifiedRadius + 1) return openCellNear(battle, u, target) || target;
     return dist(u, battle.objective) > B.fortifiedRadius ? battle.objective : null;
   }
   // skirmishers keep their distance
@@ -294,8 +296,9 @@ function range(u) {
   return BALANCE.formations[u.type].ranged ? B.skirmisherRange : 1;
 }
 
-function moraleMult(u) {
-  return B.experience[u.experience].moraleLossMult;
+function moraleMult(u, battle) {
+  const walls = battle && u.side === "defender" && battle.objective && dist(u, battle.objective) <= B.fortifiedRadius ? 1 + battle.fortification : 1;
+  return B.experience[u.experience].moraleLossMult / walls; // walls steady the nerves
 }
 
 function common(battle, u) {
@@ -333,8 +336,9 @@ function checkEnd(battle) {
   if (!alive("attacker")) return end("defender", "The attackers broke");
   if (!alive("defender")) return end("attacker", "The defenders broke");
   if (battle.objective) {
-    const near = (side) => battle.units.some((u) => u.side === side && ACTIVE(u) && dist(u, battle.objective) <= B.objectiveRadius);
-    battle.captureTimer = near("attacker") && !near("defender") ? battle.captureTimer + B.tickSeconds : 0;
+    const near = (side, r) => battle.units.some((u) => u.side === side && ACTIVE(u) && dist(u, battle.objective) <= r);
+    // the stronghold holds while any defender still stands on the fortified ground
+    battle.captureTimer = near("attacker", B.objectiveRadius) && !near("defender", B.fortifiedRadius) ? battle.captureTimer + B.tickSeconds : 0;
     if (battle.captureTimer >= B.objectiveCaptureSeconds) return end("attacker", "The attackers took the stronghold");
     if (battle.time >= B.defensiveTimerSeconds) return end("defender", "The defenders held until nightfall");
   }
