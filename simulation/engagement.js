@@ -10,6 +10,7 @@ import { armyStrength, garrisonStrength, removeEmptyArmies } from "./armies.js";
 import { atWar, changeRelation, hasAccess } from "./diplomacy.js";
 import { captureDistrict, checkEliminations } from "./governance.js";
 import { autoResolve, createBattle } from "./battle.js";
+import { beginSiege, militia, wallsBonus, wouldBesiege } from "./siege.js";
 
 const AMBUSH_TERRAIN = ["forest", "marsh", "hills"];
 const name = (state, fid) => (fid ? state.factions[fid].name : "the local militia");
@@ -21,6 +22,8 @@ export function attackers(state, eng) {
 // Armies in the district at war with the attacker, plus militia in a neutral district.
 export function defendersOf(state, eng) {
   const d = state.districts[eng.districtId];
+  // storming a besieged town: its people man the walls
+  if (eng.storm) return { factionId: d.owner, armies: armiesIn(state, d.id).filter((a) => a.factionId === d.owner), garrison: militia(d) };
   const armies = armiesIn(state, eng.districtId).filter((a) => atWar(state, a.factionId, eng.attackerFactionId));
   const factionId = armies[0]?.factionId ?? d.owner;
   return { factionId, armies: armies.filter((a) => a.factionId === factionId), garrison: !d.owner && !armies.length && d.garrison ? d.garrison.levies : 0 };
@@ -72,7 +75,7 @@ export function setupBattle(state, eng, response, playerSide = null) {
   const battle = createBattle(d, {
     attacker: { factionId: eng.attackerFactionId, armies: attackers(state, eng) },
     defender: { factionId: def.factionId, armies: defArmies, garrison: def.garrison },
-  }, { type, ambush: response === "ambush", fortification: type === "defensive" ? fortification(state, d.id) : 0, playerSide, seed: state.turn });
+  }, { type, ambush: response === "ambush", fortification: eng.storm ? wallsBonus(state, d, eng.attackerFactionId) : type === "defensive" ? fortification(state, d.id) : 0, playerSide, seed: state.turn });
   battle.engagement = eng;
   battle.response = response;
   battle.defenderArmyIds = defArmies.map((a) => a.id);
@@ -101,12 +104,13 @@ export function resolveWithoutBattle(state, eng, response) {
     // another hostile faction may still stand in the district: then the attacker waits
     if (defendersOf(state, eng).armies.length) return `${name(state, def.factionId)} fell back from ${d.name}, but others still hold it.`;
     advanceInto(state, eng);
-    return `${name(state, def.factionId)} fell back from ${d.name}.`;
+    return `${name(state, def.factionId)} fell back from ${d.name}.${d.siege ? " The town shuts its gates for a siege." : ""}`;
   }
   // interceptors from a neighbouring district fight even if the district itself is empty
   if (response === "intercept" && defenceOptions(state, eng).find((o) => o.id === "intercept").ok) return null;
   if (!def.armies.length && !def.garrison) {
     advanceInto(state, eng);
+    if (d.siege) return `${name(state, eng.attackerFactionId)} laid siege to ${d.name}: its gates are shut.`;
     return `${name(state, eng.attackerFactionId)} marched into ${d.name} unopposed.`;
   }
   return null;
@@ -115,6 +119,9 @@ export function resolveWithoutBattle(state, eng, response) {
 function advanceInto(state, eng) {
   for (const a of attackers(state, eng)) a.districtId = eng.districtId;
   const d = state.districts[eng.districtId];
+  // walls: the town shuts its gates and the attackers dig a siege camp
+  if (wouldBesiege(state, eng)) { if (!d.siege) beginSiege(state, eng); return; }
+  d.siege = null;
   if (d.owner !== eng.attackerFactionId && (!d.owner || atWar(state, d.owner, eng.attackerFactionId))) {
     captureDistrict(state, eng.districtId, eng.attackerFactionId);
   }
@@ -139,6 +146,7 @@ export function applyBattle(state, battle) {
     const left = Math.round(u.troops * (1 - pursuit));
     lost[u.side] += Math.round(u.start - left);
     if (!u.armyId) {
+      if (eng.storm) { d.population = Math.max(0, d.population - Math.round(u.start - left)); continue; }
       if (d.garrison) d.garrison.levies = Math.max(0, (touched.has("garrison") ? d.garrison.levies : 0) + left);
       touched.add("garrison");
       continue;
@@ -240,6 +248,14 @@ export function resolveEngagementAuto(state, eng) {
   const battle = setupBattle(state, eng, response);
   autoResolve(battle);
   return applyBattle(state, battle).text;
+}
+
+// An AI storms a besieged town. Returns a text.
+export function resolveStormAuto(state, eng) {
+  const battle = setupBattle(state, eng, "auto");
+  autoResolve(battle);
+  const out = applyBattle(state, battle);
+  return out.winner === eng.attackerFactionId ? `${state.districts[eng.districtId].name} was stormed by the ${name(state, eng.attackerFactionId)}.` : `The walls of ${state.districts[eng.districtId].name} held against the ${name(state, eng.attackerFactionId)}'s assault.`;
 }
 
 // The player is attacked: either a decision is queued for them, or (if nothing can respond)

@@ -134,6 +134,23 @@ export const BALANCE = {
     forcedMarch: { bonusPoints: 1, fatigue: 20, moralePenalty: 10 },
   },
 
+  // ---------- SIEGES ----------
+  // A fortified district (hillfort or Fortification) with no host left to defend it is not taken
+  // at once: the attacker camps round the walls. Each End Season the town's supplies fall by one;
+  // at zero it is starved out. The besieger may storm (a battle against the town's militia behind
+  // its walls) or lift the siege. Relieving hosts attack the camp.
+  siege: {
+    baseSupplies: 2,              // seasons a walled town holds out, before bonuses
+    hillfortSupplies: 1, fortificationSupplies: 2, granarySupplies: 1,
+    militiaPct: 0.12,             // share of the population that mans the walls when stormed
+    besiegerAttritionPct: 0.03,   // per season in the siege camp
+    outputMult: 0.5,              // the besieged district's production
+    loyaltyPerSeason: -4,
+    aiStormRatio: 2.2,            // the AI storms when this much stronger than the walls (effective)
+    romeStormRatio: 1.3,          // Rome's engineers storm sooner
+    romeEngineering: 0.5,         // Rome's engineers halve the walls' defence bonus when storming
+  },
+
   // ---------- RIVALRY (the two kingdoms that flank the Confederation) ----------
   // They share no border: their feud runs through the player's land. Relations sour each season
   // until one declares war; then both ask the player for passage. Rome's coming cools it.

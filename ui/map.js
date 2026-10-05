@@ -159,6 +159,7 @@ export function createMap(svg, state, { onTap }) {
         <text x="${x}" y="${y + 58}" class="name">${esc(d.name)}</text>
         <text x="${x}" y="${y + 80}" class="pop">${num(d.population)}</text>
         ${infrastructureSvg(d, x, y)}
+        ${d.siege ? siegeSvg(d, x, y, factionColour(state, d.siege.by)) : ""}
       </g>`;
     }).join("");
 
@@ -327,6 +328,7 @@ export function createMap(svg, state, { onTap }) {
     const col = factionId ? factionColour(state, factionId) : null;
     const glyph = kind === "built" ? `<use href="#i-${building}" x="-14" y="-14" width="28" height="28" class="fx-icon"/>`
       : kind === "landing" ? `<use href="#i-eagle" x="-18" y="-18" width="36" height="36" class="fx-icon"/>`
+      : kind === "siege" ? `<use href="#i-fortification" x="-16" y="-16" width="32" height="32" class="fx-icon"/>`
       : kind === "objective" ? `<use href="#i-trophy" x="-16" y="-16" width="32" height="32" class="fx-icon"/>`
       : kind === "raid" ? `<use href="#i-torch" x="-16" y="-16" width="32" height="32" class="fx-icon"/>`
       : kind === "capture" ? `<path d="M-2 18V-22h22l-6 8 6 8H-2" fill="${col}" stroke="#1d1b16" stroke-width="2"/>`
@@ -347,6 +349,22 @@ export function createMap(svg, state, { onTap }) {
 // District zoom: each finished building as a small plaque around the settlement, with
 // loyalty and prosperity gauges for owned districts.
 const SLOTS = [[-92, 34], [92, 40], [-100, -22], [104, -30], [-60, 96], [62, 100], [0, -70]];
+// A siege camp: a ring of stakes and tents round the town in the besieger's colour, with the
+// town's remaining stores as pips.
+function siegeSvg(d, x, y, colour) {
+  const s = d.siege;
+  const tents = Array.from({ length: 8 }, (_, i) => {
+    const a = (i / 8) * Math.PI * 2 + 0.3;
+    const tx = x + Math.cos(a) * 78, ty = y - 4 + Math.sin(a) * 46;
+    return `<path d="M${tx - 8} ${ty + 6}l8 -13l8 13z" fill="${colour}" stroke="#1d1b16" stroke-width="1.2"/>`;
+  }).join("");
+  const pips = Array.from({ length: s.max }, (_, i) => `<rect x="${x - s.max * 9 + i * 18}" y="${y + 92}" width="13" height="13" rx="3" class="${i < s.supplies ? "stores on" : "stores"}"/>`).join("");
+  return `<g class="siege" pointer-events="none">
+    <ellipse cx="${x}" cy="${y - 4}" rx="72" ry="42" fill="none" stroke="${colour}" stroke-width="4" stroke-dasharray="2 7" stroke-linecap="round"/>
+    ${tents}
+    <text x="${x}" y="${y + 120}" class="siege-label">Besieged</text>${pips}</g>`;
+}
+
 function infrastructureSvg(d, x, y) {
   const plaques = d.buildings.slice(0, SLOTS.length).map((b, i) => {
     const [dx, dy] = SLOTS[i];

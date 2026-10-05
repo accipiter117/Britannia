@@ -11,9 +11,11 @@ import { resetMovement } from "./armies.js";
 import { resolveRecovery, resolveSupply } from "./supply.js";
 import { resolveOrders } from "./orders.js";
 import { resolveObjectives } from "./objectives.js";
+import { resolveSieges } from "./siege.js";
+import { resolveStormAuto } from "./engagement.js";
 import { resolveDiplomacy, resolveTrade } from "./diplomacy.js";
 import { resolveAI } from "./ai.js";
-import { resolveGovernance, resolveRegions, checkEliminations } from "./governance.js";
+import { captureDistrict, checkEliminations, resolveGovernance, resolveRegions } from "./governance.js";
 import { resolveEvents } from "./events.js";
 import { resolveRome } from "./rome.js";
 import { resolveVictory } from "./victory.js";
@@ -37,6 +39,10 @@ export function endSeason(state) {
   resolveTrade(state, ctx.notes);                                   // 8
   resolveDiplomacy(state);                                          // 9
   resolveAI(state, ctx.notes);                                      // 10
+  resolveSieges(state, ctx.notes, {                                 // 10b sieges
+    capture: (s, did, fid) => { captureDistrict(s, did, fid); checkEliminations(s); },
+    storm: resolveStormAuto,
+  });
   resolveGovernance(state, ctx.notes);                              // 11
   resolveEvents(state, ctx.notes);                                  // 12
   resolveRome(state, ctx.notes);                                    // 13

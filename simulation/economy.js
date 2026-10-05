@@ -61,7 +61,8 @@ export function districtProduction(state, district, season = seasonName(state)) 
   const wf = workforceMultiplier(district);
   const gov = district.owner ? governanceMultiplier(district) : 1;
   const region = district.owner ? regionBonus(state, district.owner, district.region).wealth || 0 : 0;
-  const events = district.owner ? modifiersFor(state, district) : {};
+  const events = district.owner ? { ...modifiersFor(state, district) } : {};
+  if (district.siege) for (const r of RESOURCES) events[r] = (events[r] ?? 1) * BALANCE.siege.outputMult; // the fields are in enemy hands
   const total = zero();
   for (const r of RESOURCES) {
     const seasonMult = r === "food" ? mod.foodProduction : mod.production;
