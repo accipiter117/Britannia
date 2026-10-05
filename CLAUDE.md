@@ -105,6 +105,14 @@ Art (M12, session 3):
 Audio (session 3):
 - `ui/audio.js` synthesises everything with Web Audio, no files: wind/rain/birds by season, generative lyre music with four moods (peace, tension, war, crisis) chosen from state each render, and effects (build, recruit, march, battle, clash, season, alert, victory, defeat). Muted by default; the speaker button in the map controls toggles it and the choice is remembered.
 
+Depth pass (session 4):
+- Events v2: `simulation/eventDefs.js` (catalogue) and `simulation/events.js` (engine). Events with `prepare` follow WARNING → CRISIS → CONSEQUENCE; their effects linger as `state.modifiers` (production multipliers read by economy.js). Choices can cost resources or need an army in or next to the district. Add new events to the catalogue, not the engine.
+- Overtures: `simulation/overtures.js`. Rivals demand tribute, offer tribute for peace, offer trade, and beg for help when Rome strikes. Rome offers client status before the invasion and peace once it has been ashore `rome.settleAfterSeasons` (the New Political Reality). Truces (`diplomacy.truces`) and Roman clients are never attacked by AI or Rome.
+- Prosperity (0-100) per district: see `balance.prosperity`; scales Wealth output and growth. Harbour and Sacred Site added (spec 03's optional buildings).
+- Map zoom levels: strategic / regional / district (`ZOOM_*_W` in ui/map.js); district zoom shows building plaques and gauges.
+- Chronicle screen: `ui/chronicle.js`, opened from More.
+- Battle: the commander rides with the strongest block (crown marker) and can fall mid-battle (`commanderRiskPerTick`, `commanderRiskIfRouted`), shaking his side; warriors charge on first contact; veterans recover morale faster between battles.
+
 Saving: the game saves after every action (in `render()`), not only at End Season.
 
 Testing:

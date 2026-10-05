@@ -8,6 +8,7 @@ import { BALANCE } from "../config/balance.js";
 import { addChronicle, armiesIn, districtsOf, newArmy, uid } from "./campaign.js";
 import { declareWar } from "./diplomacy.js";
 import { chance } from "./random.js";
+import { refugeesFrom } from "./events.js";
 
 const O = BALANCE.occupation;
 const L = BALANCE.loyalty;
@@ -18,6 +19,7 @@ export function captureDistrict(state, districtId, fid) {
   d.owner = fid;
   d.previousOwner = prev;
   d.stage = "Occupied";
+  d.prosperity = Math.max(0, (d.prosperity ?? BALANCE.prosperity.start) + BALANCE.prosperity.conquest);
   d.stageSeasons = 0;
   d.loyalty = O.startingLoyaltyOnConquest;
   d.policy = "Integrate";
@@ -25,6 +27,10 @@ export function captureDistrict(state, districtId, fid) {
   d.construction = [];
   const player = state.playerFactionId;
   const taker = state.factions[fid].name;
+  if (fid === "rome") {
+    state.rome.lastConquest = { victim: prev, districtId, turn: state.turn };
+    refugeesFrom(state, districtId, []);
+  }
   if (prev === player) addChronicle(state, `${d.name} fell to ${taker}.`, "DEFEAT");
   else if (fid === player) addChronicle(state, `${d.name} was taken by the ${taker}.`, "VICTORY");
   else addChronicle(state, `${taker} took ${d.name}${prev ? ` from ${state.factions[prev].name}` : ""}.`, "BATTLE");
@@ -57,7 +63,9 @@ export function resolveGovernance(state, notes) {
     const f = state.factions[d.owner];
     const garrisoned = armiesIn(state, d.id, d.owner).length > 0;
     const regionLoyalty = regionBonus(state, d.owner, d.region).loyalty || 0;
-    let delta = regionLoyalty + (f.lastFoodStatus === "starving" ? L.starvingLoyalty : 0);
+    let delta = regionLoyalty + (f.lastFoodStatus === "starving" ? L.starvingLoyalty : 0) +
+      d.buildings.reduce((n, b) => n + (BALANCE.buildings[b].effect.loyalty || 0), 0);
+    updateProsperity(state, d, f);
     if (d.stage === "Integrated") {
       delta += Math.sign(L.integratedTarget - d.loyalty) * Math.min(L.integratedDrift, Math.abs(L.integratedTarget - d.loyalty));
     } else {
@@ -81,6 +89,17 @@ export function resolveGovernance(state, notes) {
     if (d.loyalty < L.rebellionRisk && chance(state, L.rebellionChancePerSeason)) rebel(state, d, notes);
     else if (d.loyalty < L.unrest && d.owner === player) notes.push({ level: "critical", text: `Unrest in ${d.name} (loyalty ${d.loyalty}). Rebellion looms below ${L.rebellionRisk}.`, districtId: d.id });
   }
+}
+
+function updateProsperity(state, d, f) {
+  const P = BALANCE.prosperity;
+  let delta = P.perSeason[f.lastFoodStatus] ?? 0;
+  const roads = state.connections.filter((c) => c.road && (c.a === d.id || c.b === d.id)).length;
+  delta += Math.min(P.maxFromRoads, roads * P.perRoad);
+  delta += d.buildings.reduce((n, b) => n + (b === "market" ? P.market : 0) + (BALANCE.buildings[b].effect.prosperity || 0), 0);
+  if (d.loyalty < L.unrest) delta += P.unrest;
+  if (d.lastBattleTurn === state.turn) delta += P.battle;
+  d.prosperity = Math.max(0, Math.min(100, Math.round((d.prosperity ?? P.start) + delta)));
 }
 
 function shiftCulture(d, toward, pct) {

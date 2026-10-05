@@ -51,6 +51,9 @@ export function declareWar(state, a, b) {
   if (!a || !b || atWar(state, a, b)) return;
   const dip = state.diplomacy;
   dip.wars.push(pairKey(a, b));
+  // breaking a truce or a client treaty is remembered
+  if ((dip.truces?.[pairKey(a, b)] ?? -1) >= state.turn) { delete dip.truces[pairKey(a, b)]; changeRelation(state, a, b, -20); }
+  if (b === "rome" || a === "rome") state.rome.clients = (state.rome.clients || []).filter((c) => c !== a && c !== b);
   dip.alliances = dip.alliances.filter((k) => k !== pairKey(a, b));
   dip.access = dip.access.filter((k) => k !== `${a}>${b}` && k !== `${b}>${a}`);
   dip.trades = dip.trades.filter((t) => pairKey(t.from, t.to) !== pairKey(a, b));

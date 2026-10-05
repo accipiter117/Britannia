@@ -5,6 +5,7 @@
 import { BALANCE } from "../config/balance.js";
 import { districtsOf, seasonName } from "./campaign.js";
 import { governanceMultiplier, regionBonus } from "./governance.js";
+import { modifiersFor } from "./events.js";
 
 export const RESOURCES = ["food", "timber", "materials", "wealth"];
 
@@ -43,6 +44,11 @@ export function workforceMultiplier(district) {
 
 // ---------- Production ----------
 
+export function prosperityMult(district) {
+  const P = BALANCE.prosperity;
+  return P.wealthMin + ((district.prosperity ?? P.start) / 100) * P.wealthSpan;
+}
+
 // Returns { total, base, buildings, seasonMult, workforceMult } for the given season (defaults to current).
 export function districtProduction(state, district, season = seasonName(state)) {
   const base = { ...zero(), ...pick(BALANCE.terrainProduction[district.terrain]) };
@@ -55,25 +61,14 @@ export function districtProduction(state, district, season = seasonName(state)) 
   const wf = workforceMultiplier(district);
   const gov = district.owner ? governanceMultiplier(district) : 1;
   const region = district.owner ? regionBonus(state, district.owner, district.region).wealth || 0 : 0;
-  const events = eventMultipliers(state, district, season);
+  const events = district.owner ? modifiersFor(state, district) : {};
   const total = zero();
   for (const r of RESOURCES) {
     const seasonMult = r === "food" ? mod.foodProduction : mod.production;
-    const extra = (r === "wealth" ? 1 + region : 1) * (events[r] ?? 1);
+    const extra = (r === "wealth" ? (1 + region) * prosperityMult(district) : 1) * (events[r] ?? 1);
     total[r] = Math.round((base[r] + fromBuildings[r]) * seasonMult * wf * gov * extra);
   }
   return { total, base, buildings: fromBuildings, seasonMult: { food: mod.foodProduction, other: mod.production }, workforceMult: wf, governanceMult: gov, regionWealth: region, events };
-}
-
-// Ongoing event effects (harvest failure, mine collapse) on one district's output.
-function eventMultipliers(state, district, season) {
-  const out = {};
-  for (const e of state.events || []) {
-    if (e.districtId !== district.id) continue;
-    if (e.kind === "harvestFailure" && BALANCE.events.harvestFailure.seasons.includes(season)) out.food = BALANCE.events.harvestFailure.foodMultiplier;
-    if (e.kind === "mineCollapse") out.materials = BALANCE.events.mineCollapse.materialsMultiplier;
-  }
-  return out;
 }
 
 export function factionProduction(state, factionId, season) {
@@ -146,7 +141,8 @@ export function forecast(state, factionId) {
 
 export function buildingCost(state, factionId, cost) {
   const hasWorkshop = districtsOf(state, factionId).some((d) => d.buildings.includes("workshop"));
-  const mult = hasWorkshop ? BALANCE.buildings.workshop.effect.constructionCostMultiplier : 1;
+  let mult = hasWorkshop ? BALANCE.buildings.workshop.effect.constructionCostMultiplier : 1;
+  if (state.factions[factionId]?.flags?.halfPriceBuilding) mult *= 0.5; // travelling smiths
   const out = {};
   for (const [r, v] of Object.entries(cost)) out[r] = Math.round(v * mult);
   return out;
@@ -165,6 +161,7 @@ export function canBuild(state, factionId, districtId, buildingId) {
   const fail = (reason) => ({ ok: false, reason, cost });
   if (d.owner !== factionId) return fail("Not your district");
   if (def.requiresTerrain && !def.requiresTerrain.includes(d.terrain)) return fail(`Requires ${def.requiresTerrain.join(" or ")} terrain`);
+  if (def.requiresCoast && d.terrain !== "coast" && !d.special.includes("natural_harbour")) return fail("Requires a coast or natural harbour");
   const count = d.buildings.filter((b) => b === buildingId).length + d.construction.filter((c) => c.building === buildingId).length;
   if (def.maxPerDistrict && count >= def.maxPerDistrict) return fail("Already built here");
   if (usedSlots(d) >= totalSlots(d)) return fail("No free development slots");
@@ -177,6 +174,7 @@ export function startBuilding(state, factionId, districtId, buildingId) {
   const check = canBuild(state, factionId, districtId, buildingId);
   if (!check.ok) return check;
   pay(state, factionId, check.cost);
+  if (state.factions[factionId].flags?.halfPriceBuilding) state.factions[factionId].flags.halfPriceBuilding = false;
   state.districts[districtId].construction.push({ building: buildingId, progress: 0 });
   return check;
 }

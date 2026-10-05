@@ -10,6 +10,7 @@ import { atWar, declareWar } from "./diplomacy.js";
 import { engagePlayer, playerDefends, resolveEngagementAuto } from "./engagement.js";
 import { supplyState } from "./supply.js";
 import { aiGovern } from "./governance.js";
+import { collectClientTribute, inTruce, isRomanClient } from "./overtures.js";
 
 const R = BALANCE.rome;
 
@@ -39,6 +40,7 @@ export function resolveRome(state, notes) {
     } else land(state, notes);
   } else if (rome.stage === "invasion") {
     aiGovern(state, "rome");
+    collectClientTribute(state, notes);
     reinforce(state, notes);
     advance(state, notes);
     if (!state.armies.some((a) => a.factionId === "rome") && !districtsOf(state, "rome").length) {
@@ -52,6 +54,7 @@ export function resolveRome(state, notes) {
 function land(state, notes) {
   const rome = state.rome;
   rome.stage = "invasion";
+  rome.landedTurn = state.turn;
   rome.nextReinforcement = state.turn + R.reinforcements.everySeasons;
   state.factions.rome.defeated = false;
   const f = R.firstArmy;
@@ -134,7 +137,7 @@ function pickTarget(state, army) {
   let best = null;
   for (const did of neighbours(state, army.districtId)) {
     const d = state.districts[did];
-    if (d.owner === "rome") continue;
+    if (d.owner === "rome" || (d.owner && (isRomanClient(state, d.owner) || inTruce(state, "rome", d.owner)))) continue;
     const defence = armiesIn(state, did).filter((a) => a.factionId !== "rome").reduce((n, a) => n + armyStrength(a), 0) + garrisonStrength(d);
     if (armyStrength(army) < defence) continue;
     const score = d.population / 1000 + (d.special.length ? 0.5 : 0) - defence / Math.max(1, armyStrength(army)) * 2;

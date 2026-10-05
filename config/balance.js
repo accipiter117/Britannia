@@ -95,6 +95,8 @@ export const BALANCE = {
     fortification: { cost: { timber: 200, materials: 250, wealth: 150 }, seasons: 3, effect: { defence: 0.3, militaryCapacity: 100, siegeResistance: 0.3 }, maxPerDistrict: 1 },
     market:        { cost: { timber: 100, materials: 100, wealth: 200 }, seasons: 2, effect: { wealth: 75, enablesTrade: true }, maxPerDistrict: 1 },
     supply_depot:  { cost: { timber: 100, materials: 100, wealth: 100 }, seasons: 1, effect: { supplyRange: 1 }, maxPerDistrict: 1 },
+    harbour:       { cost: { timber: 150, materials: 100, wealth: 100 }, seasons: 2, effect: { wealth: 60, food: 40, prosperity: 2 }, requiresCoast: true, maxPerDistrict: 1 },
+    sacred_site:   { cost: { timber: 50, materials: 150, wealth: 50 }, seasons: 2, effect: { loyalty: 2 }, maxPerDistrict: 1 },
   },
   // Roads are built on a connection, not in a slot
   road: { cost: { timber: 100, materials: 100, wealth: 0 }, seasons: 1, movementCost: 1, supplyRange: 1 },
@@ -187,12 +189,16 @@ export const BALANCE = {
 
     morale: { start: 70, normal: 50, shaken: 30, breaking: 15, routed: 0 },
     moraleLoss: { per10PctCasualties: 8, flanked: 10, nearbyRout: 12, commanderDeath: 20, fatiguePer20: 5 },
-    routPanicRadius: 1,             // a routing block shakes friends this close
+    routPanicRadius: 1,
+    chargeMult: 1.4,                // warriors hit this much harder for their first few ticks in contact
+    chargeTicks: 3,
+    commanderRiskPerTick: 0.0015,   // chance per tick the commander falls while his block is fighting
+    commanderRiskIfRouted: 0.3,     // chance he falls when his block breaks             // a routing block shakes friends this close
     rallyDelaySeconds: 30,  // routed units cannot rejoin before this
     experience: {
-      Green:    { power: 1.0,  moraleLossMult: 1.0,  next: 2 },  // battles needed to advance
-      Seasoned: { power: 1.1,  moraleLossMult: 0.85, next: 3 },
-      Veteran:  { power: 1.2,  moraleLossMult: 0.7,  next: null },
+      Green:    { power: 1.0,  moraleLossMult: 1.0,  recoveryMult: 1.0,  next: 2 },  // battles needed to advance
+      Seasoned: { power: 1.1,  moraleLossMult: 0.85, recoveryMult: 1.25, next: 3 },
+      Veteran:  { power: 1.2,  moraleLossMult: 0.7,  recoveryMult: 1.5,  next: null },
     },
     commander: { Poor: 0.9, Average: 1.0, Skilled: 1.1, Exceptional: 1.2 },
     commanderDeathChancePerBattle: 0.05,
@@ -221,6 +227,34 @@ export const BALANCE = {
     noMarketRate: 0.5,              // without a Market you get half the price when selling and pay double when buying
     tributeAmount: 100,             // Wealth, Food or Materials sent as tribute
     battleRelationPenalty: -10,
+  },
+
+  // ---------- PROSPERITY (0-100 per district) ----------
+  // Wealth output x (wealthMin + prosperity / 100 x wealthSpan); population growth x (growthMin + prosperity / 100 x growthSpan)
+  prosperity: {
+    start: 50, neutralStart: 40,
+    wealthMin: 0.75, wealthSpan: 0.5,
+    growthMin: 0.5, growthSpan: 1.0,
+    perSeason: { surplus: 3, stable: 1, starving: -8 },
+    perRoad: 1, maxFromRoads: 2,
+    market: 2,
+    unrest: -3,                 // loyalty below the unrest line
+    battle: -10,                // a battle fought in the district this season
+    conquest: -15,
+  },
+
+  // ---------- OVERTURES (what rivals ask of you) ----------
+  overtures: {
+    cooldownSeasons: 4,          // a faction makes at most one approach in this many seasons
+    tributeAmount: 100,          // Wealth demanded by the strong, or offered by the beaten
+    demandBelowRelation: 10,     // only factions cooler than this demand tribute
+    demandStrengthRatio: 1.5,    // ... and only when this much stronger than you
+    tradeSurplus: 400,           // a faction offers to sell a resource it holds this much of
+    aidWealth: 100,              // aid sent to a people struck by Rome
+    exploitWealth: 120,          // tribute squeezed from a people struck by Rome
+    clientTribute: 40,           // Wealth per season paid by Rome's clients
+    clientResentment: -15,       // other Celts' view of a Roman client
+    truceSeasons: 4,
   },
 
   // ---------- AI ----------
@@ -285,8 +319,8 @@ export const BALANCE = {
 
   // ---------- EVENTS ----------
   events: {
-    minorChancePerSeason: 0.35,
-    playerChoiceCooldownSeasons: 3, // at most one event choice for the player in this many seasons
+    minorChancePerSeason: 0.45,
+    playerChoiceCooldownSeasons: 2, // at most one event choice for the player in this many seasons
     majorChancePerSeason: 0.08,
     harvestFailure: { foodMultiplier: 0.5, seasons: ["Summer", "Autumn"] },
     mineCollapse:   { materialsMultiplier: 0.5, durationSeasons: 2 },
@@ -310,6 +344,7 @@ export const BALANCE = {
     maxArmies: 3,
     maxTotalTroops: 1100,          // reinforcements stop while Rome has this many troops on the island
     celticUnityRelation: -20,      // once Rome lands, Celtic AIs ally against it above this relation
+    settleAfterSeasons: 8,         // after this long ashore, Rome offers peace on the borders as they stand
   },
 
   // ---------- VICTORY ----------

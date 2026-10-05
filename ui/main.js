@@ -10,6 +10,7 @@ import { aiResponse, resolveWithoutBattle, setupBattle } from "../simulation/eng
 import { cancelTrade, declareWar, playerAction } from "../simulation/diplomacy.js";
 import { finishBattle, resolveAllyCall, resolveDefence, resolveEnding, resolveEvent, resolveProposal } from "../simulation/decisions.js";
 import { setPolicy } from "../simulation/governance.js";
+import { answerOverture } from "../simulation/overtures.js";
 import { endSeason } from "../simulation/season.js";
 import { districtPanel, summaryCard } from "./drawer.js";
 import { armyPanel } from "./armyPanel.js";
@@ -19,6 +20,7 @@ import { createMap } from "./map.js";
 import { armiesPanel, diplomacyPanel, morePanel, realmPanel } from "./panels.js";
 import { confirmHtml, endingHtml, messageHtml, pendingHtml, preBattleHtml, resultHtml, warConfirmHtml } from "./modal.js";
 import { openBattle } from "./battleView.js";
+import { chronicleHtml } from "./chronicle.js";
 import { icon, injectIconSprite } from "./icons.js";
 import { initAudio, setScene, sfx, soundOn, toggleSound } from "./audio.js";
 import { clearSave, loadGame, saveGame, saveLabel } from "./save.js";
@@ -284,6 +286,9 @@ const actions = {
   "battle-auto": () => { ui.modal = null; afterBattle(finishBattle(state, ui.pendingBattle, true)); },
   "close-modal": closeModal,
   ending: () => modal(endingHtml(state)),
+  "open-chronicle": () => { ui.chronicle = "all"; renderChronicle(); },
+  "chronicle-filter": (el) => { ui.chronicle = el.dataset.filter; renderChronicle(); },
+  "close-chronicle": () => { ui.chronicle = null; renderChronicle(); },
   save: () => { toast(saveGame(state) ? "Saved" : "Could not save: storage is blocked"); render(); },
   load: () => {
     const s = loadGame();
@@ -319,6 +324,7 @@ function decide(kind, value, index) {
   if (kind === "ally") resolveAllyCall(state, p, value);
   if (kind === "proposal") resolveProposal(state, p, value === "yes");
   if (kind === "event") resolveEvent(state, p, +value);
+  if (kind === "overture") answerOverture(state, p, value);
   if (kind === "ending") {
     resolveEnding(state, p, value === "end");
     if (value === "end") { saveGame(state); ui.endingShown = true; return modal(endingHtml(state)); }
@@ -391,6 +397,12 @@ function paintSoundButton() {
   const b = $("sound-toggle");
   b.innerHTML = icon(soundOn() ? "sound_on" : "sound_off");
   b.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on");
+}
+
+function renderChronicle() {
+  const el = $("chronicle-view");
+  el.hidden = !ui.chronicle;
+  el.innerHTML = ui.chronicle ? chronicleHtml(state, ui.chronicle) : "";
 }
 
 let toastTimer;

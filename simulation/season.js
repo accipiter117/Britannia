@@ -33,7 +33,7 @@ export function endSeason(state) {
   resolveDiplomacy(state);                                          // 9
   resolveAI(state, ctx.notes);                                      // 10
   resolveGovernance(state, ctx.notes);                              // 11
-  resolveEvents(state, ctx.notes, season);                          // 12
+  resolveEvents(state, ctx.notes);                                  // 12
   resolveRome(state, ctx.notes);                                    // 13
   resolveRegions(state, ctx.notes);                                 // 14
   checkEliminations(state);
@@ -133,7 +133,9 @@ function resolvePopulation(state, ctx, fid) {
   if (ctx.season === "Winter" && status !== "starving") rate = g.winter;
   for (const d of districtsOf(state, fid)) {
     const tierBefore = settlementTier(d).id;
-    d.population = Math.max(0, d.population + Math.round(d.population * rate));
+    const P = BALANCE.prosperity;
+    const scaled = rate > 0 ? rate * (P.growthMin + ((d.prosperity ?? P.start) / 100) * P.growthSpan) : rate;
+    d.population = Math.max(0, d.population + Math.round(d.population * scaled));
     const tierAfter = settlementTier(d).id;
     if (fid === state.playerFactionId && tierAfter !== tierBefore) {
       ctx.notes.push(note("important", `${d.name} is now a ${label(tierAfter)}.`, d.id));

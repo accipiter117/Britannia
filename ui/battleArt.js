@@ -134,6 +134,13 @@ export function drawBlock(ctx, u, x, y, c, colour, { mine, selected }) {
     ctx.fillStyle = "#fff"; ctx.font = `bold ${c * 0.45}px system-ui`; ctx.textAlign = "center";
     ctx.fillText("!", x + c / 2, y + c * 0.62);
   }
+  if (u.commander) {
+    // a small gilt crown marks the commander's block
+    const cx = x + pad + c * 0.12, cy = y + pad + c * 0.12, s = c * 0.12;
+    ctx.fillStyle = "#f2cf5b"; ctx.strokeStyle = "#3a2a10"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(cx - s, cy + s * 0.6); ctx.lineTo(cx - s, cy - s * 0.4); ctx.lineTo(cx - s * 0.5, cy); ctx.lineTo(cx, cy - s * 0.7);
+    ctx.lineTo(cx + s * 0.5, cy); ctx.lineTo(cx + s, cy - s * 0.4); ctx.lineTo(cx + s, cy + s * 0.6); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
   if (u.state === "Engaging") {
     ctx.strokeStyle = "#fff3c4"; ctx.lineWidth = 2;
     const ex = x + c * 0.84, ey = y + c * 0.18, s = c * 0.1;

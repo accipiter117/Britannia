@@ -8,6 +8,7 @@ import {
   totalSlots, usedSlots, workforce,
 } from "../simulation/economy.js";
 import { armyTroops, seasonName } from "../simulation/campaign.js";
+import { prosperityMult } from "../simulation/economy.js";
 import { visibleArmies } from "../simulation/armies.js";
 import { bar, recruitRows } from "./armyPanel.js";
 import {
@@ -100,9 +101,11 @@ function controlSection(state, d) {
     <div class="kv">
       <span>Stage</span><b>${d.stage}</b>
       <span>Loyalty</span><b>${bar(d.loyalty, 100)} ${d.loyalty} ${loyaltyNote}</b>
+      <span>Prosperity</span><b>${bar(d.prosperity ?? 50, 100)} ${d.prosperity ?? 50} <small class="muted">wealth ×${prosperityMult(d).toFixed(2)}</small></b>
       ${d.stage !== "Integrated" ? `<span>Policy</span><b>${d.policy}</b>` : ""}
     </div>
     ${stageHint ? `<p class="muted small">${stageHint}</p>` : ""}
+    <p class="muted small">Prosperity grows with full granaries, roads, markets and peace; famine, battle and conquest wreck it.</p>
     ${policies}
   </section>`;
 }
