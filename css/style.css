@@ -16,7 +16,7 @@
   --info: #56605a;
   --sea: #24363d;
   --sea-line: #2e454d;
-  --land: #6f7a5d;
+  --land: #7c8560;
   --coast: #c8c0a2;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color-scheme: dark;
@@ -79,32 +79,26 @@ small { font-size: 0.8em; }
 #map-controls { position: absolute; right: 10px; top: 10px; display: flex; flex-direction: column; gap: 6px; }
 #map-controls button { width: 40px; height: 40px; padding: 0; font-size: 20px; background: rgba(38, 46, 42, 0.85); }
 
-.cell { fill-opacity: 0.55; stroke: #2a2a22; stroke-width: 3; stroke-linejoin: round; cursor: pointer; }
-.cell.neutral { fill-opacity: 0.35; }
-.cell:hover { fill-opacity: 0.7; }
-.cell.occupied { fill-opacity: 0.4; }
-.cell.reach-move { fill-opacity: 0.85; stroke: #e8f5c8; stroke-width: 6; }
-.cell.reach-attack { fill: var(--critical); fill-opacity: 0.6; stroke: #ffd0c8; stroke-width: 6; }
-.cell.reach-blocked { fill-opacity: 0.2; }
+.hit { fill: transparent; cursor: pointer; }
+.hit:hover { fill: #fff; fill-opacity: 0.06; }
+.hit.reach-move { fill: #f4f0c8; fill-opacity: 0.22; stroke: #f4f0c8; stroke-width: 6; }
+.hit.reach-attack { fill: var(--critical); fill-opacity: 0.38; stroke: #ffd0c8; stroke-width: 6; }
+.hit.reach-blocked { fill: #000; fill-opacity: 0.25; }
 .threat { stroke: var(--critical); stroke-width: 10; stroke-linecap: round; stroke-dasharray: 18 10; pointer-events: none; animation: march 1s linear infinite; }
 @keyframes march { to { stroke-dashoffset: -28; } }
-.rome-label { font-size: 22px; font-weight: 700; fill: #f0d6ff; paint-order: stroke; stroke: #241226; stroke-width: 5px; }
-.army.spent rect { opacity: 0.55; }
-.selected { fill: #fff; fill-opacity: 0.12; stroke: #fff6d0; stroke-width: 7; stroke-linejoin: round; }
-.link { stroke: #3a2f20; stroke-width: 4; stroke-dasharray: 10 9; opacity: 0.7; pointer-events: none; }
-.road { stroke: #e8d9a8; stroke-width: 8; stroke-linecap: round; pointer-events: none; }
-.road.building { stroke-dasharray: 6 10; opacity: 0.8; }
-.seat { fill: rgba(30, 30, 24, 0.55); stroke: rgba(255, 255, 255, 0.35); stroke-width: 2; cursor: pointer; }
-.icon { font-size: 30px; text-anchor: middle; pointer-events: none; }
-.badge { font-size: 22px; text-anchor: middle; pointer-events: none; }
-.name, .pop, .army-text, .sea-label { text-anchor: middle; paint-order: stroke; stroke: rgba(20, 22, 18, 0.85); stroke-linejoin: round; pointer-events: none; }
-.name { font-size: 26px; font-weight: 700; fill: #f4efe0; stroke-width: 6px; }
-.pop { font-size: 19px; fill: #d8d2bd; stroke-width: 5px; }
+.rome-label { font: 700 22px Georgia, "Times New Roman", serif; fill: #f0d6ff; paint-order: stroke; stroke: #241226; stroke-width: 5px; }
+.selected { fill: #fff6d0; fill-opacity: 0.1; stroke: #fff6d0; stroke-width: 6; stroke-linejoin: round; }
+.link { stroke: #5b4a30; stroke-width: 3.5; stroke-dasharray: 2 9; stroke-linecap: round; opacity: 0.9; pointer-events: none; }
+.road-edge { stroke: #4a3e2a; stroke-width: 11; stroke-linecap: round; pointer-events: none; }
+.road { stroke: #cdbf96; stroke-width: 7; stroke-linecap: round; stroke-dasharray: 9 3; pointer-events: none; }
+.road.building, .road-edge.building { opacity: 0.55; stroke-dasharray: 6 10; }
+.name, .pop, .army-text, .sea-label { text-anchor: middle; paint-order: stroke; stroke-linejoin: round; pointer-events: none; }
+.name { font: 700 25px Georgia, "Times New Roman", serif; fill: #f4ecd4; stroke: rgba(26, 22, 14, 0.9); stroke-width: 6px; letter-spacing: 0.02em; }
+.pop { font: 600 17px system-ui, sans-serif; fill: #ddd4b8; stroke: rgba(26, 22, 14, 0.85); stroke-width: 5px; }
 .army { cursor: pointer; }
-.army rect { stroke: #f4efe0; stroke-width: 2.5; }
-.army.on rect { stroke: #fff6d0; stroke-width: 5; }
-.army-text { font-size: 18px; font-weight: 700; fill: #fff; stroke-width: 4px; }
-.sea-label { font-size: 22px; font-style: italic; fill: #8fa6ad; stroke-width: 0; }
+.army-text { font: 700 15px system-ui, sans-serif; fill: #f4ecd4; }
+.sea-label { font: italic 22px Georgia, "Times New Roman", serif; fill: #7f99a1; }
+#map-wrap::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0, 0, 0, 0.45) 100%); }
 
 /* ---------- Drawer (mobile bottom sheet) ---------- */
 #drawer {

@@ -14,7 +14,7 @@ The owner (Matthew) is not a programmer and works mostly from his phone. He play
 - Entry point: `index.html` at repo root. Deployed by GitHub Pages from `main`.
 - Map rendered with SVG (district polygons). Tactical battle on a `<canvas>` or SVG grid.
 - Save/load via `localStorage`. Whole campaign state must be JSON serialisable.
-- Placeholder art only: coloured shapes, emoji or simple icons. No image generation.
+- Art is hand-drawn in code (SVG on the map, canvas in battle): no image generation, no image files. HUD and panel icons are still emoji.
 
 ## Folder structure
 ```
@@ -94,6 +94,12 @@ Session 3 changes (recovery and fairness):
 
 - Rome rebalanced (session 3): legionary strength 2.5 (from 3.0); battles cap at `maxBlocksPerSide` 14 so big armies form bigger blocks and numbers count on the 12-wide field; defenders in a Hold battle stay on their walls, the stronghold holds while any defender stands within `fortifiedRadius` (3), and walls reduce defenders' morale loss. Measured: Rome's 700 beats a single 700 host every time; 1,000 Celts behind hillfort plus Fortification beat it 8/10; 2,000 Celts beat Rome's 1,100 in the open 7/10.
 
+Art (M12, session 3):
+- `ui/art.js` builds the map's vector art: terrain textures per terrain type (dense forest has its own), roundhouse settlements by tier (palisade for towns, great hall for major towns), hillfort ramparts, rivers and the Fenmere ford, harbour, iron, Roman milestone, army standards (Celtic triskele, Roman gilded eagle, rebel mark) and status badges.
+- Ownership is a soft tint plus a coloured inner border, not a solid block (per the art brief). Occupied districts get a dashed border.
+- `ui/battleArt.js` paints the battlefield once to an offscreen canvas (grass, hills, trees, river, road) and draws blocks as ranks of shields (rectangular gilded scuta for legionaries) with a type letter in the corner.
+- Palette and lighting follow `docs/08_ART_AUDIO.md`: muted earth tones, light from the upper left, soft shadows.
+
 Testing:
 - `node tools/smartbot.mjs [seeds] [seasons]` plays the player's side sensibly and reports how the Confederation fares. Use it after balance changes.
 - `node tools/sim20.mjs [seasons]` plays the whole loop in Node with AI, events and Rome, round-tripping the save each season.
@@ -131,7 +137,7 @@ Testing:
 | M9 | Occupation | Occupied/Administered/Integrated, policies, loyalty, culture, rebellion | Done (session 2) |
 | M10 | Chronicle/Victory | Chronicle log, divergence, dominance, narrative summary | Done (session 2) |
 | M11 | Mobile | final touch and drawer polish | Done in emulation (portrait, landscape, small phone, tablet); needs a real-phone pass |
-| M12 | Art | only after the simulation is proven | Not started |
+| M12 | Art | only after the simulation is proven | Map and battlefield done (session 3, hand-drawn SVG/canvas); UI icons still emoji |
 
 Planned sessions: (1) M1 to M3, (2) M4, (3) M5 to M6, (4) M7, (5) M8 to M9, (6) M10 to M11.
 

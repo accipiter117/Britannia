@@ -6,11 +6,10 @@
 import { BALANCE } from "../config/balance.js";
 import { isActive, orderUnits, retreatAll, sideSummary, tick } from "../simulation/battle.js";
 import { esc, num } from "./format.js";
+import { drawBlock, drawStronghold, paintTerrain } from "./battleArt.js";
 
 const B = BALANCE.battle;
 const N = B.gridSize;
-const TERRAIN_FILL = { open: "#76835a", forest: "#3d5634", hill: "#8f7f58", river: "#3d6b80", road: "#b6a07a" };
-const GLYPH = { levies: "L", warriors: "W", skirmishers: "S", legionaries: "R" };
 
 export function openBattle(root, battle, colours, onEnd) {
   const player = battle.playerSide;
@@ -56,6 +55,7 @@ export function openBattle(root, battle, colours, onEnd) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return px;
   }
+  let terrain = null;
   let px = size();
   const onResize = () => { px = size(); draw(); };
   window.addEventListener("resize", onResize);
@@ -64,53 +64,24 @@ export function openBattle(root, battle, colours, onEnd) {
 
   function draw() {
     const c = px / N;
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      const t = battle.grid[y][x];
-      ctx.fillStyle = TERRAIN_FILL[t];
-      ctx.fillRect(x * c, y * c, c + 0.5, c + 0.5);
-      if (t === "forest") dots(x, y, c, "#2b4025");
-      if (t === "hill") { ctx.strokeStyle = "#6f6143"; ctx.beginPath(); ctx.arc(x * c + c / 2, y * c + c * 0.75, c * 0.35, Math.PI, 0); ctx.stroke(); }
-    }
-    ctx.strokeStyle = "rgba(0,0,0,0.12)";
+    if (!terrain || terrain.size !== px) { terrain = paintTerrain(battle.grid, px, window.devicePixelRatio || 1); terrain.size = px; }
+    ctx.drawImage(terrain, 0, 0, px, px);
+    ctx.strokeStyle = "rgba(0,0,0,0.08)";
     for (let i = 0; i <= N; i++) { line(i * c, 0, i * c, px); line(0, i * c, px, i * c); }
-    if (battle.objective) {
-      const o = battle.objective;
-      ctx.strokeStyle = "#f2d16b";
-      ctx.lineWidth = 3;
-      ctx.strokeRect((o.x - B.objectiveRadius) * c, (o.y - B.objectiveRadius) * c, (B.objectiveRadius * 2 + 1) * c, (B.objectiveRadius * 2 + 1) * c);
-      ctx.lineWidth = 1;
-      ctx.font = `${c * 0.6}px system-ui`;
-      ctx.textAlign = "center";
-      ctx.fillText("🏰", o.x * c + c / 2, o.y * c + c * 0.72);
-    }
+    if (battle.objective) drawStronghold(ctx, battle.objective, c, B.fortifiedRadius, B.objectiveRadius);
     for (const u of battle.units) {
       if (u.state === "Gone") continue;
       u.dx = u.dx === undefined ? u.x : u.dx + (u.x - u.dx) * 0.35;
       u.dy = u.dy === undefined ? u.y : u.dy + (u.y - u.dy) * 0.35;
-      const x = u.dx * c, y = u.dy * c, pad = c * 0.1;
+      const x = u.dx * c, y = u.dy * c;
       const mine = u.side === player;
       if (mine && u.order.kind === "move") {
-        ctx.strokeStyle = "rgba(255,255,255,0.5)";
+        ctx.strokeStyle = "rgba(255,255,255,0.55)";
         ctx.setLineDash([4, 4]);
         line(x + c / 2, y + c / 2, u.order.x * c + c / 2, u.order.y * c + c / 2);
         ctx.setLineDash([]);
       }
-      ctx.globalAlpha = u.state === "Routing" ? 0.45 : 1;
-      ctx.fillStyle = colours[u.side];
-      ctx.fillRect(x + pad, y + pad, c - pad * 2, c - pad * 2);
-      ctx.lineWidth = selected.has(u.id) ? 3 : 1.5;
-      ctx.strokeStyle = selected.has(u.id) ? "#fff6b0" : mine ? "#f4efe0" : "#1a1a14";
-      ctx.strokeRect(x + pad, y + pad, c - pad * 2, c - pad * 2);
-      ctx.lineWidth = 1;
-      // troops (top bar) and morale (bottom bar)
-      bar(x + pad, y + pad, (c - pad * 2) * (u.troops / u.start), "#e8e2cc");
-      bar(x + pad, y + c - pad - 3, (c - pad * 2) * Math.max(0, u.morale) / B.morale.start, u.morale > B.morale.shaken ? "#8fc27a" : u.morale > B.morale.breaking ? "#e0a83a" : "#e2735f");
-      ctx.fillStyle = "#fff";
-      ctx.font = `bold ${c * 0.38}px system-ui`;
-      ctx.textAlign = "center";
-      ctx.fillText(u.state === "Routing" ? "!" : GLYPH[u.type], x + c / 2, y + c * 0.64);
-      if (u.state === "Engaging") { ctx.font = `${c * 0.3}px system-ui`; ctx.fillText("⚔", x + c * 0.82, y + c * 0.3); }
-      ctx.globalAlpha = 1;
+      drawBlock(ctx, u, x, y, c, colours[u.side], { mine, selected: selected.has(u.id) });
     }
     const a = sideSummary(battle, "attacker"), d = sideSummary(battle, "defender");
     const mm = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
@@ -120,17 +91,10 @@ export function openBattle(root, battle, colours, onEnd) {
         <i style="background:${colours[side]};width:${(s.fighting / Math.max(1, s.start)) * 100}%"></i><small>${num(s.fighting)} / ${num(s.start)}</small></div>`).join("");
     root.querySelector("#b-hint").textContent = finished ? battle.result.reason
       : selected.size ? `${selected.size} selected: tap ground to move, tap an enemy to attack.`
-      : paused ? "Paused. Tap your blocks (light outline) to select them, then give orders. Press Play to fight." : "Tap your blocks to command them.";
+      : paused ? "Paused. Tap your blocks (light outline) to select them, then give orders. Press Play to fight. L levies · W warriors · S skirmishers · R legionaries." : "Tap your blocks to command them.";
   }
 
-  function dots(x, y, c, col) {
-    ctx.fillStyle = col;
-    for (const [i, j] of [[0.25, 0.3], [0.7, 0.25], [0.45, 0.65], [0.8, 0.75], [0.2, 0.8]]) {
-      ctx.beginPath(); ctx.arc(x * c + i * c, y * c + j * c, c * 0.08, 0, 7); ctx.fill();
-    }
-  }
   function line(x1, y1, x2, y2) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); }
-  function bar(x, y, w, col) { ctx.fillStyle = col; ctx.fillRect(x, y, Math.max(0, w), 3); }
 
   // ---------- clock ----------
 

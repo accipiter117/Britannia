@@ -1,12 +1,13 @@
 // ui/map.js
-// Owns the SVG campaign map: district cells, connections, roads, labels, army markers,
+// Owns the SVG campaign map: terrain, ownership borders, connections, roads, settlements, army banners,
 // selection highlight and camera (drag to pan, pinch or wheel to zoom, tap to select).
 // Reads state only; taps are reported through the onTap callback.
 
 import { BALANCE } from "../config/balance.js";
 import { settlementTier } from "../simulation/economy.js";
 import { MAP_BOUNDS, coastline, pathFrom, voronoiCells } from "./geometry.js";
-import { TERRAIN_ICON, TIER_ICON, esc, factionColour, num } from "./format.js";
+import { esc, factionColour, num } from "./format.js";
+import { artDefs, badgeSvg, bannerSvg, landmarksSvg, riverSvg, settlementSvg, terrainFill } from "./art.js";
 
 const ZOOM_MIN_W = 280;
 const ZOOM_MAX_W = 1500;
@@ -22,21 +23,29 @@ export function createMap(svg, state, { onTap }) {
   const aspect = view.h / view.w;
   let selection = null;
 
+  // static layers: sea, island, terrain textures and rivers are drawn once
   svg.innerHTML = `
     <defs>
+      ${artDefs()}
       <clipPath id="island"><path d="${coast}"/></clipPath>
+      ${ids.map((id) => `<clipPath id="cp-${id}"><path d="${cellPath[id]}"/></clipPath>`).join("")}
       <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
         <path d="M0 0 L10 5 L0 10 z" fill="var(--critical)"/>
       </marker>
-      <pattern id="waves" width="40" height="22" patternUnits="userSpaceOnUse">
-        <path d="M0 11 q10 -6 20 0 t20 0" fill="none" stroke="var(--sea-line)" stroke-width="1.5"/>
-      </pattern>
     </defs>
-    <rect x="-2000" y="-2000" width="5000" height="5200" fill="var(--sea)"/>
+    <rect x="-2000" y="-2000" width="5000" height="5200" fill="url(#g-sea)"/>
     <rect x="-2000" y="-2000" width="5000" height="5200" fill="url(#waves)"/>
-    <path d="${coast}" fill="var(--land)" stroke="var(--coast)" stroke-width="10" stroke-linejoin="round"/>
+    <path d="${coast}" fill="#0d1519" opacity="0.55" transform="translate(10 14)" filter="url(#soft-shadow)"/>
+    <path d="${coast}" fill="none" stroke="#b9c7c4" stroke-opacity="0.35" stroke-width="26" stroke-linejoin="round"/>
+    <g clip-path="url(#island)">
+      ${ids.map((id) => `<path d="${cellPath[id]}" fill="${terrainFill(state.districts[id])}"/>`).join("")}
+      ${ids.map((id) => riverSvg(state.districts[id], `cp-${id}`)).join("")}
+    </g>
+    <path d="${coast}" fill="none" stroke="#d8cfac" stroke-width="7" stroke-linejoin="round"/>
+    <path d="${coast}" fill="none" stroke="#5c5338" stroke-width="2" stroke-linejoin="round" transform="translate(2 3)" opacity="0.6"/>
     <g id="cells" clip-path="url(#island)"></g>
     <g id="links"></g>
+    <g id="hits" clip-path="url(#island)"></g>
     <g id="labels"></g>
     <g id="armies"></g>
     <g id="sel" clip-path="url(#island)" pointer-events="none"></g>
@@ -50,17 +59,27 @@ export function createMap(svg, state, { onTap }) {
     const g = (id) => svg.querySelector(`#${id}`);
     const reach = overlay.reach || {};
 
+    // ownership: a soft tint and a coloured inner border, not a solid national block
     g("cells").innerHTML = ids.map((id) => {
       const d = state.districts[id];
-      const r = reach[id] ? ` reach-${reach[id].kind}` : "";
-      return `<path data-district="${id}" d="${cellPath[id]}" fill="${factionColour(state, d.owner)}"
-        class="cell ${d.owner ? "" : "neutral"}${d.stage !== "Integrated" ? " occupied" : ""}${r}"/>`;
+      const col = factionColour(state, d.owner);
+      const unrest = d.owner && d.stage !== "Integrated";
+      return `<g clip-path="url(#cp-${id})" pointer-events="none">
+        ${d.owner ? `<path d="${cellPath[id]}" fill="${col}" opacity="${unrest ? 0.08 : 0.16}"/>` : ""}
+        <path d="${cellPath[id]}" fill="none" stroke="${col}" stroke-width="${d.owner ? 22 : 8}" opacity="${d.owner ? 0.4 : 0.35}"${unrest ? ' stroke-dasharray="22 12"' : ""}/>
+        ${d.owner ? `<path d="${cellPath[id]}" fill="none" stroke="${col}" stroke-width="5" opacity="0.8"${unrest ? ' stroke-dasharray="22 12"' : ""}/>` : ""}
+        <path d="${cellPath[id]}" fill="none" stroke="#1b1a12" stroke-width="3" opacity="0.55"/>
+      </g>`;
     }).join("");
 
     g("links").innerHTML = state.connections.map((c) => {
       const [a, b] = [state.districts[c.a].pos, state.districts[c.b].pos];
-      const cls = c.road ? "road" : c.roadProgress !== null ? "road building" : "link";
-      return `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" class="${cls}"/>`;
+      if (c.road || c.roadProgress !== null) {
+        const building = c.road ? "" : " building";
+        return `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" class="road-edge${building}"/>
+          <line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" class="road${building}"/>`;
+      }
+      return `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}" class="link"/>`;
     }).join("") + (overlay.threats || []).map((t) => {
       const b = state.districts[t.to].pos;
       const a = t.from ? state.districts[t.from].pos : [b[0] + 60, b[1] + 160]; // from the sea
@@ -68,22 +87,27 @@ export function createMap(svg, state, { onTap }) {
       return `<line x1="${a[0]}" y1="${a[1]}" x2="${mx}" y2="${my}" class="threat" marker-end="url(#arrow)"/>`;
     }).join("");
 
+    // transparent tap targets, also showing move-mode highlights
+    g("hits").innerHTML = ids.map((id) => {
+      const r = reach[id] ? ` reach-${reach[id].kind}` : "";
+      return `<path data-district="${id}" d="${cellPath[id]}" class="hit${r}"/>`;
+    }).join("");
+
     g("labels").innerHTML = ids.map((id) => {
       const d = state.districts[id];
       const [x, y] = d.pos;
-      const tier = settlementTier(d).id;
       const badges = [];
-      if (d.construction.length) badges.push("🚧");
-      if (!d.owner && d.garrison) badges.push("🗡️");
-      if (d.owner && d.stage !== "Integrated") badges.push("⛓️");
-      if (d.owner && d.loyalty < BALANCE.loyalty.unrest) badges.push("🔥");
+      if (d.construction.length) badges.push("construction");
+      if (!d.owner && d.garrison) badges.push("militia");
+      if (d.owner && d.stage !== "Integrated") badges.push("occupied");
+      if (d.owner && d.loyalty < BALANCE.loyalty.unrest) badges.push("unrest");
       return `<g data-district="${id}">
-        <circle cx="${x}" cy="${y}" r="30" class="seat"/>
-        <text x="${x}" y="${y + 9}" class="icon">${TIER_ICON[tier]}</text>
-        <text x="${x - 36}" y="${y - 12}" class="badge">${TERRAIN_ICON[d.terrain]}</text>
-        ${badges.map((b, i) => `<text x="${x + 38}" y="${y - 10 + i * 24}" class="badge">${b}</text>`).join("")}
-        <text x="${x}" y="${y + 56}" class="name">${esc(d.name)}</text>
-        <text x="${x}" y="${y + 78}" class="pop">${num(d.population)}</text>
+        ${landmarksSvg(d, x, y)}
+        <ellipse cx="${x}" cy="${y + 4}" rx="46" ry="30" fill="transparent"/>
+        ${settlementSvg(settlementTier(d).id, x, y)}
+        ${badges.map((b, i) => badgeSvg(b, x - 48 - i * 22, y - 26)).join("")}
+        <text x="${x}" y="${y + 58}" class="name">${esc(d.name)}</text>
+        <text x="${x}" y="${y + 80}" class="pop">${num(d.population)}</text>
       </g>`;
     }).join("");
 
@@ -93,14 +117,10 @@ export function createMap(svg, state, { onTap }) {
       const [x, y] = state.districts[did].pos;
       return list.map((a, i) => {
         const troops = a.formations.reduce((n, f) => n + f.troops, 0);
-        const ax = x + 64 + (i % 2) * 8, ay = y - 34 + i * 36;
-        const on = selection?.type === "army" && selection.id === a.id ? " on" : "";
-        const mine = a.factionId === state.playerFactionId;
-        const spent = mine && a.movesLeft <= 0 ? " spent" : "";
-        return `<g data-army="${a.id}" class="army${on}${spent}">
-          <rect x="${ax - 30}" y="${ay - 16}" width="60" height="32" rx="7" fill="${factionColour(state, a.factionId)}"/>
-          <text x="${ax}" y="${ay + 6}" class="army-text">${a.factionId === "rome" ? "🦅" : "⚔"}${num(troops)}</text>
-        </g>`;
+        const f = state.factions[a.factionId];
+        const on = selection?.type === "army" && selection.id === a.id;
+        const spent = a.factionId === state.playerFactionId && a.movesLeft <= 0;
+        return `<g data-army="${a.id}" class="army">${bannerSvg(factionColour(state, a.factionId), f?.culture, x + 70 + i * 34, y - 2 + (i % 2) * 14, num(troops), { selected: on, spent, rebel: f?.emergent })}</g>`;
       }).join("");
     }).join("");
 
@@ -109,7 +129,7 @@ export function createMap(svg, state, { onTap }) {
     g("sel").innerHTML = selection?.type === "district" ? `<path d="${cellPath[selection.id]}" class="selected"/>` : "";
     svg.querySelector("#rome").innerHTML = rome.stage === "warning"
       ? `<line x1="${entry[0] + 80}" y1="${entry[1] + 200}" x2="${entry[0] + 20}" y2="${entry[1] + 50}" class="threat rome" marker-end="url(#arrow)"/>
-         <text x="${entry[0] + 90}" y="${entry[1] + 230}" class="rome-label">🦅 Rome lands in ${rome.countdown}</text>` : "";
+         <text x="${entry[0] + 90}" y="${entry[1] + 230}" class="rome-label">Rome lands in ${rome.countdown}</text>` : "";
     applyView();
   }
 
