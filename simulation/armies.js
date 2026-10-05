@@ -4,7 +4,7 @@
 // Moving into a hostile district does not fight here: it returns an engagement (see engagement.js).
 
 import { BALANCE } from "../config/balance.js";
-import { armiesIn, armyTroops, districtsOf, neighbours, newArmy, seasonName, uid } from "./campaign.js";
+import { armiesIn, armyTroops, districtsOf, logSeason, neighbours, newArmy, seasonName, uid } from "./campaign.js";
 import { settlementTier } from "./economy.js";
 import { atWar, hasAccess } from "./diplomacy.js";
 import { captureDistrict } from "./governance.js";
@@ -94,8 +94,11 @@ export function moveArmy(state, armyId, targetId) {
   }
   const path = route.path;
   const stopAt = route.kind === "attack" ? path.length - 2 : path.length - 1;
+  logSeason(state, { t: "move", army: army.id, faction: army.factionId, path: path.slice(0, stopAt + 1), target: route.kind === "attack" ? targetId : null,
+    snapshot: { name: army.name, factionId: army.factionId, formations: army.formations.map((f) => ({ ...f })), movesLeft: 0, supply: army.supply, stance: army.stance } });
   army.districtId = path[stopAt];
   army.movesLeft = Math.max(0, army.movesLeft - route.cost);
+  army.order = null;
   if (route.kind === "attack") {
     army.movesLeft = 0;
     return { ok: true, engagement: { attackerFactionId: army.factionId, armyIds: [army.id], fromId: path[stopAt], districtId: targetId } };
@@ -239,6 +242,31 @@ export function visibleDistricts(state, fid) {
 export function visibleArmies(state, fid) {
   const seen = visibleDistricts(state, fid);
   return state.armies.filter((a) => a.factionId === fid || seen.has(a.districtId));
+}
+
+// What the player last saw of enemy hosts: kept so armies that slip out of sight remain on the
+// board as "last seen" markers. Hosts seen to be gone (their district is in view) are dropped.
+export function updateIntel(state, fid) {
+  state.intel ||= {};
+  const seen = visibleDistricts(state, fid);
+  for (const a of state.armies) {
+    if (a.factionId === fid || !seen.has(a.districtId)) continue;
+    state.intel[a.id] = { id: a.id, factionId: a.factionId, districtId: a.districtId, troops: Math.round(armyTroops(a) / 100) * 100, turn: state.turn };
+  }
+  for (const [id, info] of Object.entries(state.intel)) {
+    const army = state.armies.find((a) => a.id === id);
+    const visibleNow = army && seen.has(army.districtId);
+    if (visibleNow) continue;
+    if (seen.has(info.districtId) || state.turn - info.turn > BALANCE.army.intelSeasons) delete state.intel[id];
+  }
+}
+
+export function ghostsFor(state, fid) {
+  const seen = visibleDistricts(state, fid);
+  return Object.values(state.intel || {}).filter((g) => {
+    const army = state.armies.find((a) => a.id === g.id);
+    return !(army && seen.has(army.districtId)) && !seen.has(g.districtId);
+  });
 }
 
 export function resetMovement(state) {

@@ -4,7 +4,7 @@
 // tap open ground to move there, tap an enemy to attack. All rules live in simulation/battle.js.
 
 import { BALANCE } from "../config/balance.js";
-import { isActive, orderUnits, retreatAll, sideSummary, tick } from "../simulation/battle.js";
+import { PLANS, isActive, orderUnits, retreatAll, setPlan, sideSummary, tick } from "../simulation/battle.js";
 import { esc, num } from "./format.js";
 import { drawBlock, drawStronghold, paintTerrain } from "./battleArt.js";
 import { icon } from "./icons.js";
@@ -32,6 +32,11 @@ export function openBattle(root, battle, colours, onEnd, hooks = {}) {
       </span>
     </header>
     <div class="b-bars" id="b-bars"></div>
+    <div class="b-plan" id="b-plan">
+      <span>Battle plan</span>
+      ${PLANS.map((p) => `<button data-plan="${p}" class="${(battle.plans?.[player] || "line") === p ? "on" : ""}">${PLAN_TEXT[p].name}</button>`).join("")}
+      <small id="b-plan-hint">${PLAN_TEXT[battle.plans?.[player] || "line"].hint}</small>
+    </div>
     <div class="b-field"><canvas id="b-canvas"></canvas></div>
     <p class="b-hint" id="b-hint"></p>
     <div class="b-cmds">
@@ -48,8 +53,8 @@ export function openBattle(root, battle, colours, onEnd, hooks = {}) {
   const ctx = canvas.getContext("2d");
 
   function size() {
-    const box = root.querySelector(".b-field").getBoundingClientRect();
-    const px = Math.floor(Math.min(box.width, box.height));
+    const box = root.querySelector(".b-field"); // layout size, unaffected by the entrance animation
+    const px = Math.floor(Math.min(box.clientWidth, box.clientHeight));
     const dpr = window.devicePixelRatio || 1;
     canvas.style.width = canvas.style.height = `${px}px`;
     canvas.width = canvas.height = Math.floor(px * dpr);
@@ -60,6 +65,9 @@ export function openBattle(root, battle, colours, onEnd, hooks = {}) {
   let px = size();
   const onResize = () => { px = size(); draw(); };
   window.addEventListener("resize", onResize);
+  // the field box settles after the header and plan bar lay out, so size to it as it changes
+  const fieldObserver = new ResizeObserver(onResize);
+  fieldObserver.observe(root.querySelector(".b-field"));
 
   // ---------- drawing ----------
 
@@ -93,6 +101,7 @@ export function openBattle(root, battle, colours, onEnd, hooks = {}) {
     const fell = battle.log.filter((l) => battle.time - l.time < 4).map((l) => `${l.side === player ? "Your" : "The enemy"} commander has fallen!`)[0];
     root.querySelector("#b-hint").textContent = finished ? battle.result.reason : fell ? fell
       : selected.size ? `${selected.size} selected: tap ground to move, tap an enemy to attack.`
+      : paused && battle.time === 0 ? "Choose a battle plan, then press Play. Tap your blocks (light outline) to give them orders first if you like."
       : paused ? "Paused. Tap your blocks (light outline) to select them, then give orders. Press Play to fight. L levies · W warriors · S skirmishers · R legionaries." : "Tap your blocks to command them.";
   }
 
@@ -127,6 +136,7 @@ export function openBattle(root, battle, colours, onEnd, hooks = {}) {
   function close(done) {
     cancelAnimationFrame(raf);
     window.removeEventListener("resize", onResize);
+    fieldObserver.disconnect();
     root.hidden = true;
     root.innerHTML = "";
     if (done) onEnd(battle);
@@ -157,7 +167,22 @@ export function openBattle(root, battle, colours, onEnd, hooks = {}) {
     draw();
   });
 
+  const planBox = root.querySelector("#b-plan");
+  planBox.onclick = (e) => {
+    const plan = e.target.closest("[data-plan]")?.dataset.plan;
+    if (!plan || battle.time > 0 || !player) return;
+    setPlan(battle, player, plan);
+    planBox.querySelectorAll("[data-plan]").forEach((b) => b.classList.toggle("on", b.dataset.plan === plan));
+    root.querySelector("#b-plan-hint").textContent = PLAN_TEXT[plan].hint;
+    draw();
+  };
+  if (!player) planBox.hidden = true;
+  root.classList.remove("entering");
+  void root.offsetWidth;
+  root.classList.add("entering");
+
   root.querySelector("#b-play").onclick = (e) => {
+    planBox.hidden = true; // the plan is fixed once battle is joined
     paused = !paused;
     e.target.textContent = paused ? "▶ Play" : "⏸ Pause";
     last = performance.now();
@@ -180,5 +205,11 @@ export function openBattle(root, battle, colours, onEnd, hooks = {}) {
     draw();
   };
 }
+
+const PLAN_TEXT = {
+  line: { name: "Line", hint: "One wide front: steady, no surprises." },
+  deep: { name: "Deep", hint: `A narrow, stacked centre. Morale +${BALANCE.battle.plans.deep.morale}; harder to break, easier to wrap round.` },
+  wings: { name: "Wings", hint: `Strength on the flanks to envelop them. Morale ${BALANCE.battle.plans.wings.morale}; a thin centre.` },
+};
 
 const clamp = (v) => Math.max(0, Math.min(N - 1, v));

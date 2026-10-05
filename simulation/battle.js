@@ -68,6 +68,7 @@ export function createBattle(district, sides, opts) {
     if (lead) { lead.commander = true; lead.wasCommander = true; }
   }
   battle.rng = (seed ^ 0x5bd1e995) | 0;
+  for (const side of ["attacker", "defender"]) if (side !== battle.playerSide) setPlan(battle, side, aiPlan(battle, side));
   if (battle.ambush) for (const u of battle.units) if (u.side === "attacker") u.morale -= B.ambushMoraleHit;
   return battle;
 }
@@ -81,7 +82,8 @@ function deploy(battle, side, force) {
   const blocks = [];
   for (const army of force.armies) {
     const start = Math.max(0, army.morale - (army.fatigue / 20) * B.moraleLoss.fatiguePer20);
-    for (const f of army.formations) blocks.push({ armyId: army.id, type: f.type, troops: f.troops, morale: start, experience: army.experience, stance: army.stance });
+    const dug = side === "defender" && army.dugAt === battle.districtId && army.districtId === battle.districtId;
+    for (const f of army.formations) blocks.push({ armyId: army.id, type: f.type, troops: f.troops, morale: start, experience: army.experience, stance: army.stance, dug });
   }
   if (force.garrison) blocks.push({ armyId: null, type: "levies", troops: force.garrison, morale: B.morale.start, experience: "Green", stance: BALANCE.neutralGarrison.stance });
   // grow the block size until every block has a cell: 12 front (melee), 12 back (ranged), 12 overflow
@@ -130,6 +132,55 @@ function placeRow(battle, side, list, row) {
     battle.units.push(u);
     i++;
   }
+}
+
+// ---------- battle plans ----------
+
+export const PLANS = ["line", "deep", "wings"];
+const CENTRE_OUT = [6, 5, 7, 4, 8, 3, 9, 2, 10, 1, 11, 0];
+
+// Redeploys a side to a plan. Only before the first tick.
+export function setPlan(battle, side, plan) {
+  if (battle.time > 0 || !B.plans[plan]) return false;
+  const prev = battle.plans?.[side] || "line";
+  (battle.plans ||= {})[side] = plan;
+  const units = battle.units.filter((u) => u.side === side);
+  for (const u of units) u.morale += (B.plans[plan].morale || 0) - (B.plans[prev].morale || 0);
+  const atBottom = battle.bottom === side;
+  const fwd = atBottom ? -1 : 1;
+  const front = atBottom ? N - 2 : 1, back = atBottom ? N - 1 : 0, ahead = front + fwd;
+  const row = (y, cols = CENTRE_OUT) => cols.map((x) => [x, y]);
+  const isRanged = (u) => !!BALANCE.formations[u.type].ranged;
+  let meleeCells, rangedCells;
+  if (plan === "deep") {
+    meleeCells = [...row(ahead, [6, 5, 7, 4]), ...row(front, [6, 5, 7, 4, 8, 3]), ...row(front), ...row(ahead)];
+    rangedCells = [...row(back), ...row(front)];
+  } else if (plan === "wings") {
+    meleeCells = [...row(ahead, [1, 10, 2, 9, 0, 11]), ...row(front, [3, 8, 2, 9, 1, 10]), ...row(front), ...row(ahead)];
+    rangedCells = [...row(front, [6, 5, 7, 4]), ...row(back), ...row(front)];
+  } else {
+    meleeCells = [...row(front), ...row(ahead)];
+    rangedCells = [...row(back), ...row(ahead)];
+  }
+  const fallback = [...row(back), ...row(front), ...row(ahead), ...row(ahead + fwd)];
+  for (const u of units) u.x = u.y = -1;
+  const free = ([x, y]) => !battle.units.some((v) => v.x === x && v.y === y);
+  const put = (u, cells) => {
+    const c = [...cells, ...fallback].find(free);
+    if (c) { u.x = c[0]; u.y = c[1]; u.dx = u.dy = undefined; }
+  };
+  for (const u of units.filter((x) => !isRanged(x))) put(u, meleeCells);
+  for (const u of units.filter(isRanged)) put(u, rangedCells);
+  // ambushers still lie in wait three rows forward
+  if (battle.ambush && side === "defender" && battle.units.some((u) => u.side === "attacker")) for (const u of units) u.y += 3 * fwd;
+  return true;
+}
+
+// The AI's plan: wings when it outnumbers, deep when outnumbered, otherwise a line.
+function aiPlan(battle, side) {
+  const count = (s) => battle.units.filter((u) => u.side === s).reduce((n, u) => n + u.troops * BALANCE.formations[u.type].strength, 0);
+  const ours = count(side), theirs = count(side === "attacker" ? "defender" : "attacker");
+  return ours > theirs * 1.4 ? "wings" : ours < theirs * 0.75 ? "deep" : "line";
 }
 
 // ---------- orders (player) ----------
@@ -333,6 +384,7 @@ function defenceEff(battle, u) {
   const terrain = B.terrain[battle.grid[u.y][u.x]];
   let eff = def.strength * terrain.defence * BALANCE.stances[u.stance].defence * common(battle, u);
   if (u.side === "defender" && battle.objective && dist(u, battle.objective) <= B.fortifiedRadius) eff *= 1 + battle.fortification;
+  if (u.dug) eff *= 1 + BALANCE.orders.dig.defence;
   return eff;
 }
 

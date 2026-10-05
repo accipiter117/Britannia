@@ -5,7 +5,7 @@
 // Conquest is fast; governance is slow.
 
 import { BALANCE } from "../config/balance.js";
-import { addChronicle, armiesIn, districtsOf, newArmy, uid } from "./campaign.js";
+import { addChronicle, armiesIn, districtsOf, logSeason, newArmy, uid } from "./campaign.js";
 import { declareWar } from "./diplomacy.js";
 import { chance } from "./random.js";
 import { refugeesFrom } from "./events.js";
@@ -18,6 +18,7 @@ export function captureDistrict(state, districtId, fid) {
   const prev = d.owner;
   d.owner = fid;
   d.previousOwner = prev;
+  logSeason(state, { t: "capture", district: districtId, from: prev, to: fid });
   d.stage = "Occupied";
   d.prosperity = Math.max(0, (d.prosperity ?? BALANCE.prosperity.start) + BALANCE.prosperity.conquest);
   d.stageSeasons = 0;
@@ -123,6 +124,7 @@ function rebel(state, d, notes) {
   }
   const emergent = Object.values(state.factions).filter((f) => f.emergent && districtsOf(state, f.id).length);
   addChronicle(state, `${d.name} rose in rebellion against the ${state.factions[oldOwner].name}.`, "REBELLION");
+  logSeason(state, { t: "rebellion", district: d.id, faction: oldOwner });
   if (oldOwner === state.playerFactionId) notes.push({ level: "critical", text: `${d.name} has rebelled!`, districtId: d.id });
   for (const a of armiesIn(state, d.id, oldOwner)) a.morale = Math.max(0, a.morale - 20);
 

@@ -124,6 +124,7 @@ export const BALANCE = {
     fatigueRecoveryPerSeason: 20,
     unpaidMoralePenalty: 10,        // per season of unpaid upkeep (food or wealth)
     visibilityRange: 1,             // connections from owned districts and armies that a faction can see
+    intelSeasons: 6,                // a host out of sight is remembered where last seen for this long
   },
 
   movement: {
@@ -131,6 +132,23 @@ export const BALANCE = {
     terrainCost: { road: 1, plains: 1, fertile: 1, coast: 1, forest: 2, hills: 2, marsh: 2, mountain: 3 },
     riverCrossingExtra: 1,
     forcedMarch: { bonusPoints: 1, fatigue: 20, moralePenalty: 10 },
+  },
+
+  // ---------- ARMY ORDERS (instead of moving, an army can spend the season on one of these) ----------
+  orders: {
+    // Raid: strike an adjacent enemy or unclaimed district and come home with its harvest
+    raid: {
+      food: 120, wealth: 50,      // loot at prosperity 50 with a full raiding party
+      fullPartyTroops: 400,       // smaller parties take proportionally less
+      prosperity: -12, loyalty: -8, relation: -12,
+      repelRatio: 1.2,            // defenders this much stronger than the raiders turn them back
+      lossPct: 0.03, repelledLossPct: 0.1,
+      successMorale: 4, repelledMorale: -10,
+      ownerLosesShare: 0.5,       // the owner loses this share of the loot from their own stores
+    },
+    dig: { defence: 0.3 },        // entrenched (after one End Season in place): defence x1.3 when attacked here
+    rest: { morale: 10, fatigue: 20, replacementMult: 2 }, // extra recovery, own land only
+    aiRaidChance: { Warrior: 0.6, Opportunist: 0.5, Diplomat: 0.2, Defender: 0.15, Trader: 0.2 },
   },
 
   stances: {
@@ -179,7 +197,10 @@ export const BALANCE = {
     skirmisherRange: 2,             // ranged formations attack from this many cells
     rangedDamageMult: 0.6,          // ranged attacks inflict less than melee
     pursuitLossPct: 0.2,            // routed troops lost to pursuit after the battle
-    maxBlocksPerSide: 14,           // larger armies use bigger blocks, so numbers count on a 12-wide field
+    maxBlocksPerSide: 14,
+    // battle plans, chosen before the first clash. Line: one wide front. Deep: a narrow, stacked
+    // centre that holds its nerve. Wings: strength on the flanks, a thin centre, built to envelop.
+    plans: { line: { morale: 0 }, deep: { morale: 8 }, wings: { morale: -4 } },           // larger armies use bigger blocks, so numbers count on a 12-wide field
     ambushMoraleHit: 10,            // attacker morale loss when ambushed
     objectiveRadius: 1,             // defensive battle: cells around the objective that count as held
     objectiveCaptureSeconds: 15,    // attackers holding the objective uncontested this long win

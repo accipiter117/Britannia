@@ -115,6 +115,13 @@ export function drawBlock(ctx, u, x, y, c, colour, { mine, selected }) {
     const sx = x + pad + (k + 0.5) * (w / cols) + (r % 2 ? w / cols / 4 : 0), sy = y + pad + (r + 0.55) * (w / rows);
     shield(ctx, u.type, sx, sy, (w / cols) * 0.42, colour);
   }
+  if (u.dug) {
+    // an earth bank with stakes along the block's edge
+    ctx.fillStyle = "#5b4527";
+    ctx.fillRect(x + pad - 2, y + pad - 5, w + 4, 4);
+    ctx.fillStyle = "#8a6a3e";
+    for (let k = 0; k < 5; k++) { const sx = x + pad + (k + 0.5) * (w / 5); ctx.beginPath(); ctx.moveTo(sx - 2, y + pad - 2); ctx.lineTo(sx, y + pad - 9); ctx.lineTo(sx + 2, y + pad - 2); ctx.fill(); }
+  }
   ctx.lineWidth = selected ? 3 : 1.5;
   ctx.strokeStyle = selected ? "#fff6b0" : mine ? "#f4efe0" : "#1a1a14";
   ctx.strokeRect(x + pad, y + pad, w, w);

@@ -15,6 +15,8 @@ import { engagePlayer, playerDefends, resolveEngagementAuto } from "./engagement
 import { supplyDistance } from "./supply.js";
 import { aiGovern } from "./governance.js";
 import { inTruce, resolveOvertures } from "./overtures.js";
+import { canOrder, orderOf, raidTargets, setOrder } from "./orders.js";
+import { chance } from "./random.js";
 
 const A = BALANCE.ai;
 
@@ -28,6 +30,7 @@ export function resolveAI(state, notes) {
     aiGovern(state, f.id);
     economy(state, f.id, view);
     military(state, f.id, view, notes);
+    orders(state, f.id, view);
     diplomacy(state, f.id, view);
   }
   resolveOvertures(state);
@@ -197,6 +200,32 @@ function military(state, fid, view, notes) {
     if (state.districts[a.districtId].owner !== fid) {
       const home = Object.entries(reachable(state, a)).find(([did, r]) => r.kind === "move" && state.districts[did].owner === fid);
       if (home) moveArmy(state, a.id, home[0]);
+    }
+  }
+}
+
+// ---------- orders ----------
+// Armies that did not march this season: raid a weak enemy border district, dig in where
+// threatened, or rest when worn. A raid order shows on the map for a season before it lands,
+// so the victim has a chance to answer it.
+export function orders(state, fid, view) {
+  const f = state.factions[fid];
+  const O = BALANCE.orders;
+  for (const a of state.armies.filter((x) => x.factionId === fid)) {
+    if (!canOrder(state, a, "dig").ok || orderOf(a)) continue;
+    const ours = armyStrength(a);
+    const targets = raidTargets(state, a).filter((did) => state.districts[did].owner).map((did) => {
+      const d = state.districts[did];
+      const defence = armiesIn(state, did).filter((x) => x.factionId !== fid).reduce((n, x) => n + armyStrength(x), 0) + (d.owner ? 0 : garrisonStrength(d));
+      return { did, defence, value: (d.prosperity ?? 50) + (d.owner === state.playerFactionId ? 10 : 0) };
+    }).filter((t) => t.defence * O.raid.repelRatio * 1.3 < ours).sort((x, y) => y.value - x.value);
+    const threatened = (view.threatened[a.districtId] || 0) > 0;
+    if (targets.length && !threatened && chance(state, O.aiRaidChance[f.personality] ?? 0.2)) {
+      setOrder(state, a.id, "raid", targets[0].did);
+    } else if (threatened && state.districts[a.districtId].owner === fid) {
+      setOrder(state, a.id, "dig");
+    } else if (a.morale < 50 && state.districts[a.districtId].owner === fid) {
+      setOrder(state, a.id, "rest");
     }
   }
 }
