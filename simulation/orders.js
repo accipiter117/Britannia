@@ -8,6 +8,7 @@ import { addChronicle, armiesIn, armyTroops, logSeason, neighbours } from "./cam
 import { armyStrength, garrisonStrength, lossesProportional, movementPoints, removeEmptyArmies } from "./armies.js";
 import { storageCaps } from "./economy.js";
 import { atWar, changeRelation } from "./diplomacy.js";
+import { burnWorks } from "./romanWorks.js";
 
 const O = BALANCE.orders;
 export const ORDER_KINDS = ["raid", "dig", "rest"];
@@ -117,14 +118,15 @@ function raid(state, army, targetId, notes) {
     or.wealth = Math.max(0, or.wealth - Math.round(loot.wealth * R.ownerLosesShare));
     changeRelation(state, owner, army.factionId, R.relation);
   }
+  const burned = owner ? burnWorks(state, targetId, army.factionId) : [];
   d.prosperity = Math.max(0, (d.prosperity ?? 50) + R.prosperity);
   d.loyalty = Math.max(0, d.loyalty + R.loyalty);
   lossesProportional(army, Math.round(armyTroops(army) * R.lossPct));
   army.morale = Math.min(BALANCE.army.maxMorale, army.morale + R.successMorale);
-  logSeason(state, { t: "raid", army: army.id, faction: army.factionId, from: army.districtId, district: targetId, owner, loot });
+  logSeason(state, { t: "raid", army: army.id, faction: army.factionId, from: army.districtId, district: targetId, owner, loot, burned });
   if (army.factionId === me) {
-    state.feats = { ...state.feats, raids: (state.feats?.raids || 0) + 1 };
-    notes.push({ level: "important", text: `${army.name} raided ${d.name}: +${loot.food} food, +${loot.wealth} wealth.`, districtId: targetId });
+    state.feats = { ...state.feats, raids: (state.feats?.raids || 0) + 1, burnedRoman: (state.feats?.burnedRoman || 0) + (owner === "rome" && burned.length ? 1 : 0) };
+    notes.push({ level: "important", text: `${army.name} raided ${d.name}: +${loot.food} food, +${loot.wealth} wealth${burned.length ? `; burned the ${[...new Set(burned)].map((b) => b.replace(/_/g, " ")).join(" and ")} works and cut the supply through it` : ""}.`, districtId: targetId });
     if (!state.chronicle.some((c) => /raid/i.test(c.text))) addChronicle(state, `The ${army.name} crossed into ${d.name} and came home laden with plunder.`, "BATTLE");
   } else if (owner === me) {
     notes.push({ level: "critical", text: `${raider.name} raided ${d.name}! Fields burned; ${Math.round(loot.food * R.ownerLosesShare)} food lost.`, districtId: targetId });

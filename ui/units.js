@@ -29,10 +29,16 @@ export function createUnitLayer(group, districtPos) {
     if (instant) { node.getBoundingClientRect(); node.style.transition = ""; }
   }
 
-  // armies in the same district fan out around the settlement
+  // armies in the same district fan out around the settlement: one column for a pair, a
+  // tighter two-column muster (drawn smaller) for a crowd
   function slots(list) {
     const out = new Map();
-    list.forEach((a, i) => out.set(a.id, [HOME[0] + (i % 2) * 26, HOME[1] + i * 62 - (list.length - 1) * 26]));
+    if (list.length <= 2) {
+      list.forEach((a, i) => out.set(a.id, [HOME[0] + (i % 2) * 26, HOME[1] + i * 62 - (list.length - 1) * 26]));
+      return out;
+    }
+    const rows = Math.ceil(list.length / 2);
+    list.forEach((a, i) => out.set(a.id, [HOME[0] - 10 + (i % 2) * 92, HOME[1] + Math.floor(i / 2) * 44 - (rows - 1) * 22]));
     return out;
   }
 
@@ -58,6 +64,7 @@ export function createUnitLayer(group, districtPos) {
         node.innerHTML = miniature(state, a, {
           selected: selection?.type === "army" && selection.id === a.id,
           mine: a.factionId === state.playerFactionId,
+          scale: list.length > 2 ? SCALE * 0.72 : SCALE,
         });
         const [ox, oy] = offs.get(a.id);
         place(node, [x + ox, y + oy], fresh);
@@ -181,7 +188,7 @@ function figureSvg(type, x, y, colour) {
     <circle cx="${x - 2.2}" cy="${y + 2.5}" r="2.8" fill="${colour}" stroke="#2a2418" stroke-width="0.6"/>`;
 }
 
-function miniature(state, army, { selected, mine }) {
+function miniature(state, army, { selected, mine, scale = SCALE }) {
   const f = state.factions[army.factionId];
   const colour = factionColour(state, army.factionId);
   const figs = figures(army);
@@ -201,7 +208,7 @@ function miniature(state, army, { selected, mine }) {
     const start = -((row.length - 1) * FIG_SPACING) / 2 - 4;
     row.forEach((t, i) => { figsSvg += figureSvg(t, start + i * FIG_SPACING + (r ? 4 : 0), y, colour); });
   });
-  return `<g transform="scale(${SCALE})">
+  return `<g transform="scale(${scale})">
     ${selected ? `<ellipse cx="0" cy="10" rx="40" ry="15" class="unit-glow"/>` : ""}
     <ellipse cx="3" cy="13" rx="34" ry="10" fill="#000" opacity="0.32"/>
     <ellipse cx="0" cy="10" rx="33" ry="9.5" fill="#4a3824" stroke="${supplyBad || "#2a1f12"}" stroke-width="${supplyBad ? 2.5 : 1}"/>

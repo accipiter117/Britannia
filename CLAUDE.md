@@ -127,6 +127,8 @@ Objectives and the feud (session 6):
 
 Sieges (session 7, `simulation/siege.js`, `balance.siege`): a fortified district (hillfort or Fortification) left without a defending host is besieged, not taken. The camp shows round the town with its remaining stores as pips. Each End Season (step 10b, after the AI) the stores fall by one; at zero the town is starved out; production halves and loyalty sags meanwhile. The besieger can storm (a real battle against the town's militia, `militiaPct` of its people, behind its walls) or lift. The player besieging gets a decision each season; the AI storms when `aiStormRatio` stronger (Rome at `romeStormRatio`, and its engineers halve the walls). A relieving host attacks the camp; the siege ends when the camp is gone. Besieging hosts are left in place by the AI and Rome; no recruiting in a besieged district. Rome now counts walls before attacking.
 
+Roman works (session 7, `simulation/romanWorks.js`, `balance.romanWorks`): once ashore, Rome's engineers start a road along its lines and a fort in its most exposed district each season, free, shown as red-and-gold scaffolds with progress bars (all works in progress show as scaffolds). A successful raid burns works in progress in the raided district and cuts its owner's supply through it for a season (smoke on the map); with the Old Road cut, Rome's reinforcements cannot land. AI Celts favour raiding Roman works. Objective "Burn the Roman works" in chapter Britannia. Crowded districts (3+ hosts) muster in a smaller two-column block.
+
 Saving: the game saves after every action (in `render()`), not only at End Season.
 
 Testing:

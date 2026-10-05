@@ -442,3 +442,15 @@ body.move-mode #objectives, body.playing #objectives { display: none; }
 .siege-pips { display: flex; align-items: center; gap: 5px; }
 .supply-pip { width: 14px; height: 14px; border-radius: 3px; background: #3a342a; border: 1px solid #5c5340; display: inline-block; }
 .supply-pip.on { background: #e0a83a; }
+
+/* ---------- works and raids ---------- */
+.works .scaffold { stroke: #8a6a3e; stroke-width: 3; fill: none; stroke-linecap: round; }
+.works.roman .scaffold { stroke: #a3242b; }
+.works-icon { color: #f4ecd4; }
+.works.roman .works-icon { color: #f2cf5b; }
+.works-bar { fill: #e0a83a; }
+.works.roman .works-bar { fill: #c8434b; }
+.smoke circle { fill: #4a4540; opacity: 0.55; animation: smoke-rise 2.4s ease-in-out infinite alternate; }
+.smoke circle:nth-child(2) { animation-delay: -0.8s; } .smoke circle:nth-child(3) { animation-delay: -1.6s; opacity: 0.4; }
+.smoke .ember { fill: #f2a04b; animation: flicker 0.8s ease-in-out infinite alternate; transform-origin: 0 6px; }
+@keyframes smoke-rise { from { translate: 0 0; } to { translate: 3px -6px; } }

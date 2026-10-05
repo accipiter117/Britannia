@@ -8,6 +8,7 @@ import { addChronicle, armyTroops, neighbours, seasonName } from "./campaign.js"
 import { connectionBetween, lossesProportional, removeEmptyArmies } from "./armies.js";
 import { hasAccess } from "./diplomacy.js";
 import { restBonus } from "./orders.js";
+import { isDisrupted } from "./romanWorks.js";
 
 const S = BALANCE.supply;
 
@@ -16,6 +17,7 @@ export function supplyDistance(state, fid, districtId, season = seasonName(state
   const sources = new Set();
   for (const d of Object.values(state.districts)) {
     if (!hasAccess(state, fid, d.owner)) continue;
+    if (d.owner === fid && isDisrupted(state, d)) continue; // raided: no supply flows through it
     sources.add(d.id);
     if (d.owner === fid && d.buildings.includes("supply_depot")) {
       neighbours(state, d.id).forEach((n) => sources.add(n)); // depot: +1 range
