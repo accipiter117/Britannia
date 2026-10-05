@@ -67,7 +67,7 @@ export function makeTerrain(kind, seed, siege) {
 
 // A square enclosure near the top (defenders' side) with a gate facing the attackers.
 function addWalls(t) {
-  const cx = B.width / 2, cy = 230, half = 150;
+  const cx = B.width / 2, cy = 215, half = 160;
   const gateW = 40;
   forCells((x, y, k) => {
     const dx = Math.abs(x - cx), dy = Math.abs(y - cy);
@@ -111,6 +111,6 @@ export function speedMult(t, x, y, mounted) {
   const g = groundAt(t, x, y);
   if (g === GROUND.forest) return mounted ? B.forestMountedSpeed : B.forestSpeed;
   if (g === GROUND.river || g === GROUND.marsh) return B.riverSpeed;
-  if (g === GROUND.wall) return B.ladderSpeed;
+  if (g === GROUND.wall) return B.wallSpeed;
   return 1;
 }

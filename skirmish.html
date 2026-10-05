@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Skirmish</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <section id="battle" hidden></section>
+  <script type="module">
+    // A quick custom battle for testing: skirmish.html?terrain=hills&siege=0&side=attacker
+    import { newUnit } from "./simulation/state.js";
+    import { createBattle } from "./simulation/battle/setup.js";
+    import { openBattle } from "./ui/battleView.js";
+    const q = new URLSearchParams(location.search);
+    const siege = q.get("siege") === "1";
+    const army = (id, faction, types) => ({ id, faction, units: types.map(newUnit) });
+    const celts = army("c", "celts", ["chieftain", "warriors", "warriors", "warriors", "spearmen", "spearmen", "slingers", "javelinmen", "horsemen", "chariots"]);
+    const rome = army("r", "rome", ["legate", "legionaries", "legionaries", "legionaries", "auxilia", "auxilia", "archers", "equites", "scorpion"]);
+    const side = q.get("side") || "attacker";
+    const b = createBattle({ region: { id: "x", name: q.get("name") || "Camulodunum", terrain: q.get("terrain") || "fertile" },
+      attacker: { faction: siege ? "rome" : "celts", armies: [siege ? rome : celts] },
+      defender: { faction: siege ? "celts" : "rome", armies: [siege ? celts : rome] }, siege, playerSide: side, seed: +(q.get("seed") || 3) });
+    window.battle = b;
+    openBattle(document.getElementById("battle"), b, { factions: { attacker: b.sides.attacker.faction, defender: b.sides.defender.faction }, onEnd: (bb) => { document.body.insertAdjacentHTML("beforeend", `<p id="result" style="color:#fff">${bb.result?.reason}</p>`); } });
+  </script>
+</body>
+</html>

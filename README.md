@@ -1,6 +1,6 @@
-# Caledonia
+# Britannia Invicta
 
-Lead the Picts of northern Britannia against Rome. Move your hosts across the north, then command every clash yourself in real-time battles with formations, flanks, charges, ambushes and sieges.
+Roma Invicta, set in Britannia. Lead the Britons against Rome: march your hosts across a small pixel map, feed them through the winter, win over or plunder the tribes, then command every clash yourself with hundreds of pixel soldiers in real-time battles and sieges.
 
 - Play: https://accipiter117.github.io/Britannia/ (GitHub Pages from `main`).
 - Local: `python3 -m http.server` in this folder, then visit http://localhost:8000
