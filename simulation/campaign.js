@@ -31,6 +31,14 @@ export function clashAt(state, attackerFaction, regionId) {
   return { regionId, defenderFaction, siege: r.walls && r.owner === defenderFaction && garrison.length > 0, armies: enemies.filter((a) => a.faction === defenderFaction), garrison: r.owner === defenderFaction ? garrison : [] };
 }
 
+// How a host's attack on a clash looks: the strength ratio and a word for it.
+export function attackOdds(army, clash) {
+  const theirs = clash.armies.reduce((n, a) => n + armyPower(a), 0) + garrisonPower({ walls: clash.siege, garrison: clash.garrison });
+  const ratio = armyPower(army) / Math.max(1, theirs);
+  const [word, tone] = ratio > 1.6 ? ["Easy", "good"] : ratio > 1.15 ? ["Good", "good"] : ratio > 0.85 ? ["Even", "even"] : ratio > 0.6 ? ["Hard", "bad"] : ["Desperate", "bad"];
+  return { ratio, word, tone };
+}
+
 export function canMove(state, army, to) {
   if (army.moves <= 0) return { ok: false, reason: "This host has marched this season" };
   if (!neighbours(state, army.region).includes(to)) return { ok: false, reason: "One region at a time" };

@@ -53,6 +53,13 @@ Rule: `simulation/` never touches the DOM; `ui/` calls simulation functions and 
 - Woods hide units deployed in them (ambush). Each unit can be handed to the AI, or the whole army.
 - Sieges: palisade walls can be climbed slowly, the gate hacked (at most `gateHackers` men at once) or shot by scorpions; defenders get wall bonuses and missile cover. Attackers win by breaking the defenders or holding the centre (`plazaHold`); defenders win at the time limit.
 
+## Campaign screen
+- One slim top bar: menu (realm, hosts, chronicle, help, sound), silver, wheat, season, End Season.
+- The map fills the screen. A panel opens only when a host or tribe is chosen (side card on desktop, collapsible bottom sheet on phones).
+- With a host chosen, reachable regions carry a badge: March, Take, or Fight/Siege with the odds (`attackOdds`). Pulsing red borders mark where Rome may strike next season (`romeThreats`, same rule as Rome's AI).
+- The advice line at the top of the map says what to do next and steps through hosts that can still march.
+- `window.britanniaMap.screenOf(id)` gives a region's screen position for browser tests.
+
 ## Testing
 - `node tools/battletest.mjs [runs]`: set-piece battles AI vs AI, win rates and losses. Run after any battle balance change.
 - `node tools/battletrace.mjs [field|siege] [every]`: one battle printed unit by unit over time.
