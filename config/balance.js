@@ -134,6 +134,23 @@ export const BALANCE = {
     forcedMarch: { bonusPoints: 1, fatigue: 20, moralePenalty: 10 },
   },
 
+  // ---------- RIVALRY (the two kingdoms that flank the Confederation) ----------
+  // They share no border: their feud runs through the player's land. Relations sour each season
+  // until one declares war; then both ask the player for passage. Rome's coming cools it.
+  rivalry: {
+    pairs: [["strath_mor_kingdom", "southern_league"]],
+    startRelation: -15,
+    driftPerSeason: -6,           // until their first war (normal drift claws back about 2)
+    romeThawPerSeason: 3,         // once Rome's warning comes, old feuds give way
+    peaceRelation: -30,           // relation after the feud ends in Rome's shadow
+    warAtRelation: -40,
+    earliestSeason: 7,
+    passageCooldown: 3,           // seasons between requests from the same side
+    grant: { requester: 15, rival: -20, wealth: 40 }, // they pay a toll for passage
+    refuse: { requester: -10 },
+    join: { requester: 20 },
+  },
+
   // ---------- ARMY ORDERS (instead of moving, an army can spend the season on one of these) ----------
   orders: {
     // Raid: strike an adjacent enemy or unclaimed district and come home with its harvest

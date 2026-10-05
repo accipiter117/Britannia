@@ -123,6 +123,7 @@ function raid(state, army, targetId, notes) {
   army.morale = Math.min(BALANCE.army.maxMorale, army.morale + R.successMorale);
   logSeason(state, { t: "raid", army: army.id, faction: army.factionId, from: army.districtId, district: targetId, owner, loot });
   if (army.factionId === me) {
+    state.feats = { ...state.feats, raids: (state.feats?.raids || 0) + 1 };
     notes.push({ level: "important", text: `${army.name} raided ${d.name}: +${loot.food} food, +${loot.wealth} wealth.`, districtId: targetId });
     if (!state.chronicle.some((c) => /raid/i.test(c.text))) addChronicle(state, `The ${army.name} crossed into ${d.name} and came home laden with plunder.`, "BATTLE");
   } else if (owner === me) {

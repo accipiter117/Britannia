@@ -7,7 +7,7 @@ import { esc, factionName, label } from "./format.js";
 import { icon } from "./icons.js";
 import { dateLabel } from "../simulation/campaign.js";
 
-const PAUSE = { raid: 900, battle: 1200, capture: 900, landing: 1500, rebellion: 1000, built: 450 };
+const PAUSE = { objective: 1100, raid: 900, battle: 1200, capture: 900, landing: 1500, rebellion: 1000, built: 450 };
 
 export async function playSeason(state, map, visible, control) {
   const me = state.playerFactionId;
@@ -32,6 +32,10 @@ export async function playSeason(state, map, visible, control) {
       map.flash(e.district, "raid", text, e.faction === me || e.owner === me ? (good === (e.faction === me) ? "good" : "bad") : "");
       await wait(PAUSE.raid);
       if (map.hasArmy(e.army)) await map.animateArmy(e.army, [e.district, e.from]);
+    } else if (e.t === "objective") {
+      if (e.district) map.ensureVisible(e.district);
+      map.flash(e.district || Object.values(state.districts).find((d) => d.owner === me)?.id, "objective", e.title, "good");
+      await wait(PAUSE.objective);
     } else if (e.t === "battle" && seen(e.district)) {
       map.ensureVisible(e.district);
       const mine = e.attacker === me || e.defender === me;

@@ -121,6 +121,10 @@ Board presence and stitched phases (session 5), to move the feel away from menus
 - Battle plans (`balance.battle.plans`, `setPlan` in battle.js): Line, Deep (+morale, narrow centre) or Wings (flanks forward, thin centre), chosen on the battlefield before Play. The AI picks by relative strength.
 - Seasons tint the land (snow in winter, gold in autumn). During the countdown Rome's fleet gathers at sea and closes on the Old Road; Roman-held districts show as marching camps.
 
+Objectives and the feud (session 6):
+- Objectives (`simulation/objectives.js`, card in `ui/objectivesView.js`): eleven goals in four chapters (The Realm, The Feud, The Eagle, Britannia). Up to three open at once, checked at End Season (step after victory), small rewards, Chronicle entries, a flash in the playback. Each has a hint and, where useful, a district to jump to. Add goals to the list; chapters open by `when(state)`.
+- Rivalry (`simulation/rivalry.js`, `balance.rivalry`): Strath Mor and the Southern League share no border, so their feud runs through the player's land. Relations sour each season until war (about Year 2 Autumn); then each side asks the player for passage (grant for a toll, join one side, or refuse; refusals slow further requests). A granted host marches through the player's districts (`marchOnRival`, waits at the border until strong enough). Rome's warning ends the feud in a cold peace that can thaw into Celtic unity.
+
 Saving: the game saves after every action (in `render()`), not only at End Season.
 
 Testing:

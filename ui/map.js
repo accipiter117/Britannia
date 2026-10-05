@@ -327,11 +327,12 @@ export function createMap(svg, state, { onTap }) {
     const col = factionId ? factionColour(state, factionId) : null;
     const glyph = kind === "built" ? `<use href="#i-${building}" x="-14" y="-14" width="28" height="28" class="fx-icon"/>`
       : kind === "landing" ? `<use href="#i-eagle" x="-18" y="-18" width="36" height="36" class="fx-icon"/>`
+      : kind === "objective" ? `<use href="#i-trophy" x="-16" y="-16" width="32" height="32" class="fx-icon"/>`
       : kind === "raid" ? `<use href="#i-torch" x="-16" y="-16" width="32" height="32" class="fx-icon"/>`
       : kind === "capture" ? `<path d="M-2 18V-22h22l-6 8 6 8H-2" fill="${col}" stroke="#1d1b16" stroke-width="2"/>`
       : `<use href="#i-armies" x="-18" y="-18" width="36" height="36" class="fx-icon"/>`;
     node.innerHTML = `<g transform="translate(${x} ${y - 20})">
-      ${kind === "battle" || kind === "landing" || kind === "raid" ? `<circle r="10" class="fx-ring"/><circle r="10" class="fx-ring late"/>` : ""}
+      ${kind === "battle" || kind === "landing" || kind === "raid" || kind === "objective" ? `<circle r="10" class="fx-ring"/><circle r="10" class="fx-ring late"/>` : ""}
       <circle r="26" class="fx-disc"/>${glyph}
       <text y="50" class="fx-text">${text}</text></g>`;
     svg.querySelector("#fx").appendChild(node);

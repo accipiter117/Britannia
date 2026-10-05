@@ -23,6 +23,7 @@ import { confirmHtml, endingHtml, messageHtml, pendingHtml, preBattleHtml, resul
 import { openBattle } from "./battleView.js";
 import { chronicleHtml } from "./chronicle.js";
 import { playSeason, seasonReportHtml } from "./playback.js";
+import { objectivesHtml } from "./objectivesView.js";
 import { icon, injectIconSprite } from "./icons.js";
 import { initAudio, setScene, sfx, soundOn, toggleSound } from "./audio.js";
 import { clearSave, loadGame, saveGame, saveLabel } from "./save.js";
@@ -68,6 +69,8 @@ function render() {
 
   document.body.classList.toggle("move-mode", !!ui.moveArmyId);
   $("move-banner").hidden = !ui.moveArmyId;
+  ui.objOpen ??= window.innerWidth > 700;
+  $("objectives").innerHTML = objectivesHtml(state, ui.objOpen);
   $("move-banner").innerHTML = ui.moveArmyId ? moveBanner() : "";
   $("summary").innerHTML = desktop.matches ? "" : summaryCard(state, ui.selection);
   $("summary").hidden = desktop.matches || !ui.selection || ui.drawerOpen || !!ui.moveArmyId;
@@ -358,6 +361,7 @@ const actions = {
   "battle-fight": fight,
   "battle-auto": () => { ui.modal = null; afterBattle(finishBattle(state, ui.pendingBattle, true)); },
   "close-modal": closeModal,
+  "toggle-objectives": () => { ui.objOpen = !ui.objOpen; render(); },
   "skip-playback": () => { if (ui.playing) ui.playing.skip = true; },
   ending: () => modal(endingHtml(state)),
   "open-chronicle": () => { ui.chronicle = "all"; renderChronicle(); },

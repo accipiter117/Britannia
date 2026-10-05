@@ -9,7 +9,7 @@ import { BALANCE } from "../config/balance.js";
 import { addChronicle, districtsOf, neighbours } from "./campaign.js";
 import { armyStrength } from "./armies.js";
 import {
-  allied, atWar, changeRelation, declareWar, formAlliance, makePeace, pairKey, relation, tradeLinked, warWeary,
+  allied, atWar, changeRelation, declareWar, formAlliance, grantAccess, makePeace, pairKey, relation, tradeLinked, warWeary,
 } from "./diplomacy.js";
 import { chance } from "./random.js";
 
@@ -161,6 +161,18 @@ export function overtureView(state, p) {
         { id: "accept", label: "Accept Rome's friendship", hint: `−${p.amount} Wealth a season; other Celts will resent it`, ok: true },
         { id: "refuse", label: "Refuse", hint: "Rome will remember", ok: true },
       ] };
+    case "passage": {
+      const foe = fname(state, p.against);
+      const V = BALANCE.rivalry;
+      return {
+        title: `${from} ask for passage`, icon: "armies",
+        text: `The ${from} are at war with the ${foe}, and your lands lie between them. Their envoy asks that their hosts may cross your districts, and offers ${p.toll} Wealth for the road.`,
+        choices: [
+          { id: "grant", label: `Grant passage (+${p.toll} Wealth)`, hint: `Their hosts may march through and draw supply. The ${foe} will take it badly (${V.grant.rival}).`, ok: true },
+          { id: "join", label: `Join the ${from} against the ${foe}`, hint: `An alliance with them and war with the ${foe}`, ok: !allied(state, me.id, p.against) && !atWar(state, me.id, p.from), reason: `You are allied with the ${foe}` },
+          { id: "refuse", label: "Close your borders", hint: `Neither side crosses. The ${from} resent it (${V.refuse.requester}).`, ok: true },
+        ] };
+    }
     case "romePeace": return {
       title: "Rome offers peace", icon: "dove",
       text: "The invasion has settled into a long stalemate. Rome offers peace on the borders as they stand.",
@@ -198,6 +210,20 @@ export function answerOverture(state, p, choiceId) {
     case "plea:ignore": changeRelation(state, me, p.from, -10); break;
     case "client:accept": becomeClient(state, me); break;
     case "client:refuse": changeRelation(state, me, "rome", -10); break;
+    case "passage:grant": {
+      const R = BALANCE.rivalry;
+      grantAccess(state, me, p.from);
+      const n = Math.min(p.toll, theirs.wealth);
+      theirs.wealth -= n; mine.wealth += n;
+      changeRelation(state, me, p.from, R.grant.requester); changeRelation(state, me, p.against, R.grant.rival);
+      addChronicle(state, `The ${fname(state, me)} let the hosts of the ${fname(state, p.from)} cross their land.`);
+      break;
+    }
+    case "passage:join": formAlliance(state, me, p.from); declareWar(state, me, p.against); changeRelation(state, me, p.from, BALANCE.rivalry.join.requester); break;
+    case "passage:refuse":
+      changeRelation(state, me, p.from, BALANCE.rivalry.refuse.requester);
+      state.factions[p.from].passageRefusals = (state.factions[p.from].passageRefusals || 0) + 1; // they ask less often
+      break;
     case "romePeace:accept": makePeace(state, me, "rome"); setTruce(state, me, "rome", O.truceSeasons); break;
     default: if (p.from !== "rome") changeRelation(state, me, p.from, -5);
   }

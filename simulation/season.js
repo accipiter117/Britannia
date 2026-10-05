@@ -10,6 +10,7 @@ import {
 import { resetMovement } from "./armies.js";
 import { resolveRecovery, resolveSupply } from "./supply.js";
 import { resolveOrders } from "./orders.js";
+import { resolveObjectives } from "./objectives.js";
 import { resolveDiplomacy, resolveTrade } from "./diplomacy.js";
 import { resolveAI } from "./ai.js";
 import { resolveGovernance, resolveRegions, checkEliminations } from "./governance.js";
@@ -42,6 +43,7 @@ export function endSeason(state) {
   resolveRegions(state, ctx.notes);                                 // 14
   checkEliminations(state);
   resolveVictory(state, ctx.notes);
+  resolveObjectives(state, ctx.notes);
   const before = dateLabel(state);
   state.chronicle.push(...ctx.chronicle.map((t) => ({ ...chronicleEntry(state, t), date: before }))); // 15
   state.logging = false;
