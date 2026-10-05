@@ -1,32 +1,32 @@
 // ui/battleView.js
-// Owns the battle screen: deployment (drag your units within the lit ground; woods hide them),
-// then real time with pause and speed. Tap a unit (or its card) to select it; tap ground to march
-// there, drag to march and face the way you drag; tap an enemy to attack it, the gate to batter
-// it. Formation and ability buttons act on the selection. Drag empty ground with nothing selected
-// to pan; pinch or the buttons to zoom. All rules live in simulation/battle/engine.js.
+// Owns the battle screen. Deployment: drag your bands within the lit ground (woods hide them).
+// Battle: real time with slow motion, pause and speed. Tap a soldier (or a card) to select his
+// band; tap ground to march there, drag to march and face the way you drag; tap an enemy to attack.
+// Throw: press the javelin button, then tap where the volley should land (a skill shot: aim where
+// the enemy will be). Hand any band to the AI with its card's ⚙. Drag empty ground to pan; pinch,
+// the wheel or the buttons to zoom. All rules live in simulation/battle/.
 
 import { BALANCE } from "../config/balance.js";
 import {
-  abilityReady, autoResolve, orderUnits, setFormation, soundRetreat, startBattle, tick, unitSize, useAbility,
+  abilityReady, autoResolve, canThrow, orderUnits, setAI, soundRetreat, startBattle, throwAt, tick, useAbility,
 } from "../simulation/battle/engine.js";
-import { deployZone } from "../simulation/battle/setup.js";
+import { deployZone, placeUnit, unitWidth } from "../simulation/battle/setup.js";
 import { drawFrame, paintGround, toWorld } from "./battleArt.js";
 
 const B = BALANCE.battle;
-const U = BALANCE.units;
 
 export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
   const side = b.playerSide;
   const enemy = side === "attacker" ? "defender" : "attacker";
-  const abilities = factions[side] === "rome" ? BALANCE.romeAbilities : BALANCE.pictAbilities;
+  const abilities = factions[side] === "rome" ? BALANCE.romeAbilities : BALANCE.celtAbilities;
   const selected = new Set();
-  let paused = false, speed = 1, multi = false, last = performance.now(), acc = 0, raf = 0, ended = false;
+  let paused = false, speed = 1, multi = false, last = performance.now(), acc = 0, raf = 0, ended = false, aiming = null;
 
   root.innerHTML = `
     <header class="b-top">
       <b>${b.siege ? "Siege of" : "Battle of"} ${b.regionName}</b>
       <span class="b-clock" id="b-clock"></span>
-      <span class="b-ctl"><button id="b-pause">❚❚</button><button id="b-speed">1×</button></span>
+      <span class="b-ctl">${B.speeds.map((s) => `<button data-speed="${s}" class="${s === 1 ? "on" : ""}">${s === 0.5 ? "½" : s}×</button>`).join("")}<button id="b-pause">❚❚</button></span>
     </header>
     <div class="b-stage" id="b-stage">
       <canvas id="b-canvas"></canvas>
@@ -44,58 +44,59 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
   const ctx = canvas.getContext("2d");
   const ground = paintGround(b.terrain);
   const cam = { scale: 1, x: 0, y: 0, flip: b.top === side };
-  const dpr = () => window.devicePixelRatio || 1;
+  const dpr = () => Math.min(2, window.devicePixelRatio || 1);
+  const stage = root.querySelector("#b-stage");
 
   function fit() {
-    const box = root.querySelector("#b-stage");
-    canvas.width = box.clientWidth * dpr();
-    canvas.height = box.clientHeight * dpr();
-    canvas.style.width = `${box.clientWidth}px`;
-    canvas.style.height = `${box.clientHeight}px`;
-    const s = Math.min(box.clientWidth / B.width, box.clientHeight / B.height);
-    cam.min = s;
-    // until the player zooms, keep refitting as the layout settles
-    if (!cam.userZoom) { cam.scale = box.clientWidth >= 900 ? s : Math.max(s, Math.min(box.clientWidth / 700, box.clientHeight / 500, s * 1.6)); centreOn(side); }
+    canvas.width = stage.clientWidth * dpr();
+    canvas.height = stage.clientHeight * dpr();
+    canvas.style.width = `${stage.clientWidth}px`;
+    canvas.style.height = `${stage.clientHeight}px`;
+    cam.min = Math.min(stage.clientWidth / B.width, stage.clientHeight / B.height);
+    if (!cam.userZoom) {
+      // the whole field on a big screen; on a phone, close enough to see the men
+      cam.scale = stage.clientWidth >= 900 ? cam.min : Math.max(cam.min, Math.min(stage.clientWidth / 520, stage.clientHeight / 420));
+      centreOn(side);
+    }
     clamp();
   }
   function clamp() {
-    const box = root.querySelector("#b-stage");
-    const vw = box.clientWidth / cam.scale, vh = box.clientHeight / cam.scale;
+    const vw = stage.clientWidth / cam.scale, vh = stage.clientHeight / cam.scale;
     cam.x = vw >= B.width ? (B.width - vw) / 2 : Math.max(0, Math.min(B.width - vw, cam.x));
     cam.y = vh >= B.height ? (B.height - vh) / 2 : Math.max(0, Math.min(B.height - vh, cam.y));
   }
   function centreOn(s) {
     const mine = b.units.filter((u) => u.side === s);
-    const box = root.querySelector("#b-stage");
-    const cx = mine.reduce((n, u) => n + u.x, 0) / mine.length, cy = mine.reduce((n, u) => n + u.y, 0) / mine.length;
-    const sx = cam.flip ? B.width - cx : cx, sy = cam.flip ? B.height - cy : cy;
-    cam.x = sx - box.clientWidth / cam.scale / 2;
-    cam.y = sy - box.clientHeight / cam.scale * 0.62;
+    const cx = mine.reduce((n, u) => n + u.cx, 0) / mine.length, cy = mine.reduce((n, u) => n + u.cy, 0) / mine.length;
+    const vx = cam.flip ? B.width - cx : cx, vy = cam.flip ? B.height - cy : cy;
+    cam.x = vx - stage.clientWidth / cam.scale / 2;
+    cam.y = vy - stage.clientHeight / cam.scale * 0.6;
   }
-  const ro = new ResizeObserver(() => { fit(); });
-  ro.observe(root.querySelector("#b-stage"));
+  const ro = new ResizeObserver(fit);
+  ro.observe(stage);
   fit();
 
-  // ---------- drawing loop ----------
+  // ---------- loop ----------
 
+  let clashTimer = 0;
   function frame(now) {
-    const dt = Math.min(0.25, (now - last) / 1000);
+    const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     if (b.phase === "fight" && !paused && !b.over) {
       acc += dt * speed;
-      while (acc >= B.tick && !b.over) {
-        const before = b.units.filter((u) => u.foes.length).length;
-        tick(b);
-        acc -= B.tick;
-        if (b.units.filter((u) => u.foes.length).length > before) sfx("clash");
-      }
+      let steps = 0;
+      while (acc >= B.tick && !b.over && steps++ < 8) { tick(b); acc -= B.tick; }
+      clashTimer -= dt;
+      if (clashTimer <= 0 && b.units.some((u) => u.fighting > 3)) { sfx("clash"); clashTimer = 0.35 + Math.random() * 0.4; }
     }
     for (const u of b.units) if (selected.has(u.id) && (u.state === "gone" || u.state === "routing")) selected.delete(u.id);
+    const aimUnit = aiming && b.units.find((u) => u.id === aiming);
     drawFrame(ctx, b, ground, cam, {
       dpr: dpr(), side, selected, factions,
       zone: b.phase === "deploy" ? deployZone(b, side) : null, drag: dragArrow,
+      aim: aimUnit ? { x: aimUnit.cx, y: aimUnit.cy, r: aimUnit.def.throw.range + unitWidth(aimUnit) / 2 } : null,
     });
-    if (b.over && !ended) { ended = true; setTimeout(() => close(false), 1400); }
+    if (b.over && !ended) { ended = true; setTimeout(() => close(false), 1600); }
     raf = requestAnimationFrame(frame);
   }
   raf = requestAnimationFrame(frame);
@@ -105,26 +106,29 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
 
   function panels() {
     const mins = Math.floor(b.time / 60), secs = String(Math.floor(b.time % 60)).padStart(2, "0");
-    const limit = b.siege ? B.siegeTimeLimit : B.timeLimit;
-    root.querySelector("#b-clock").textContent = b.phase === "deploy" ? "Deployment" : `${mins}:${secs} / ${Math.floor(limit / 60)}:00${b.terrain.siege ? ` · gate ${Math.max(0, Math.round(b.terrain.siege.gateHp))}%${b.plazaTimer > 0 ? ` · centre ${Math.round(b.plazaTimer)}/${B.plazaHold}s` : ""}` : ""}`;
+    const s = b.terrain.siege;
+    root.querySelector("#b-clock").textContent = b.phase === "deploy" ? "Deploy" : `${mins}:${secs}${s ? ` · gate ${Math.max(0, Math.round(100 * s.gateHp / B.gateHp))}%${b.plazaTimer > 0 ? ` · centre ${Math.round(b.plazaTimer)}/${B.plazaHold}s` : ""}` : ""}`;
     const mine = b.units.filter((u) => u.side === side && u.state !== "gone");
     root.querySelector("#b-cards").innerHTML = mine.map((u) => {
       const m = Math.max(0, Math.min(1, u.morale / 80));
-      return `<button class="b-card ${selected.has(u.id) ? "on" : ""} ${u.state}" data-unit="${u.id}">
-        <span class="b-card-name">${u.general ? "★ " : ""}${U[u.type].name}</span>
-        <span class="b-card-men">${Math.round(u.men)}</span>
+      return `<div class="b-card ${selected.has(u.id) ? "on" : ""} ${u.state} ${u.ai ? "ai" : ""}" data-unit="${u.id}">
+        <span class="b-card-name">${u.general ? "★ " : ""}${u.name}</span>
+        <span class="b-card-men">${u.men}/${u.start}${u.throwLeft ? ` · ${u.throwLeft}🗡` : ""}</span>
         <i class="b-bar men" style="width:${(u.men / u.start) * 100}%"></i><i class="b-bar mor ${m < 0.25 ? "low" : ""}" style="width:${m * 100}%"></i>
-        <span class="b-card-state">${u.state === "routing" ? "Routing" : u.hidden ? "Hidden" : u.state === "fighting" ? "Fighting" : F(u)}</span></button>`;
+        <i class="b-bar sta" style="width:${(u.stamina / u.def.stamina) * 100}%"></i>
+        <span class="b-card-state">${u.state === "routing" ? "Fleeing" : u.hidden ? "Hidden" : u.fighting ? "Fighting" : u.state === "moving" ? "Marching" : "Ready"}</span>
+        <button class="b-ai" data-ai="${u.id}" title="Hand this band to the AI">${u.ai ? "AI" : "⚙"}</button></div>`;
     }).join("");
     const sel = [...selected].map((id) => b.units.find((u) => u.id === id)).filter(Boolean);
-    const forms = [...new Set(sel.flatMap((u) => U[u.type].formations))];
+    const thrower = sel.find((u) => canThrow(b, u));
     const deploying = b.phase === "deploy";
     root.querySelector("#b-orders").innerHTML = `
       <div class="b-row">
-        <button data-cmd="all" title="Every unit but the chieftain">Select all</button>
-        <button data-cmd="multi" class="${multi ? "on" : ""}">Multi-select</button>
-        ${forms.map((f) => `<button data-form="${f}" class="${sel.every((u) => u.formation === f) && sel.length ? "on" : ""}">${BALANCE.formations[f].label}</button>`).join("")}
-        ${deploying ? "" : `<button data-cmd="hold" ${sel.length ? "" : "disabled"}>Halt</button><button data-cmd="charge" ${sel.length ? "" : "disabled"}>Charge nearest</button>`}
+        <button data-cmd="all">Select all</button>
+        <button data-cmd="multi" class="${multi ? "on" : ""}">Multi</button>
+        ${deploying ? "" : `<button data-cmd="hold" ${sel.length ? "" : "disabled"}>Halt</button>
+        <button data-cmd="charge" ${sel.length ? "" : "disabled"}>Charge!</button>
+        <button data-cmd="throw" class="${aiming ? "on" : ""} skill" ${thrower ? "" : "disabled"}>${aiming ? "Tap where to throw…" : "Throw javelins"}</button>`}
       </div>
       <div class="b-row">
         ${deploying ? `<button class="primary" data-cmd="begin">Begin the battle</button><button data-cmd="auto">Auto-resolve</button>`
@@ -132,74 +136,89 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
             const A = BALANCE.abilities[k];
             const ready = abilityReady(b, side, k);
             const left = Math.max(0, Math.ceil((b.sides[side].cooldowns[k] ?? 0) - b.time));
-            return `<button data-ability="${k}" class="ability" ${ready ? "" : "disabled"} title="${A.desc}">${A.label}${ready ? "" : ` (${b.sides[side].generalAlive ? `${left}s` : "no general"})`}</button>`;
-          }).join("") + `<button data-cmd="retreat" class="danger">Sound the retreat</button>`}
+            return `<button data-ability="${k}" class="ability" ${ready ? "" : "disabled"} title="${A.desc}">${A.label}${ready ? "" : ` ${b.sides[side].generalAlive ? `${left}s` : "✝"}`}</button>`;
+          }).join("") + `<button data-cmd="allai">All to AI</button><button data-cmd="retreat" class="danger">Retreat</button>`}
       </div>`;
     const banner = root.querySelector("#b-banner");
-    banner.innerHTML = deploying ? `Deploy your warriors: drag them within the lit ground. Warriors in woods lie hidden until the enemy is close.${b.siege ? (side === "attacker" ? " Send infantry at the gate, or let them climb the walls." : " Hold the walls and the centre until nightfall.") : ""}` : "";
+    banner.innerHTML = deploying ? `Drag your bands into place within the lit ground. Bands in woods lie hidden until the enemy is close.${b.siege ? (side === "attacker" ? " Batter the gate or climb the palisade, then hold the centre." : " Hold the palisade and the centre until nightfall.") : ""}` : "";
     banner.hidden = !deploying;
     root.querySelector("#b-log").innerHTML = b.log.slice(-3).filter((l) => b.time - l.t < 8).map((l) => `<div>${l.text}</div>`).join("");
   }
-  const F = (u) => BALANCE.formations[u.formation].label;
   panels();
 
-  // ---------- input: buttons ----------
+  // ---------- buttons ----------
 
   root.querySelector(".b-panel").addEventListener("click", (e) => {
+    const ai = e.target.closest("[data-ai]");
+    if (ai) { const u = b.units.find((x) => x.id === +ai.dataset.ai); setAI(b, u.id, !u.ai); return panels(); }
     const card = e.target.closest("[data-unit]");
-    if (card) { pick(+card.dataset.unit, multi || e.shiftKey); return panels(); }
-    const form = e.target.closest("[data-form]")?.dataset.form;
-    if (form) { for (const id of selected) setFormation(b, id, form); if (b.phase === "deploy") for (const id of selected) b.units.find((u) => u.id === id).reform = 0; return panels(); }
+    if (card) {
+      const id = +card.dataset.unit;
+      if (selected.has(id) && selected.size === 1) { const u = b.units.find((x) => x.id === id); lookAt(u.cx, u.cy); return; } // a second tap: go there
+      pick(id, multi || e.shiftKey); aiming = null; return panels();
+    }
     const ab = e.target.closest("[data-ability]")?.dataset.ability;
     if (ab) { if (useAbility(b, side, ab, [...selected][0])) sfx("battle"); return panels(); }
     const cmd = e.target.closest("[data-cmd]")?.dataset.cmd;
     const mine = b.units.filter((u) => u.side === side && u.state !== "gone" && u.state !== "routing");
-    if (cmd === "all") { selected.clear(); mine.filter((u) => !u.general).forEach((u) => selected.add(u.id)); } // the chieftain stays your own call
+    if (cmd === "all") { selected.clear(); mine.filter((u) => !u.general).forEach((u) => selected.add(u.id)); }
     if (cmd === "multi") multi = !multi;
     if (cmd === "hold") orderUnits(b, [...selected], { kind: "hold" });
-    if (cmd === "charge") for (const id of selected) {
-      const u = b.units.find((x) => x.id === id);
-      const t = nearest(u);
-      if (t) orderUnits(b, [id], { kind: "attack", target: t.id });
-    }
+    if (cmd === "charge") for (const id of selected) { const u = b.units.find((x) => x.id === id); const t = nearest(u); if (t) orderUnits(b, [id], { kind: "attack", target: t.id }); }
+    if (cmd === "throw") aiming = aiming ? null : [...selected].find((id) => canThrow(b, b.units.find((u) => u.id === id))) || null;
+    if (cmd === "allai") { const on = !mine.every((u) => u.ai); mine.forEach((u) => setAI(b, u.id, on)); }
     if (cmd === "begin") { startBattle(b); selected.clear(); sfx("battle"); }
     if (cmd === "auto") { autoResolve(b); close(true); return; }
-    if (cmd === "retreat") { soundRetreat(b, side); }
+    if (cmd === "retreat") soundRetreat(b, side);
     panels();
   });
   root.querySelector(".b-top").addEventListener("click", (e) => {
-    if (e.target.id === "b-pause") { paused = !paused; e.target.textContent = paused ? "▶" : "❚❚"; last = performance.now(); }
-    if (e.target.id === "b-speed") { speed = B.speeds[(B.speeds.indexOf(speed) + 1) % B.speeds.length]; e.target.textContent = `${speed}×`; }
+    const sp = e.target.closest("[data-speed]")?.dataset.speed;
+    if (sp) { speed = +sp; paused = false; root.querySelectorAll("[data-speed]").forEach((x) => x.classList.toggle("on", +x.dataset.speed === speed)); root.querySelector("#b-pause").textContent = "❚❚"; }
+    if (e.target.id === "b-pause") { paused = !paused; e.target.textContent = paused ? "▶" : "❚❚"; }
+    last = performance.now();
   });
   root.querySelector(".b-zoom").addEventListener("click", (e) => {
     const z = +e.target.closest("[data-zoom]")?.dataset.zoom;
-    if (z) zoomAt(z, canvas.clientWidth / 2, canvas.clientHeight / 2);
+    if (z) zoomAt(z, stage.clientWidth / 2, stage.clientHeight / 2);
   });
 
   function zoomAt(f, px, py) {
-    const [wx, wy] = [px / cam.scale + cam.x, py / cam.scale + cam.y];
     cam.userZoom = true;
-    cam.scale = Math.max(cam.min, Math.min(cam.min * 4, cam.scale * f));
+    const wx = px / cam.scale + cam.x, wy = py / cam.scale + cam.y;
+    cam.scale = Math.max(cam.min, Math.min(6, cam.scale * f));
     cam.x = wx - px / cam.scale; cam.y = wy - py / cam.scale;
     clamp();
   }
-
+  function lookAt(x, y) {
+    const vx = cam.flip ? B.width - x : x, vy = cam.flip ? B.height - y : y;
+    cam.userZoom = true;
+    cam.x = vx - stage.clientWidth / cam.scale / 2; cam.y = vy - stage.clientHeight / cam.scale / 2;
+    clamp();
+  }
   function pick(id, add) {
     if (!add) { const only = selected.has(id) && selected.size === 1; selected.clear(); if (!only) selected.add(id); }
     else if (selected.has(id)) selected.delete(id); else selected.add(id);
   }
-
   function nearest(u) {
-    return b.units.filter((e) => e.side === enemy && e.state !== "gone" && !e.hidden).sort((p, q) => Math.hypot(p.x - u.x, p.y - u.y) - Math.hypot(q.x - u.x, q.y - u.y))[0];
+    return b.units.filter((e) => e.side === enemy && e.state !== "gone" && !e.hidden).sort((p, q) => Math.hypot(p.cx - u.cx, p.cy - u.cy) - Math.hypot(q.cx - u.cx, q.cy - u.cy))[0];
   }
 
-  // ---------- input: the field ----------
+  // ---------- the field ----------
 
   const pointers = new Map();
   let down = null, dragArrow = null, pinch = null;
   const local = (e) => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
-  const unitAt = (wx, wy, who) => b.units.find((u) => u.state !== "gone" && (!who || u.side === who) && (!u.hidden || u.side === side) &&
-    Math.hypot(u.x - wx, u.y - wy) < Math.max(18, unitSize(u).w / 2 + 6));
+  // the band of the soldier nearest the tap
+  const unitAt = (wx, wy, who) => {
+    let best = null, bd = 16 / Math.max(0.6, cam.scale) + 6;
+    for (const s of b.soldiers) {
+      if (!s.alive || s.fled || (who && s.u.side !== who) || (s.u.hidden && s.u.side !== side)) continue;
+      const d = Math.hypot(s.x - wx, s.y - 5 - wy);
+      if (d < bd) { bd = d; best = s.u; }
+    }
+    return best;
+  };
 
   canvas.addEventListener("pointerdown", (e) => {
     canvas.setPointerCapture(e.pointerId);
@@ -225,14 +244,14 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
     if (!down.moved) return;
     const [wx, wy] = toWorld(cam, px, py);
     if (b.phase === "deploy" && down.unit) {
-      const z = deployZone(b, side);
-      down.unit.x = Math.max(z.x0, Math.min(z.x1, wx));
-      down.unit.y = Math.max(z.y0, Math.min(z.y1, wy));
+      placeUnit(b, down.unit, wx, wy);
       if (!selected.has(down.unit.id)) { selected.clear(); selected.add(down.unit.id); }
-    } else if (selected.size && !down.unit) {
+    } else if (selected.size && !down.unit && !aiming) {
       dragArrow = [down.wx, down.wy, wx, wy];
-    } else if (!selected.size || down.unit) {
-      if (!down.unit) { cam.userZoom = true; cam.x = down.cam.x - (px - down.px) / cam.scale; cam.y = down.cam.y - (py - down.py) / cam.scale; clamp(); }
+    } else if (!down.unit) {
+      cam.userZoom = true;
+      const dx = (px - down.px) / cam.scale, dy = (py - down.py) / cam.scale;
+      cam.x = down.cam.x - dx; cam.y = down.cam.y - dy; clamp();
     }
   });
   const up = (e) => {
@@ -248,12 +267,18 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
       return panels();
     }
     if (d.moved) return panels();
+    if (aiming) {
+      if (throwAt(b, aiming, d.wx, d.wy)) sfx("march"); else flash("Too far: throw within the circle");
+      aiming = null;
+      return panels();
+    }
     const foe = unitAt(d.wx, d.wy, enemy);
     if (d.unit) pick(d.unit.id, multi || e.shiftKey);
     else if (foe && selected.size && b.phase === "fight") { orderUnits(b, [...selected], { kind: "attack", target: foe.id }); sfx("march"); }
-    else if (b.terrain.siege && selected.size && b.phase === "fight" && Math.hypot(d.wx - b.terrain.siege.gate.x, d.wy - b.terrain.siege.gate.y) < 40 && side === "attacker") { orderUnits(b, [...selected], { kind: "gate" }); sfx("march"); }
+    else if (b.terrain.siege && selected.size && b.phase === "fight" && side === "attacker" && Math.hypot(d.wx - b.terrain.siege.gate.x, d.wy - b.terrain.siege.gate.y) < 40) { orderUnits(b, [...selected], { kind: "gate" }); sfx("march"); }
     else if (selected.size && b.phase === "fight") {
-      const cx = avg("x"), cy = avg("y");
+      const units = [...selected].map((id) => b.units.find((u) => u.id === id));
+      const cx = units.reduce((n, u) => n + u.cx, 0) / units.length, cy = units.reduce((n, u) => n + u.cy, 0) / units.length;
       march([...selected], d.wx, d.wy, Math.atan2(d.wx - cx, -(d.wy - cy)));
     } else selected.clear();
     panels();
@@ -262,25 +287,28 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
   canvas.addEventListener("pointercancel", up);
   canvas.addEventListener("wheel", (e) => { e.preventDefault(); const [px, py] = local(e); zoomAt(e.deltaY < 0 ? 1.12 : 0.9, px, py); }, { passive: false });
 
-  const avg = (k) => [...selected].map((id) => b.units.find((u) => u.id === id)).reduce((n, u, _, a) => n + u[k] / a.length, 0);
-
-  // March a group to a point, spread in a line across the facing.
+  // March a group to a point, side by side across the facing.
   function march(ids, x, y, face) {
     if (b.phase !== "fight") return;
     const units = ids.map((id) => b.units.find((u) => u.id === id)).filter(Boolean);
-    const sx = Math.cos(face), sy = Math.sin(face); // along the line (perpendicular to facing)
-    const widths = units.map((u) => unitSize(u).w + 10);
+    const sx = Math.cos(face), sy = Math.sin(face);
+    const widths = units.map((u) => unitWidth(u) + 12);
     let off = -widths.reduce((n, w) => n + w, 0) / 2;
-    // keep left-to-right order as seen along the line
-    units.sort((p, q) => (p.x * sx + p.y * sy) - (q.x * sx + q.y * sy));
+    units.sort((p, q) => (p.cx * sx + p.cy * sy) - (q.cx * sx + q.cy * sy));
     units.forEach((u, i) => {
       const mid = off + widths[i] / 2;
       off += widths[i];
-      let tx = x + sx * mid, ty = y + sy * mid;
-      tx = Math.max(10, Math.min(B.width - 10, tx)); ty = Math.max(10, Math.min(B.height - 10, ty));
-      orderUnits(b, [u.id], { kind: "move", x: tx, y: ty, face });
+      orderUnits(b, [u.id], { kind: "move", x: Math.max(10, Math.min(B.width - 10, x + sx * mid)), y: Math.max(10, Math.min(B.height - 10, y + sy * mid)), face });
     });
     sfx("march");
+  }
+
+  let flashTimer = 0;
+  function flash(text) {
+    const log = root.querySelector("#b-log");
+    log.innerHTML = `<div class="warn">${text}</div>`;
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(panels, 1500);
   }
 
   function close(auto) {
@@ -294,4 +322,3 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
 
   return { close };
 }
-

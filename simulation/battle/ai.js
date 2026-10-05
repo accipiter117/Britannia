@@ -1,158 +1,130 @@
 // simulation/battle/ai.js
-// Owns the battle AI for a side, run once a second (engine.js). Infantry advance as a line and
-// close with the nearest foe; missile troops shoot and fall back from melee; horse hunt
-// skirmishers and strike engaged enemies in the flank or rear; the general stays behind the line
-// and uses abilities. Romans form testudo under arrows and brace when charged by horse. In a
-// siege, attackers batter the gate (and climb when it holds too long); defenders hold the walls.
+// Owns the battle AI for a side (or just the bands the player has handed over), run twice a
+// second. Infantry advance as a line and close with the nearest foe, throwing javelins or pila as
+// they close; shooters shoot and fall back from melee; horse hunt skirmishers and strike engaged
+// enemies in the flank or rear; the general stays behind the line and uses abilities. In a siege
+// attackers batter the gate (and climb when it holds too long); defenders hold the walls.
 
 import { BALANCE } from "../../config/balance.js";
 import { insideWalls } from "./terrain.js";
-import { abilityReady, aspect, facing, fighting, setFormation, useAbility, visibleTo } from "./engine.js";
+import { abilityReady, canThrow, fighting, orderUnits, throwAt, useAbility, visibleTo } from "./engine.js";
 
-const U = BALANCE.units;
-const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const B = BALANCE.battle;
+const dist = (a, b) => Math.hypot(a.cx - b.cx, a.cy - b.cy);
 
-export function aiThink(b, side) {
-  const mine = b.units.filter((u) => u.side === side && fighting(u));
+// wholeSide: the AI commands every band of this side; otherwise only bands marked `ai`.
+export function aiThink(b, side, wholeSide) {
+  const mine = b.units.filter((u) => u.side === side && fighting(u) && (wholeSide || u.ai));
+  if (!mine.length) return;
+  const all = b.units.filter((u) => u.side === side && fighting(u));
   const foes = b.units.filter((u) => u.side !== side && fighting(u) && visibleTo(b, side, u));
-  if (!mine.length || !foes.length) return;
-  const roman = b.sides[side].faction === "rome";
+  if (!foes.length) return;
   const s = b.terrain.siege;
-  const centre = (list) => ({ x: list.reduce((n, u) => n + u.x, 0) / list.length, y: list.reduce((n, u) => n + u.y, 0) / list.length });
+  const centre = (list) => ({ cx: list.reduce((n, u) => n + u.cx, 0) / list.length, cy: list.reduce((n, u) => n + u.cy, 0) / list.length });
+  const infantry = all.filter((u) => !u.mounted && !u.ranged);
   const enemyMid = centre(foes);
-  const infantry = mine.filter((u) => !u.mounted && !u.ranged && !U[u.type].artillery);
-  const closest = Math.min(...mine.map((u) => Math.min(...foes.map((f) => dist(u, f)))));
-
-  // defenders on good ground wait for the enemy to come on
+  const closest = Math.min(...all.map((u) => Math.min(...foes.map((f) => dist(u, f)))));
   const defending = side === "defender";
-  const waitForThem = defending && (s || closest > 260) && b.time < 200;
+  const waitForThem = defending && (s || closest > 300) && b.time < 150;
+  const back = b.top === side ? -1 : 1;                   // towards our own edge
+  const order = (u, o) => {
+    const same = u.order.kind === o.kind && u.order.target === o.target && (o.kind !== "move" || Math.hypot(u.order.x - o.x, u.order.y - o.y) < 20);
+    if (!same) orderUnits(b, [u.id], o);
+  };
 
-  abilities(b, side, mine, roman);
+  if (wholeSide) abilities(b, side, all);
 
   for (const u of mine) {
-    const d = U[u.type];
     const nearest = foes.reduce((best, f) => (!best || dist(u, f) < dist(u, best) ? f : best), null);
     const nd = dist(u, nearest);
 
-    // formations
-    if (roman && u.type === "legionaries") {
-      const shotAt = b.time - (u.hitBy || -99) < 4;
-      setFormation(b, u.id, shotAt && nd > 110 ? "testudo" : "line");
-    } else if (d.formations.includes("shieldwall")) {
-      const horseNear = foes.some((f) => f.mounted && dist(f, u) < 180);
-      setFormation(b, u.id, horseNear || (waitForThem && nd < 200) ? "shieldwall" : "line");
-    } else if (d.formations.includes("wedge") && !u.ranged) {
-      setFormation(b, u.id, nd < 220 && nd > 60 ? "wedge" : "line");
-    } else if (d.formations.includes("loose") && u.ranged) {
-      setFormation(b, u.id, "loose");
+    // skill shots: throw as the enemy closes
+    if (canThrow(b, u) && nd < u.def.throw.range + 30 && nd > 25) {
+      const t = nearest.soldiers.find((x) => x.alive && !x.fled);
+      if (t) throwAt(b, u.id, nearest.cx + (t.vx || 0) * B.throwFlight, nearest.cy + (t.vy || 0) * B.throwFlight);
     }
-
-    if (u.foes.length) continue; // already fighting: the engine handles it
+    if (u.fighting > u.men * 0.2) continue;              // already at grips
 
     if (u.general) {
-      // stay behind the infantry; finish off the broken
       const line = infantry.length ? centre(infantry) : u;
-      const prey = foes.find((f) => (f.ranged || f.state === "routing") && dist(f, u) < 200);
+      const prey = foes.find((f) => (f.ranged || f.state === "routing") && dist(f, u) < 220);
       if (prey && u.men > u.start * 0.5) order(u, { kind: "attack", target: prey.id });
-      else order(u, { kind: "move", x: line.x, y: line.y + towardsOwnEdge(b, side) * 90 });
+      else order(u, { kind: "move", x: line.cx, y: line.cy + back * 110 });
       continue;
     }
-    if (d.artillery) {
-      if (s && side === "attacker" && s.gateHp > 0) { order(u, { kind: "gate" }); if (dist(u, s.gate) > d.range * 0.9) u.order = { kind: "move", x: s.gate.x, y: s.gate.y + d.range * 0.8 }; }
-      else if (nd > d.range) order(u, { kind: "move", x: u.x, y: u.y - towardsOwnEdge(b, side) * 40 });
-      else order(u, { kind: "hold" });
-      continue;
-    }
-    if (u.ranged && s && defending) {
-      // shoot from the rampart over the gate; only fall back from enemies already inside
-      const inside = foes.find((f) => (insideWalls(b.terrain, f.x, f.y) || f.climbing) && dist(f, u) < 90);
-      const spot = { x: s.gate.x + ((mine.filter((x) => x.ranged).indexOf(u) % 3) - 1) * 70, y: s.cy + s.half - 45 };
-      if (inside) order(u, { kind: "move", x: u.x, y: s.cy - 40 });
-      else if (dist(u, spot) > 25) order(u, { kind: "move", ...spot });
-      else order(u, { kind: "hold" });
+    if (u.artillery) {
+      if (s && side === "attacker" && s.gateHp > 0) order(u, { kind: "gate" });
+      else if (nd > u.def.range) order(u, { kind: "move", x: u.cx + (nearest.cx - u.cx) * 0.2, y: u.cy + (nearest.cy - u.cy) * 0.2 });
+      else order(u, { kind: "attack", target: nearest.id });
       continue;
     }
     if (u.ranged) {
-      const threat = foes.find((f) => !f.ranged && dist(f, u) < (f.mounted ? 200 : 140));
-      if (threat) {
-        const away = towardsOwnEdge(b, side);
-        order(u, { kind: "move", x: u.x + (u.x - threat.x) * 0.3, y: u.y + away * 70 });
-      } else if (nd > d.range * 0.95 && !waitForThem && !(s && defending)) {
-        order(u, { kind: "move", x: u.x + (nearest.x - u.x) * 0.25, y: u.y + (nearest.y - u.y) * 0.25 });
-      } else order(u, { kind: "hold" });
+      if (s && defending) {
+        // shoot from behind the palisade; fall back only from enemies already inside
+        const inside = foes.find((f) => insideWalls(b.terrain, f.cx, f.cy) && dist(f, u) < 100);
+        if (inside) order(u, { kind: "move", x: u.cx, y: s.cy - 50 });
+        else order(u, { kind: "hold" });
+        continue;
+      }
+      const threat = foes.find((f) => !f.ranged && dist(f, u) < (f.mounted ? 220 : 150));
+      if (threat) order(u, { kind: "move", x: u.cx + (u.cx - threat.cx) * 0.3, y: u.cy + back * 90 });
+      else if (nd > u.def.range * 0.95 && waitForThem) order(u, { kind: "hold" });
+      else order(u, { kind: "attack", target: nearest.id });
       continue;
     }
     if (u.mounted) {
-      // prefer skirmishers, the broken, or an engaged foe we can hit from behind
-      const soft = foes.filter((f) => f.ranged || f.state === "routing").sort((p, q) => dist(u, p) - dist(u, q))[0];
-      const engaged = foes.filter((f) => f.foes.length && !F(f).braced).sort((p, q) => dist(u, p) - dist(u, q))[0];
-      const target = soft && dist(u, soft) < 400 ? soft : engaged;
       if (s && defending && s.gateHp > 0) { order(u, { kind: "hold" }); continue; }
+      const soft = foes.filter((f) => f.ranged || f.state === "routing").sort((p, q) => dist(u, p) - dist(u, q))[0];
+      const engaged = foes.filter((f) => f.fighting > 0 && !f.spear).sort((p, q) => dist(u, p) - dist(u, q))[0];
+      const target = soft && dist(u, soft) < 450 ? soft : engaged;
       if (target) {
-        if (target === engaged && aspect(target, u) === "front" && dist(u, target) > 90) {
-          const [fx, fy] = facing(target.a);
-          order(u, { kind: "move", x: target.x - fx * 80 + fy * 50, y: target.y - fy * 80 - fx * 50 });
-        } else order(u, { kind: "attack", target: target.id });
+        // ride round to strike from behind
+        const fx = Math.sin(target.a), fy = -Math.cos(target.a);
+        const behind = { x: target.cx - fx * 90, y: target.cy - fy * 90 };
+        const inFront = ((u.cx - target.cx) * fx + (u.cy - target.cy) * fy) > 0;
+        if (target === engaged && inFront && dist(u, target) > 70) order(u, { kind: "move", x: behind.x + (u.cx < target.cx ? -60 : 60), y: behind.y });
+        else order(u, { kind: "attack", target: target.id });
       } else {
-        // no opening yet: wait on the wing of our own line, out of reach of their front
-        const line = infantry.length ? infantry : mine;
-        const xs = line.map((x) => x.x);
-        const left = mine.filter((x) => x.mounted && !x.general).indexOf(u) % 2 === 0;
-        const wx = left ? Math.max(40, Math.min(...xs) - 110) : Math.min(BALANCE.battle.width - 40, Math.max(...xs) + 110);
-        order(u, { kind: "move", x: wx, y: centre(line).y + towardsOwnEdge(b, side) * 30 });
+        const line = infantry.length ? infantry : all;
+        const xs = line.map((x) => x.cx);
+        const left = all.filter((x) => x.mounted && !x.general).indexOf(u) % 2 === 0;
+        const wx = left ? Math.max(60, Math.min(...xs) - 140) : Math.min(B.width - 60, Math.max(...xs) + 140);
+        order(u, { kind: "move", x: wx, y: centre(line).cy + back * 20 });
       }
       continue;
     }
     // infantry
     if (s && side === "attacker" && s.gateHp > 0) {
-      // half batter the gate, the rest climb once the gate has held a while
-      const climbers = b.time > 150 && infantry.indexOf(u) % 2 === 1;
-      if (climbers) order(u, { kind: "attack", target: nearest.id });
-      else order(u, { kind: "gate" });
+      const climbers = b.time > 120 && infantry.indexOf(u) % 2 === 1;
+      order(u, climbers ? { kind: "attack", target: nearest.id } : { kind: "gate" });
       continue;
     }
     if (s && defending) {
-      const insider = foes.find((f) => insideWalls(b.terrain, f.x, f.y) || f.climbing);
-      if (insider && dist(insider, u) < 260) order(u, { kind: "attack", target: insider.id });
-      else if (nd < 70) order(u, { kind: "attack", target: nearest.id });
+      // hold the inside of the gate; go for anyone who gets in
+      const insider = foes.find((f) => insideWalls(b.terrain, f.cx, f.cy));
+      if (insider && dist(insider, u) < 280) order(u, { kind: "attack", target: insider.id });
       else order(u, { kind: "hold" });
       continue;
     }
-    if (waitForThem && nd > 140) { order(u, { kind: "hold" }); continue; }
-    if (nd > 240) {
-      // advance as a line: keep station across the field, close the distance together
-      const slow = Math.min(...infantry.map((x) => U[x.type].speed));
-      const step = Math.min(nd - 180, slow * 4);
-      const toward = Math.sign(enemyMid.y - u.y) || 1;
-      order(u, { kind: "move", x: u.x, y: u.y + toward * step });
+    if (waitForThem && nd > 160) { order(u, { kind: "hold" }); continue; }
+    if (nd > 260) {
+      const toward = Math.sign(enemyMid.cy - u.cy) || 1;
+      order(u, { kind: "move", x: u.cx, y: u.cy + toward * Math.min(nd - 200, 120), face: toward > 0 ? Math.PI : 0 });
     } else order(u, { kind: "attack", target: nearest.id });
   }
 }
 
-const F = (u) => BALANCE.formations[u.formation];
-
-function order(u, o) {
-  const same = u.order.kind === o.kind && u.order.target === o.target && (o.kind !== "move" || Math.hypot(u.order.x - o.x, u.order.y - o.y) < 15);
-  if (!same) u.order = o;
-}
-
-// +1 if this side's own edge is at the bottom (y grows towards it), -1 if at the top.
-function towardsOwnEdge(b, side) {
-  return b.top === side ? -1 : 1;
-}
-
-function abilities(b, side, mine, roman) {
+function abilities(b, side, mine) {
   const routing = b.units.filter((u) => u.side === side && u.state === "routing").length;
-  const engaged = mine.filter((u) => u.foes.length).length;
-  if (roman) {
+  const engaged = mine.filter((u) => u.fighting > 0).length;
+  if (b.sides[side].faction === "rome") {
     if (engaged >= 2 && abilityReady(b, side, "hold")) useAbility(b, side, "hold");
     return;
   }
   if (routing >= 2 && abilityReady(b, side, "rally")) useAbility(b, side, "rally");
   else if (engaged >= 2 && abilityReady(b, side, "warcry")) useAbility(b, side, "warcry");
   else if (engaged >= 1 && abilityReady(b, side, "fury")) {
-    const best = mine.filter((u) => u.foes.length && !u.general).sort((p, q) => q.men - p.men)[0];
+    const best = mine.filter((u) => u.fighting > 0 && !u.general).sort((p, q) => q.men - p.men)[0];
     if (best) useAbility(b, side, "fury", best.id);
   }
 }
-

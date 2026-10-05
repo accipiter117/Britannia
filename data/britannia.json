@@ -1,0 +1,78 @@
+{
+  "regions": [
+    { "id": "caledonii", "name": "Caledonii", "pos": [130, 72], "terrain": "highlands", "settlement": "village" },
+    { "id": "taexali", "name": "Taexali", "pos": [200, 104], "terrain": "hills", "settlement": "village" },
+    { "id": "venicones", "name": "Venicones", "pos": [182, 140], "terrain": "fertile", "settlement": "village" },
+    { "id": "damnonii", "name": "Damnonii", "pos": [132, 152], "terrain": "hills", "settlement": "oppidum" },
+    { "id": "votadini", "name": "Votadini", "pos": [192, 182], "terrain": "fertile", "settlement": "oppidum", "seat": "Traprain Law" },
+    { "id": "selgovae", "name": "Selgovae", "pos": [155, 202], "terrain": "hills", "settlement": "village" },
+    { "id": "novantae", "name": "Novantae", "pos": [108, 212], "terrain": "hills", "settlement": "village" },
+    { "id": "brigantes", "name": "Brigantes", "pos": [165, 248], "terrain": "hills", "settlement": "oppidum", "seat": "Stanwick" },
+    { "id": "parisi", "name": "Parisi", "pos": [208, 268], "terrain": "fertile", "settlement": "village" },
+    { "id": "deceangli", "name": "Deceangli", "pos": [124, 298], "terrain": "hills", "settlement": "village" },
+    { "id": "ordovices", "name": "Ordovices", "pos": [98, 326], "terrain": "highlands", "settlement": "village" },
+    { "id": "cornovii", "name": "Cornovii", "pos": [152, 318], "terrain": "plains", "settlement": "village" },
+    { "id": "corieltauvi", "name": "Corieltauvi", "pos": [202, 314], "terrain": "fertile", "settlement": "village" },
+    { "id": "iceni", "name": "Iceni", "pos": [254, 330], "terrain": "fertile", "settlement": "oppidum", "seat": "Venta" },
+    { "id": "demetae", "name": "Demetae", "pos": [74, 364], "terrain": "coast", "settlement": "village" },
+    { "id": "silures", "name": "Silures", "pos": [108, 378], "terrain": "hills", "settlement": "village" },
+    { "id": "dobunni", "name": "Dobunni", "pos": [150, 374], "terrain": "fertile", "settlement": "oppidum", "seat": "Corinion" },
+    { "id": "catuvellauni", "name": "Catuvellauni", "pos": [200, 358], "terrain": "fertile", "settlement": "oppidum", "seat": "Verlamion" },
+    { "id": "trinovantes", "name": "Trinovantes", "pos": [244, 360], "terrain": "fertile", "settlement": "oppidum", "seat": "Camulodunon" },
+    { "id": "atrebates", "name": "Atrebates", "pos": [190, 400], "terrain": "fertile", "settlement": "oppidum", "seat": "Calleva" },
+    { "id": "cantiaci", "name": "Cantiaci", "pos": [250, 400], "terrain": "coast", "settlement": "village", "port": true },
+    { "id": "durotriges", "name": "Durotriges", "pos": [140, 420], "terrain": "hills", "settlement": "oppidum", "seat": "Mai Dun" },
+    { "id": "dumnonii", "name": "Dumnonii", "pos": [90, 446], "terrain": "coast", "settlement": "village" }
+  ],
+  "eras": {
+    "caratacus": {
+      "label": "Caratacus", "year": 43, "tribe": "Catuvellauni",
+      "intro": "AD 43. Four legions under Aulus Plautius have landed in the land of the Cantiaci. Caratacus of the Catuvellauni must hold the Thames, rally the tribes and throw Rome back into the sea.",
+      "player": ["catuvellauni", "trinovantes"],
+      "rome": ["cantiaci"],
+      "romanTowns": [],
+      "playerArmies": [
+        { "region": "catuvellauni", "general": "Caratacus", "units": ["chieftain", "warriors", "warriors", "warriors", "spearmen", "spearmen", "slingers", "javelinmen", "chariots", "horsemen"] },
+        { "region": "trinovantes", "general": "Togodumnus", "units": ["chieftain", "warriors", "warriors", "spearmen", "slingers"] }
+      ],
+      "romeArmies": [
+        { "region": "cantiaci", "general": "Aulus Plautius", "template": "legion" },
+        { "region": "cantiaci", "general": "Vespasian", "template": "vexillation" }
+      ],
+      "port": "cantiaci", "silver": 300, "wheat": 60
+    },
+    "boudica": {
+      "label": "Boudica", "year": 60, "tribe": "Iceni",
+      "intro": "AD 60. Rome has flogged the queen of the Iceni and seized her lands. While the governor campaigns in far Mona, Boudica raises the east. Burn the Roman towns and break the legions.",
+      "player": ["iceni"],
+      "rome": ["trinovantes", "catuvellauni", "cantiaci", "atrebates", "corieltauvi", "dobunni", "durotriges", "cornovii"],
+      "romanTowns": ["trinovantes", "catuvellauni", "cantiaci"],
+      "playerArmies": [
+        { "region": "iceni", "general": "Boudica", "units": ["chieftain", "warriors", "warriors", "warriors", "warriors", "spearmen", "spearmen", "slingers", "chariots", "chariots"] },
+        { "region": "iceni", "general": "Prasutagos' kin", "units": ["chieftain", "warriors", "warriors", "slingers", "horsemen"] }
+      ],
+      "romeArmies": [
+        { "region": "deceangli", "general": "Suetonius Paulinus", "template": "legion" },
+        { "region": "corieltauvi", "general": "Petillius Cerialis", "template": "vexillation" }
+      ],
+      "romeHoldsExtra": ["deceangli"],
+      "port": "cantiaci", "silver": 400, "wheat": 50
+    },
+    "calgacus": {
+      "label": "Calgacus", "year": 83, "tribe": "Caledonii",
+      "intro": "AD 83. Agricola's legions have marched to the edge of the world. Calgacus of the Caledonii calls the free peoples of the north to stand. They make a desert and call it peace.",
+      "player": ["caledonii", "taexali"],
+      "rome": ["votadini", "selgovae", "novantae", "brigantes", "parisi", "deceangli", "ordovices", "cornovii", "corieltauvi", "iceni", "demetae", "silures", "dobunni", "catuvellauni", "trinovantes", "atrebates", "cantiaci", "durotriges", "dumnonii"],
+      "romanTowns": ["trinovantes", "catuvellauni", "cantiaci", "brigantes"],
+      "playerArmies": [
+        { "region": "caledonii", "general": "Calgacus", "units": ["chieftain", "warriors", "warriors", "warriors", "warriors", "spearmen", "spearmen", "slingers", "javelinmen", "chariots"] },
+        { "region": "taexali", "general": "Talorc", "units": ["chieftain", "warriors", "spearmen", "javelinmen"] }
+      ],
+      "romeArmies": [
+        { "region": "votadini", "general": "Agricola", "template": "legion" },
+        { "region": "selgovae", "general": "Roscius", "template": "vexillation" }
+      ],
+      "port": "cantiaci", "silver": 300, "wheat": 50
+    }
+  }
+}

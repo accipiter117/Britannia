@@ -3,16 +3,20 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Caledonia</title>
-  <meta name="description" content="Lead the Picts of northern Britannia against Rome: real-time battles, sieges and a campaign across the north.">
+  <title>Britannia Invicta</title>
+  <meta name="description" content="Rally the Celtic tribes and drive Rome from Britannia: real-time battles with hundreds of warriors, and a campaign across the island.">
   <link rel="stylesheet" href="css/style.css">
 </head>
-<body>
+<body class="on-title">
   <header id="hud"></header>
   <main id="main">
-    <div id="map-wrap"><svg id="map" role="img" aria-label="Map of northern Britannia"></svg></div>
+    <div id="map-wrap">
+      <canvas id="map" aria-label="Map of Britannia"></canvas>
+      <div class="map-zoom"><button data-action="zoom-in">+</button><button data-action="zoom-out">−</button></div>
+    </div>
     <aside id="panel"></aside>
   </main>
+  <section id="title" hidden></section>
   <section id="battle" hidden></section>
   <div id="modal" hidden><div id="modal-card"></div></div>
   <div id="toast" hidden></div>

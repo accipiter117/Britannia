@@ -136,3 +136,71 @@ button.mini.ghost { background: none; margin-left: auto; }
   .b-row button { padding: 6px 8px; font-size: 12.5px; }
   .b-card { width: 92px; }
 }
+
+/* ---------- battle v2 ---------- */
+.b-card { cursor: pointer; }
+.b-card.ai { border-color: #6d8fb8; }
+.b-ai { position: absolute; right: 4px; top: 4px; padding: 0 5px; font-size: 11px; border-radius: 5px; line-height: 18px; }
+.b-card.ai .b-ai { background: #6d8fb8; color: #10161f; }
+.b-bar.sta { bottom: 10px; background: #8fb0d8; opacity: 0.8; }
+.b-card { padding-bottom: 16px; }
+.b-ctl button { padding: 6px 9px; } .b-ctl button.on { background: var(--gold); color: #1d1b16; border-color: var(--gold); }
+.b-row .skill { border-color: var(--gold); }
+.b-log .warn { color: #ffd38a; }
+.b-stage canvas { image-rendering: pixelated; }
+
+
+/* ---------- Britannia Invicta: title, map canvas, resources ---------- */
+body.on-title #hud, body.on-title #main { visibility: hidden; }
+#title { position: fixed; inset: 0; z-index: 15; overflow-y: auto; background:
+  radial-gradient(ellipse at 50% 20%, rgba(214,178,90,0.12), transparent 60%), linear-gradient(#1a2018, #10130d); display: grid; place-items: start center; padding: 24px 16px; }
+#title[hidden] { display: none; }
+.title-card { width: min(560px, 100%); text-align: center; }
+.title-card h1 { font: 700 44px/1 Georgia, serif; margin: 18px 0 6px; color: #f1ead6; letter-spacing: 0.02em; text-shadow: 0 3px 0 #000; }
+.title-card h1 span { color: var(--gold); }
+.title-card .tag { color: var(--muted); margin: 0 0 18px; }
+.title-card h3 { text-align: left; }
+.leaders { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.leader { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; }
+.leader.on { border-color: var(--gold); background: #3a3a28; }
+.leader small { color: var(--muted); font-size: 11.5px; }
+.leader-art { width: 96px; height: 64px; image-rendering: pixelated; }
+.intro { text-align: left; background: rgba(0,0,0,0.25); border-left: 3px solid var(--gold); padding: 8px 12px; border-radius: 4px; font-size: 14px; }
+.seg { display: flex; gap: 6px; } .seg button { flex: 1; } .seg button.on { background: var(--gold); color: #1d1b16; border-color: var(--gold); }
+.title-actions { display: grid; gap: 8px; margin: 18px 0 10px; }
+button.wide { width: 100%; padding: 12px; font-size: 16px; }
+#hud .brand span { color: var(--ink); }
+.res { display: inline-flex; align-items: center; gap: 4px; font-weight: 700; white-space: nowrap; }
+.res small { font-weight: 400; margin-left: 2px; }
+i.coin, i.wheat { display: inline-block; width: 12px; height: 12px; image-rendering: pixelated; vertical-align: -1px; }
+i.coin { background: radial-gradient(circle at 40% 35%, #fff2b0 0 20%, #e2bf55 25% 60%, #8a6a1a 65%); border-radius: 50%; }
+i.wheat { background:
+  linear-gradient(#c9a548, #c9a548) 5px 3px / 2px 9px no-repeat,
+  linear-gradient(#e6c25a, #e6c25a) 3px 0 / 2px 5px no-repeat,
+  linear-gradient(#e6c25a, #e6c25a) 7px 0 / 2px 5px no-repeat,
+  linear-gradient(#e6c25a, #e6c25a) 5px 0 / 2px 4px no-repeat; }
+#map-wrap { position: relative; overflow: hidden; background: #2a5468; }
+canvas#map { width: 100%; height: 100%; display: block; touch-action: none; image-rendering: pixelated; }
+.map-zoom { position: absolute; right: 10px; top: 10px; display: grid; gap: 6px; }
+.map-zoom button { width: 38px; height: 38px; padding: 0; font-size: 20px; background: rgba(20,22,16,0.85); }
+.wagon { display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; align-items: center; background: rgba(214,178,90,0.08); border: 1px solid #4a4a3a; border-radius: 8px; padding: 6px 9px; margin: 6px 0; font-size: 13px; }
+.wagon .bar { grid-column: 1 / -1; height: 5px; background: #151711; border-radius: 3px; overflow: hidden; display: block; }
+.wagon .bar b { display: block; height: 100%; background: #e6c25a; }
+.wagon.low { border-color: var(--bad); } .wagon.low .bar b { background: var(--bad); }
+canvas.unit-art { width: 33px; height: 27px; image-rendering: pixelated; flex: none; }
+.unit-main { grid-template-columns: auto 1fr auto 60px auto; }
+.recruit { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px 6px; }
+.recruit small { flex-basis: 100%; }
+.army-head.celts { border-color: var(--pict); } .army-head.free { border-color: #9a8a5a; }
+.choices button small { display: block; font-weight: 400; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.choices button { text-align: left; }
+.choices button.primary small { color: #3a3220; }
+@media (max-width: 560px) { .title-card h1 { font-size: 34px; } .leader-art { width: 72px; height: 48px; } }
+
+@media (max-width: 560px) {
+  #hud .hide-phone { display: none; }
+  #hud .res { font-size: 14px; }
+  #hud .res small { font-size: 11px; }
+  #hud .date { max-width: 64px; }
+  #end-turn { padding: 7px 8px; font-size: 13px; }
+}

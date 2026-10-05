@@ -1,153 +1,309 @@
 // ui/mapView.js
-// Owns the campaign map: northern Britannia as a hand-drawn SVG (sea, coast, regions tinted by
-// owner, terrain textures, settlements), the hosts as painted standards on the board, and the
-// highlights for where a selected host can march. Taps call back to main.js; no game rules here.
+// Owns the campaign map: Britannia in pixel art on a canvas. The island is painted at 320 x 500
+// (sea and waves, beaches, land by terrain, mountains, fields, woods, borders tinted by who holds
+// each tribe, snow in winter) and scaled up crisp. On top: settlements, tribe names, highlights for
+// where a host can march, and the hosts themselves as little pixel war bands with their banners.
+// Drag to pan, pinch or wheel to zoom, tap a host or a region. No game rules here.
 
-import { coastline, voronoiCells, MAP_BOUNDS } from "./geometry.js";
+import { BALANCE } from "../config/balance.js";
+import { buildMapGrid, MAP_H, MAP_W } from "../simulation/mapGrid.js";
+import { FACTIONS, seasonName } from "../simulation/state.js";
+import { bannerSprite, getSprite } from "./sprites.js";
 
-const TERRAIN_FILL = { highlands: "#8f8a6a", hills: "#9a9a6c", fertile: "#a8ad6a", plains: "#a9a777", coast: "#a3a67b" };
-const path = (pts) => `M${pts.map((p) => p.map((n) => n.toFixed(1)).join(" ")).join("L")}Z`;
+const OWNER_TINT = { celts: [61, 111, 181], rome: [184, 50, 58], free: null };
+const TERRAIN = { highlands: [125, 122, 90], hills: [138, 144, 88], fertile: [141, 160, 78], plains: [154, 160, 96], coast: [143, 154, 92] };
 
-export function createMap(svg, { onRegion, onArmy }) {
-  let state = null;
-  const ids = [];
-  const cells = {};
+export function createMap(canvas, regionsData, { onRegion, onArmy }) {
+  const ctx = canvas.getContext("2d");
+  const grid = buildMapGrid(regionsData);
+  const ids = regionsData.map((r) => r.id);
+  const index = Object.fromEntries(ids.map((id, i) => [id, i]));
+  const masks = ids.map((_, i) => maskFor(grid, i));
+  const edges = ids.map((_, i) => maskFor(grid, i, true));
+  let state = null, view = {}, base = null, baseKey = "";
+  const cam = { scale: 2, x: 0, y: 0, user: false };
+  let tokens = [];
 
-  function build(s) {
-    state = s;
-    const regions = Object.values(s.regions);
-    regions.forEach((r) => ids.push(r.id));
-    const polys = voronoiCells(regions.map((r) => r.pos), MAP_BOUNDS);
-    regions.forEach((r, i) => { cells[r.id] = path(polys[i]); });
-    const coast = path(coastline());
-    svg.setAttribute("viewBox", `0 0 ${MAP_BOUNDS.w} ${MAP_BOUNDS.h}`);
-    svg.innerHTML = `
-      <defs>
-        <clipPath id="land"><path d="${coast}"/></clipPath>
-        <pattern id="t-highlands" width="60" height="44" patternUnits="userSpaceOnUse"><path d="M4 36l13-22l13 22M24 36l11-17l11 17" fill="none" stroke="#5d5640" stroke-width="2" opacity="0.55"/><path d="M13 20l4-6l4 6" fill="#e9e6da" opacity="0.6"/></pattern>
-        <pattern id="t-hills" width="46" height="30" patternUnits="userSpaceOnUse"><path d="M4 24q10-14 20 0M24 26q8-10 16 0" fill="none" stroke="#5f6040" stroke-width="2" opacity="0.5"/></pattern>
-        <pattern id="t-fertile" width="38" height="24" patternUnits="userSpaceOnUse"><path d="M0 6h16M20 14h16M4 20h12" stroke="#6f7a36" stroke-width="2" opacity="0.45"/></pattern>
-        <pattern id="t-plains" width="30" height="24" patternUnits="userSpaceOnUse"><path d="M6 16l3-6l3 6M20 10l2-5l2 5" fill="none" stroke="#6c6b40" stroke-width="1.5" opacity="0.45"/></pattern>
-        <pattern id="t-coast" width="34" height="34" patternUnits="userSpaceOnUse"><circle cx="8" cy="9" r="1.6" fill="#6b6a48" opacity="0.4"/><circle cx="24" cy="22" r="1.4" fill="#6b6a48" opacity="0.4"/><path d="M14 30q4-4 8 0" fill="none" stroke="#6b6a48" opacity="0.4"/></pattern>
-        <pattern id="waves" width="60" height="30" patternUnits="userSpaceOnUse"><path d="M0 15q15-8 30 0t30 0" fill="none" stroke="#9fb9c0" stroke-width="1.5" opacity="0.25"/></pattern>
-        <filter id="shadow"><feGaussianBlur stdDeviation="6"/></filter>
-      </defs>
-      <rect x="-600" y="-600" width="2200" height="2500" fill="#2d4a55"/>
-      <rect x="-600" y="-600" width="2200" height="2500" fill="url(#waves)"/>
-      <path d="${coast}" fill="#0f1f25" opacity="0.6" transform="translate(8 12)" filter="url(#shadow)"/>
-      <path d="${coast}" fill="none" stroke="#c9d6cf" stroke-opacity="0.35" stroke-width="22" stroke-linejoin="round"/>
-      <g clip-path="url(#land)">
-        ${regions.map((r) => `<path d="${cells[r.id]}" fill="${TERRAIN_FILL[r.terrain]}"/><path d="${cells[r.id]}" fill="url(#t-${r.terrain})"/>`).join("")}
-      </g>
-      <path d="${coast}" fill="none" stroke="#e3d9b8" stroke-width="5" stroke-linejoin="round"/>
-      <g id="owners" clip-path="url(#land)"></g>
-      <g id="links"></g>
-      <g id="hits" clip-path="url(#land)"></g>
-      <g id="places"></g>
-      <g id="hosts"></g>
-      <text x="840" y="760" class="sea-label">Mare Germanicum</text>
-      <text x="70" y="1000" class="sea-label">Oceanus Hibernicus</text>`;
-    svg.querySelector("#hits").addEventListener("click", (e) => {
-      const id = e.target.closest("[data-region]")?.dataset.region;
-      if (id) onRegion(id);
-    });
-    svg.querySelector("#hosts").addEventListener("click", (e) => {
-      const id = e.target.closest("[data-army]")?.dataset.army;
-      if (id) { e.stopPropagation(); onArmy(id); }
-    });
+  // ---------- painting the island ----------
+
+  function paintBase(s) {
+    const c = document.createElement("canvas");
+    c.width = MAP_W; c.height = MAP_H;
+    const g = c.getContext("2d");
+    const img = g.createImageData(MAP_W, MAP_H);
+    let seed = 7;
+    const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const winter = seasonName(s) === "Winter";
+    for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+      const k = y * MAP_W + x, o = k * 4;
+      const reg = grid[k];
+      let col;
+      if (reg < 0) {
+        const nearLand = [grid[k - 1], grid[k + 1], grid[k - MAP_W], grid[k + MAP_W]].some((v) => v >= 0);
+        col = nearLand ? [70, 120, 140] : ((x + y * 3) % 23 === 0 || ((x * 7 + y) % 31 === 0 && y % 4 === 0)) ? [62, 106, 128] : [42, 84, 104];
+      } else {
+        const R = s.regions[ids[reg]];
+        col = [...TERRAIN[R.terrain]];
+        const n = r();
+        col = col.map((v) => v + (n < 0.25 ? -10 : n > 0.85 ? 8 : 0));
+        const coast = [grid[k - 1], grid[k + 1], grid[k - MAP_W], grid[k + MAP_W]].some((v) => v < 0);
+        if (coast) col = [196, 182, 128];
+        const tint = OWNER_TINT[R.owner];
+        if (tint && !coast) col = col.map((v, i) => Math.round(v * 0.7 + tint[i] * 0.3));
+        if (winter && !coast && n > 0.45) col = col.map((v) => Math.round(v * 0.4 + 235 * 0.6));
+        // borders: dark where two tribes meet, the owner's colour just inside
+        const right = grid[k + 1], down = grid[k + MAP_W], left = grid[k - 1], up = grid[k - MAP_W];
+        if ((right >= 0 && right !== reg) || (down >= 0 && down !== reg)) col = [44, 36, 24];
+        else if (tint && ((left >= 0 && left !== reg) || (up >= 0 && up !== reg) || (grid[k + 2] >= 0 && grid[k + 2] !== reg) || (grid[k + MAP_W * 2] >= 0 && grid[k + MAP_W * 2] !== reg))) col = tint.map((v) => Math.round(v * 0.85));
+      }
+      img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    // terrain marks: mountains, hills, fields
+    for (let i = 0; i < 2600; i++) {
+      const x = Math.floor(r() * MAP_W), y = Math.floor(r() * MAP_H);
+      const reg = grid[y * MAP_W + x];
+      if (reg < 0) continue;
+      const t = s.regions[ids[reg]].terrain;
+      const near = (dx, dy) => grid[(y + dy) * MAP_W + x + dx] === reg;
+      if (!near(-3, 0) || !near(3, 0) || !near(0, -4) || !near(0, 2)) continue;
+      if (t === "highlands" && r() < 0.6) { px(g, x, y, "#5e5a40"); px(g, x - 1, y + 1, "#5e5a40"); px(g, x + 1, y + 1, "#5e5a40"); px(g, x - 2, y + 2, "#4a4632", 5, 1); px(g, x, y, winter ? "#fff" : "#e8e4d4"); }
+      else if (t === "hills" && r() < 0.35) { px(g, x - 1, y, "#6a6e42", 3, 1); px(g, x - 2, y + 1, "#5c6038", 1, 1); px(g, x + 2, y + 1, "#5c6038", 1, 1); }
+      else if (t === "fertile" && r() < 0.3) { px(g, x - 2, y, "#a8b45a", 4, 1); px(g, x - 2, y + 2, "#7a8a3e", 4, 1); }
+      else if (r() < 0.15) { px(g, x, y, "#3f6a2e"); px(g, x, y - 1, "#4f7d36"); } // a copse
+    }
+    return c;
   }
 
-  // view: { selected: armyId, reach: [regionIds], attack: [regionIds], focus: regionId }
-  function render(s, view = {}) {
-    if (!ids.length) build(s);
-    state = s;
-    const g = (id) => svg.querySelector(`#${id}`);
-    g("owners").innerHTML = ids.map((id) => {
-      const r = s.regions[id];
-      const col = s.factions[r.owner].colour;
-      return `<g clip-path="url(#c-${id})"><clipPath id="c-${id}"><path d="${cells[id]}"/></clipPath>
-        <path d="${cells[id]}" fill="${col}" opacity="${r.owner === "neutral" ? 0.06 : 0.2}"/>
-        <path d="${cells[id]}" fill="none" stroke="${col}" stroke-width="14" opacity="0.65"/>
-        <path d="${cells[id]}" fill="none" stroke="#2b261b" stroke-width="2.5" opacity="0.6"/></g>`;
-    }).join("");
-    g("links").innerHTML = s.links.map(([a, b]) => {
-      const p = s.regions[a].pos, q = s.regions[b].pos;
-      return `<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}" class="link"/>`;
-    }).join("");
-    const reach = new Set(view.reach || []), attack = new Set(view.attack || []);
-    g("hits").innerHTML = ids.map((id) => {
-      const cls = attack.has(id) ? "hit attack" : reach.has(id) ? "hit reach" : view.focus === id ? "hit focus" : "hit";
-      return `<path d="${cells[id]}" class="${cls}" data-region="${id}"/>`;
-    }).join("");
-    g("places").innerHTML = ids.map((id) => placeSvg(s, s.regions[id])).join("");
-    g("hosts").innerHTML = hostsSvg(s, view.selected);
+  // ---------- camera ----------
+
+  function fit() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    cam.dpr = dpr;
+    cam.min = Math.min(w / MAP_W, h / MAP_H) * 0.95;
+    if (!cam.user) { cam.scale = cam.min; cam.x = (MAP_W - w / cam.scale) / 2; cam.y = (MAP_H - h / cam.scale) / 2; }
+    clamp();
+    draw();
+  }
+  function clamp() {
+    const vw = canvas.clientWidth / cam.scale, vh = canvas.clientHeight / cam.scale;
+    cam.x = vw >= MAP_W ? (MAP_W - vw) / 2 : Math.max(-10, Math.min(MAP_W - vw + 10, cam.x));
+    cam.y = vh >= MAP_H ? (MAP_H - vh) / 2 : Math.max(-10, Math.min(MAP_H - vh + 10, cam.y));
+  }
+  const toScreen = (x, y) => [(x - cam.x) * cam.scale, (y - cam.y) * cam.scale];
+  const toMap = (px2, py) => [px2 / cam.scale + cam.x, py / cam.scale + cam.y];
+
+  // ---------- drawing ----------
+
+  function draw() {
+    if (!state) return;
+    const key = Object.values(state.regions).map((r) => r.owner[0]).join("") + seasonName(state);
+    if (key !== baseKey) { base = paintBase(state); baseKey = key; }
+    const W = canvas.width, H = canvas.height, s = cam.scale * cam.dpr;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "#2a5468"; ctx.fillRect(0, 0, W, H);
+    ctx.imageSmoothingEnabled = false;
+    ctx.setTransform(s, 0, 0, s, -cam.x * s, -cam.y * s);
+    ctx.drawImage(base, 0, 0);
+    // highlights: a faint wash and a bright pulsing edge
+    const t = performance.now() / 1000;
+    const glow = 0.65 + 0.35 * Math.sin(t * 5);
+    for (const [list, col] of [[view.reach || [], "rgba(255,236,140,1)"], [view.attack || [], "rgba(255,90,70,1)"], [view.focus ? [view.focus] : [], "rgba(255,255,235,1)"]]) {
+      for (const id of list) {
+        ctx.globalAlpha = 0.14;
+        ctx.drawImage(tinted(masks[index[id]], col), 0, 0);
+        ctx.globalAlpha = glow;
+        ctx.drawImage(tinted(edges[index[id]], col), 0, 0);
+      }
+    }
+    ctx.globalAlpha = 1;
+    // settlements
+    for (const r of Object.values(state.regions)) settlement(ctx, r);
+    // names and hosts in screen space, so text stays crisp
+    ctx.setTransform(cam.dpr, 0, 0, cam.dpr, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.textAlign = "center";
+    for (const r of Object.values(state.regions)) {
+      const [x, y] = toScreen(r.pos[0], r.pos[1] + 9);
+      const fs = Math.max(9, Math.min(15, cam.scale * 4.2));
+      ctx.font = `bold ${fs}px Georgia, serif`;
+      ctx.lineWidth = 3; ctx.strokeStyle = "rgba(20,16,10,0.85)"; ctx.strokeText(r.name, x, y);
+      ctx.fillStyle = r.owner === "celts" ? "#dbe8ff" : r.owner === "rome" ? "#ffd6cf" : "#f3ead2";
+      ctx.fillText(r.name, x, y);
+      if (r.unrest) { ctx.fillStyle = "#ffb070"; ctx.font = `bold ${fs - 2}px system-ui`; ctx.fillText("unrest", x, y + fs); }
+    }
+    tokens = [];
+    const by = {};
+    for (const a of state.armies) (by[a.region] ||= []).push(a);
+    for (const [rid, list] of Object.entries(by)) {
+      const r = state.regions[rid];
+      list.forEach((a, i) => host(a, r, i, list.length));
+    }
   }
 
-  return { render, regionCentre: (id) => state.regions[id].pos };
+  function host(a, r, i, n) {
+    const k = Math.max(1, Math.round(cam.scale * 0.75));      // sprite zoom
+    const [cx, cy] = toScreen(r.pos[0] + (i - (n - 1) / 2) * 14, r.pos[1] - 2);
+    const types = a.faction === "rome" ? ["legionaries", "legionaries", "auxilia"] : ["warriors", "spearmen", "warriors"];
+    const general = a.units.find((u) => BALANCE.units[u.type].tags?.includes("general"));
+    ctx.save();
+    ctx.translate(Math.round(cx), Math.round(cy));
+    ctx.scale(k, k);
+    if (a.id === view.selected) { ctx.fillStyle = "rgba(255,246,176,0.9)"; ctx.fillRect(-12, 0, 24, 2); }
+    ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(-11, -1, 22, 3);
+    types.forEach((t, j) => { const spr = getSprite(t, (j + a.id.length) % 5, 0, a.faction === "rome" ? -1 : 1); ctx.drawImage(spr, -14 + j * 6, -spr.height + (j % 2)); });
+    if (general) { const spr = getSprite(general.type, 1, 0, a.faction === "rome" ? -1 : 1); ctx.drawImage(spr, 2, -spr.height - 1); }
+    const flag = bannerSprite(a.faction, true);
+    ctx.drawImage(flag, -16, -flag.height - 6);
+    ctx.restore();
+    // plaque: units, and wheat for your hosts
+    const w = a.faction === "celts" ? 46 : 30;
+    const py = cy + 4;
+    ctx.fillStyle = a.faction === "celts" ? "rgba(18,30,50,0.9)" : a.faction === "rome" ? "rgba(60,14,16,0.9)" : "rgba(50,44,26,0.9)";
+    ctx.fillRect(cx - w / 2, py, w, 13);
+    if (a.id === view.selected) { ctx.strokeStyle = "#fff6b0"; ctx.lineWidth = 1.5; ctx.strokeRect(cx - w / 2, py, w, 13); }
+    if (a.faction === "celts" && a.moves > 0) { ctx.fillStyle = "#e6c25a"; ctx.fillRect(cx - w / 2, py, 3, 13); }
+    ctx.fillStyle = "#f4ecd4"; ctx.font = "bold 9px system-ui"; ctx.textAlign = "left";
+    ctx.fillText(`${a.units.length}`, cx - w / 2 + 6, py + 10);
+    if (a.faction === "celts") {
+      const cap = a.units.length * BALANCE.food.carry;
+      // a little sheaf of wheat
+      ctx.fillStyle = "#e6c25a"; ctx.fillRect(cx - w / 2 + 25, py + 3, 1, 8); ctx.fillRect(cx - w / 2 + 23, py + 3, 1, 4); ctx.fillRect(cx - w / 2 + 27, py + 3, 1, 4);
+      ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(cx + 9, py + 5, 12, 4);
+      ctx.fillStyle = a.food / cap > 0.35 ? "#e6c25a" : "#e2735f"; ctx.fillRect(cx + 9, py + 5, 12 * Math.max(0, Math.min(1, a.food / cap)), 4);
+    }
+    ctx.textAlign = "center";
+    tokens.push({ id: a.id, x0: cx - 18, x1: cx + 18, y0: cy - 30, y1: py + 13 });
+  }
+
+  // ---------- input ----------
+
+  const pointers = new Map();
+  let down = null, pinch = null;
+  const local = (e) => { const b = canvas.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+  canvas.addEventListener("pointerdown", (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, local(e));
+    if (pointers.size === 2) { const [p, q] = [...pointers.values()]; pinch = Math.hypot(p[0] - q[0], p[1] - q[1]); down = null; return; }
+    const [x, y] = local(e);
+    down = { x, y, cx: cam.x, cy: cam.y, moved: false };
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, local(e));
+    if (pinch && pointers.size === 2) {
+      const [p, q] = [...pointers.values()];
+      const d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+      zoomAt(d / pinch, (p[0] + q[0]) / 2, (p[1] + q[1]) / 2);
+      pinch = d;
+      return;
+    }
+    if (!down) return;
+    const [x, y] = local(e);
+    if (Math.hypot(x - down.x, y - down.y) > 6) down.moved = true;
+    if (down.moved) { cam.user = true; cam.x = down.cx - (x - down.x) / cam.scale; cam.y = down.cy - (y - down.y) / cam.scale; clamp(); draw(); }
+  });
+  const up = (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (!down || down.moved) { down = null; return; }
+    const [x, y] = [down.x, down.y];
+    down = null;
+    const tok = tokens.slice().reverse().find((t) => x >= t.x0 && x <= t.x1 && y >= t.y0 && y <= t.y1);
+    if (tok) return onArmy(tok.id);
+    const [mx, my] = toMap(x, y).map(Math.floor);
+    if (mx < 0 || my < 0 || mx >= MAP_W || my >= MAP_H) return;
+    const reg = grid[my * MAP_W + mx];
+    if (reg >= 0) onRegion(ids[reg]);
+  };
+  canvas.addEventListener("pointerup", up);
+  canvas.addEventListener("pointercancel", up);
+  canvas.addEventListener("wheel", (e) => { e.preventDefault(); const [x, y] = local(e); zoomAt(e.deltaY < 0 ? 1.15 : 0.87, x, y); }, { passive: false });
+
+  function zoomAt(f, px2, py) {
+    cam.user = true;
+    const [mx, my] = toMap(px2, py);
+    cam.scale = Math.max(cam.min, Math.min(cam.min * 5, cam.scale * f));
+    cam.x = mx - px2 / cam.scale; cam.y = my - py / cam.scale;
+    clamp(); draw();
+  }
+
+  new ResizeObserver(fit).observe(canvas);
+  let anim = 0;
+  const loop = () => { if (view.reach?.length || view.attack?.length) draw(); anim = requestAnimationFrame(loop); };
+  anim = requestAnimationFrame(loop);
+
+  return {
+    render(s, v = {}) { state = s; view = v; if (!canvas.width) fit(); else draw(); },
+    centreOn(id) {
+      const r = state.regions[id];
+      cam.user = true;
+      cam.scale = Math.max(cam.scale, cam.min * 2);
+      cam.x = r.pos[0] - canvas.clientWidth / cam.scale / 2; cam.y = r.pos[1] - canvas.clientHeight / cam.scale / 2;
+      clamp(); draw();
+    },
+    zoom(f) { zoomAt(f, canvas.clientWidth / 2, canvas.clientHeight / 2); },
+    stop() { cancelAnimationFrame(anim); },
+  };
 }
 
-// ---------- settlements ----------
+// ---------- helpers ----------
 
-function placeSvg(s, r) {
-  const [x, y] = r.pos;
-  const col = s.factions[r.owner].colour;
-  let art;
-  if (r.settlement === "fortress") {
-    art = `<rect x="-26" y="-20" width="52" height="38" rx="4" class="roman-wall"/><rect x="-6" y="10" width="12" height="8" fill="#3b2a1a"/>
-      <path d="M-26 -20l6-6h40l6 6" class="roman-wall"/><rect x="-14" y="-12" width="10" height="10" class="roof"/><rect x="4" y="-12" width="10" height="10" class="roof"/>`;
-  } else if (r.settlement === "fort" && r.owner === "rome") {
-    art = `<rect x="-20" y="-16" width="40" height="30" rx="5" class="roman-wall"/><rect x="-5" y="7" width="10" height="7" fill="#3b2a1a"/><rect x="-9" y="-8" width="18" height="10" class="roof"/>`;
-  } else if (r.settlement === "oppidum" || r.walls) {
-    art = `<ellipse cx="0" cy="4" rx="30" ry="18" class="rampart"/><ellipse cx="0" cy="4" rx="22" ry="12" class="rampart inner"/>
-      ${hut(-9, 2)}${hut(7, -2)}${hut(0, 8)}`;
+function px(g, x, y, col, w = 1, h = 1) { g.fillStyle = col; g.fillRect(x, y, w, h); }
+
+// A region's pixels, or (edge) just the two-pixel band along its border.
+function maskFor(grid, i, edge = false) {
+  const c = document.createElement("canvas");
+  c.width = MAP_W; c.height = MAP_H;
+  const g = c.getContext("2d");
+  const img = g.createImageData(MAP_W, MAP_H);
+  const other = (k) => grid[k] !== i;
+  for (let k = 0; k < grid.length; k++) {
+    if (grid[k] !== i) continue;
+    if (edge && !(other(k - 1) || other(k + 1) || other(k - MAP_W) || other(k + MAP_W) || other(k - 2) || other(k + 2) || other(k - 2 * MAP_W) || other(k + 2 * MAP_W))) continue;
+    img.data[k * 4 + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+const tintCache = new Map();
+function tinted(mask, col) {
+  const key = mask;
+  let m = tintCache.get(key);
+  if (!m) tintCache.set(key, (m = new Map()));
+  let c = m.get(col);
+  if (c) return c;
+  c = document.createElement("canvas");
+  c.width = mask.width; c.height = mask.height;
+  const g = c.getContext("2d");
+  g.drawImage(mask, 0, 0);
+  g.globalCompositeOperation = "source-in";
+  g.fillStyle = col; g.fillRect(0, 0, c.width, c.height);
+  m.set(col, c);
+  return c;
+}
+
+// Little pixel settlements: huts, a ringed hill fort, a red-roofed Roman town, a square fort.
+function settlement(ctx, r) {
+  const [x, y] = r.pos.map(Math.round);
+  const hut = (hx, hy) => { px(ctx, hx - 2, hy, "#6a4a2a", 5, 2); px(ctx, hx - 1, hy - 2, "#c9a96a", 3, 2); px(ctx, hx, hy - 3, "#c9a96a"); };
+  if (r.settlement === "town") {
+    px(ctx, x - 6, y - 5, "#b6a787", 12, 8); px(ctx, x - 6, y - 5, "#7a6a4a", 12, 1); px(ctx, x - 6, y + 2, "#7a6a4a", 12, 1);
+    px(ctx, x - 4, y - 3, "#a8462e", 3, 2); px(ctx, x + 1, y - 3, "#a8462e", 3, 2); px(ctx, x - 2, y, "#a8462e", 4, 2);
+  } else if (r.settlement === "fort" || (r.owner === "rome" && r.walls)) {
+    px(ctx, x - 5, y - 4, "#8a6a3e", 10, 1); px(ctx, x - 5, y + 3, "#8a6a3e", 10, 1); px(ctx, x - 5, y - 4, "#8a6a3e", 1, 8); px(ctx, x + 4, y - 4, "#8a6a3e", 1, 8);
+    px(ctx, x - 2, y - 1, "#a8462e", 4, 2);
+  } else if (r.settlement === "oppidum") {
+    ctx.fillStyle = "#6e5e3a";
+    for (let a = 0; a < 6.28; a += 0.35) ctx.fillRect(Math.round(x + Math.cos(a) * 7), Math.round(y - 1 + Math.sin(a) * 4), 1, 1);
+    hut(x - 2, y - 1); hut(x + 3, y);
   } else {
-    art = `${hut(-8, 0)}${hut(8, 3)}${hut(0, -6)}`;
+    hut(x - 3, y); hut(x + 2, y - 1);
   }
-  const fortSoon = r.fortAt ? `<text y="44" class="place-note">fort rising</text>` : "";
-  const garrison = r.garrison.length && r.owner !== "picts" ? `<g transform="translate(26 -22)"><circle r="9" fill="${col}" stroke="#1c1a14"/><text y="4" class="garrison-n">${r.garrison.length}</text></g>` : "";
-  return `<g transform="translate(${x} ${y}) scale(1.25)" pointer-events="none">${art}${garrison}
-    <text y="${r.capital ? 40 : 36}" class="place-name ${r.capital ? "capital" : ""}">${r.name}</text>${fortSoon}</g>`;
+  if (r.fortAt) { px(ctx, x + 6, y - 6, "#e2735f", 2, 2); }
 }
 
-const hut = (x, y) => `<g transform="translate(${x} ${y})"><path d="M-6 3a6 4 0 0 0 12 0v-2h-12z" fill="#7a5a3a"/><path d="M-7 1l7-8l7 8z" fill="#c9a96a" stroke="#4a3520" stroke-width="0.8"/></g>`;
-
-// ---------- hosts ----------
-
-function hostsSvg(s, selected) {
-  const by = {};
-  for (const a of s.armies) (by[a.region] ||= []).push(a);
-  return Object.entries(by).map(([rid, list]) => {
-    const [x, y] = s.regions[rid].pos;
-    return list.map((a, i) => {
-      const ox = 62 + i * 76, oy = -18 - (i % 2) * 12;
-      return `<g class="host ${a.id === selected ? "selected" : ""} ${a.moves > 0 && a.faction === "picts" ? "ready" : ""}" data-army="${a.id}" transform="translate(${x + ox} ${y + oy}) scale(1.55)">${hostToken(s, a)}</g>`;
-    }).join("");
-  }).join("");
-}
-
-function hostToken(s, a) {
-  const col = s.factions[a.faction].colour;
-  const roman = a.faction === "rome";
-  const men = a.units.reduce((n, u) => n + u.men, 0);
-  const figs = Math.min(5, Math.max(2, Math.round(a.units.length / 2)));
-  const people = Array.from({ length: figs }, (_, i) => {
-    const fx = -16 + i * 8;
-    return roman
-      ? `<g transform="translate(${fx} 0)"><circle cy="-11" r="2.6" fill="#d8b892"/><rect x="-3" y="-8" width="6" height="9" fill="${col}"/><rect x="-5.5" y="-8" width="4" height="8" rx="1" fill="#c9a548" stroke="#5a3f12" stroke-width="0.5"/></g>`
-      : `<g transform="translate(${fx} 0)"><circle cy="-11" r="2.6" fill="#d8b892"/><path d="M-3 -8h6l1 9h-8z" fill="#5d7fa8"/><circle cx="-3" cy="-4" r="3" fill="${col}" stroke="#1c2a3a" stroke-width="0.6"/><path d="M2 -12l3 -7" stroke="#c8c8c0"/></g>`;
-  }).join("");
-  const banner = roman
-    ? `<path d="M20 4V-34" stroke="#3a2a18" stroke-width="2"/><path d="M14 -38q6-6 12 0" stroke="#f2cf5b" stroke-width="2" fill="none"/><rect x="13" y="-34" width="14" height="12" fill="${col}" stroke="#f2cf5b"/>`
-    : `<path d="M20 4V-34" stroke="#3a2a18" stroke-width="2"/><path d="M20 -34h15l-4 6l4 6h-15z" fill="${col}" stroke="#13202d" stroke-width="0.8"/><path d="M23 -30a3 3 0 1 0 6 0M24 -24l6 -6" stroke="#e8e2cf" stroke-width="1" fill="none"/>`;
-  return `<rect x="-30" y="-42" width="70" height="68" fill="transparent"/>
-    <ellipse cx="0" cy="4" rx="26" ry="7" fill="#000" opacity="0.3"/>
-    <ellipse cx="0" cy="2" rx="25" ry="7" fill="#4a3824" stroke="#22190f"/>
-    ${people}${banner}
-    <rect x="-22" y="8" width="44" height="14" rx="4" class="host-plaque"/>
-    <text y="18.5" class="host-men">${men}</text>`;
-}
-
-export function unitsLabel(n) {
-  return `${n} unit${n === 1 ? "" : "s"}`;
-}
-
+export { FACTIONS };

@@ -1,143 +1,134 @@
 // config/balance.js
 // Every number in the game lives here. Simulation code reads these; nothing is hard-coded.
-// Caledonia: the Picts of the north against Roman Britannia.
+// Caledonia (working title): the Celts of Britannia against Rome, in the spirit of Roma Invicta.
 
 export const BALANCE = {
-  // ---------- CAMPAIGN ----------
-  seasons: ["Spring", "Summer", "Autumn", "Winter"],
-  startYear: 80,                  // AD; Agricola's push north
-  startSilver: 600,
-  maxUnitsPerArmy: 10,
-  maxArmies: 4,
-  newArmyCost: 150,               // raising a new warband under a new chieftain
-  requires: { champions: "oppidum", chariots: "lowland" }, // champions muster at an oppidum; chariots need open country
-  replenishCostPerMan: 0.25,      // silver per man restored at home
-  income: { base: 25, oppidum: 25, fertile: 15, coast: 10 }, // silver per region per season
-  upkeepPerUnit: 8,               // silver per unit per season
-  supply: {
-    homeReplenishPct: 0.15,       // men regained per season in friendly land (pays recruit cost pro rata)
-    hostileAttritionPct: 0.04,    // men lost per season outside friendly land
-    winterAttritionPct: 0.08,
-  },
-  movesPerSeason: 1,              // regions per season (2 for an army of only horse and chariots)
-  fastMoves: 2,
-
-  // Victory: drive Rome from Eboracum. Defeat: lose every Pictish province.
-  victoryRegion: "eboracum",
-
   // ---------- UNITS ----------
-  // men: full strength. attack/defence: melee. charge: bonus on impact. speed: field units/sec.
-  // range/ammo/missile: ranged attack. morale: starting nerve. cost: silver to raise.
+  // A unit is a band of individual soldiers. Fields (after Roma Invicta's own unit files):
+  //   men: soldiers at full strength. hp: blows a soldier can take. formation: tight | dense | loose | wild | cavalry
+  //   rows: ranks in line. attack / defence: melee skill. shield: chance (x6%) to block a blow from the front.
+  //   charge: charge energy (bonus damage, knock-downs, morale shock). speed: field units per second.
+  //   morale / stamina: nerve and wind. range / ammo / missile: shooting. throw: a skill-shot volley (javelins, pila).
+  //   tags: spear (braces against horse), mounted, archer, skirmisher, artillery, general.
   units: {
-    // Picts
-    spearmen:   { name: "Spearmen", side: "picts", men: 160, cost: 60,  attack: 5, defence: 7, charge: 2, speed: 26, morale: 60, antiCav: 1.6, formations: ["line", "shieldwall"], desc: "Steady spear line. Shield wall stops horse and arrows." },
-    warband:    { name: "Warband", side: "picts", men: 150, cost: 70,  attack: 9, defence: 4, charge: 9, speed: 32, morale: 65, formations: ["line", "wedge"], desc: "Painted swordsmen. Devastating charge, brittle if it stalls." },
-    skirmishers:{ name: "Skirmishers", side: "picts", men: 90, cost: 50, attack: 3, defence: 2, charge: 1, speed: 36, morale: 45, range: 110, ammo: 8, missile: 4, formations: ["loose", "line"], desc: "Javelins and slings. Harass, then run." },
-    horsemen:   { name: "Horsemen", side: "picts", men: 70, cost: 90,  attack: 6, defence: 4, charge: 9, speed: 62, morale: 60, mounted: true, formations: ["line", "wedge"], desc: "Fast light horse. Flank, chase, ride down archers." },
-    chariots:   { name: "Chariots", side: "picts", men: 40, cost: 110, attack: 7, defence: 4, charge: 14, speed: 58, morale: 60, mounted: true, shock: 12, formations: ["line"], desc: "Thundering shock. One terrible charge; fragile in a grind." },
-    champions:  { name: "Champions", side: "picts", men: 80, cost: 130, attack: 11, defence: 7, charge: 9, speed: 30, morale: 85, formations: ["line", "wedge"], desc: "Chosen warriors. Hold a gap or break a line." },
-    chieftain:  { name: "Chieftain's Guard", side: "picts", men: 40, cost: 0, attack: 9, defence: 8, charge: 10, speed: 58, morale: 90, mounted: true, general: true, formations: ["line"], desc: "The chieftain and his sworn men." },
-    // Rome
-    legionaries:{ name: "Legionaries", side: "rome", men: 160, cost: 0, attack: 7, defence: 8, charge: 3, speed: 24, morale: 75, pila: 6, formations: ["line", "testudo"], desc: "Heavy infantry. Pila volley at close range; testudo against missiles." },
-    auxilia:    { name: "Auxilia", side: "rome", men: 150, cost: 0, attack: 5, defence: 6, charge: 3, speed: 27, morale: 60, formations: ["line", "shieldwall"], desc: "Provincial infantry, the frontier's backbone." },
-    archers:    { name: "Sagittarii", side: "rome", men: 100, cost: 0, attack: 3, defence: 3, charge: 1, speed: 28, morale: 50, range: 170, ammo: 10, missile: 3.5, formations: ["loose", "line"], desc: "Eastern archers with long reach." },
-    equites:    { name: "Equites", side: "rome", men: 80, cost: 0, attack: 7, defence: 6, charge: 8, speed: 58, morale: 65, mounted: true, formations: ["line", "wedge"], desc: "Auxiliary cavalry." },
-    ballista:   { name: "Ballista", side: "rome", men: 30, cost: 0, attack: 1, defence: 2, charge: 0, speed: 14, morale: 50, range: 300, ammo: 14, missile: 9, artillery: true, formations: ["line"], desc: "Bolt thrower. Long range, slow to reload; breaks gates." },
-    legate:     { name: "Legate's Guard", side: "rome", men: 50, cost: 0, attack: 9, defence: 9, charge: 8, speed: 54, morale: 90, mounted: true, general: true, formations: ["line"], desc: "The legate and his escort." },
+    // ----- the Britons -----
+    warriors:   { name: "Warriors", side: "celts", men: 48, hp: 2, formation: "wild", rows: 3, attack: 7, defence: 4, shield: 4, charge: 8, speed: 34, morale: 62, stamina: 80, throw: { ammo: 1, damage: 2, range: 90 }, cost: 60, desc: "Sword and shield, painted for war. A ferocious charge, and a javelin volley before it." },
+    spearmen:   { name: "Spearmen", side: "celts", men: 44, hp: 2, formation: "dense", rows: 3, attack: 4, defence: 6, shield: 5, charge: 3, speed: 30, morale: 60, stamina: 90, tags: ["spear"], cost: 55, desc: "A wall of spears. Horse will not charge home into them." },
+    slingers:   { name: "Slingers", side: "celts", men: 26, hp: 1, formation: "loose", rows: 2, attack: 2, defence: 2, shield: 0, charge: 1, speed: 38, morale: 45, stamina: 90, range: 190, ammo: 14, missile: 1, tags: ["skirmisher"], cost: 45, desc: "Stones from the hillsides. Long reach, no stomach for a melee." },
+    javelinmen: { name: "Javelin Men", side: "celts", men: 26, hp: 1, formation: "loose", rows: 2, attack: 3, defence: 3, shield: 2, charge: 2, speed: 40, morale: 50, stamina: 90, range: 110, ammo: 6, missile: 2, throw: { ammo: 1, damage: 2, range: 110 }, tags: ["skirmisher"], cost: 50, desc: "Fast and hard-hitting at short range." },
+    horsemen:   { name: "Horsemen", side: "celts", men: 16, hp: 3, formation: "cavalry", rows: 2, attack: 6, defence: 4, shield: 3, charge: 10, speed: 72, morale: 60, stamina: 70, tags: ["mounted"], cost: 85, desc: "Light horse. Ride down slingers, strike flanks, chase the beaten." },
+    chariots:   { name: "Chariots", side: "celts", men: 8, hp: 6, formation: "cavalry", rows: 1, attack: 7, defence: 4, shield: 2, charge: 18, speed: 66, morale: 65, stamina: 70, throw: { ammo: 2, damage: 2, range: 100 }, tags: ["mounted", "chariot"], cost: 110, desc: "The terror of the Britons: javelins from the car, then a crashing charge." },
+    champions:  { name: "Champions", side: "celts", men: 24, hp: 3, formation: "wild", rows: 2, attack: 9, defence: 6, shield: 5, charge: 9, speed: 32, morale: 85, stamina: 85, cost: 120, desc: "Chosen warriors of noble blood. They hold a gap or break a line." },
+    chieftain:  { name: "Chieftain", side: "celts", men: 10, hp: 5, formation: "cavalry", rows: 1, attack: 9, defence: 8, shield: 5, charge: 11, speed: 66, morale: 95, stamina: 90, tags: ["mounted", "general"], cost: 0, desc: "The war leader and his sworn riders." },
+    // ----- Rome -----
+    legionaries:{ name: "Legionaries", side: "rome", men: 40, hp: 2, formation: "tight", rows: 4, attack: 7, defence: 7, shield: 7, charge: 4, speed: 28, morale: 78, stamina: 95, throw: { ammo: 1, damage: 3, range: 70 }, cost: 0, desc: "Heavy infantry: pila, then the gladius behind a wall of scuta." },
+    auxilia:    { name: "Auxilia", side: "rome", men: 40, hp: 2, formation: "dense", rows: 3, attack: 5, defence: 6, shield: 6, charge: 3, speed: 30, morale: 62, stamina: 90, cost: 0, desc: "Provincial infantry, the frontier's backbone." },
+    archers:    { name: "Sagittarii", side: "rome", men: 26, hp: 1, formation: "loose", rows: 2, attack: 3, defence: 3, shield: 1, charge: 1, speed: 30, morale: 50, stamina: 85, range: 240, ammo: 16, missile: 1, tags: ["archer"], cost: 0, desc: "Eastern archers with a long reach." },
+    equites:    { name: "Equites", side: "rome", men: 16, hp: 3, formation: "cavalry", rows: 2, attack: 7, defence: 6, shield: 5, charge: 9, speed: 66, morale: 66, stamina: 80, tags: ["mounted"], cost: 0, desc: "Auxiliary cavalry." },
+    scorpion:   { name: "Scorpion", side: "rome", men: 4, hp: 2, formation: "loose", rows: 1, attack: 1, defence: 2, shield: 0, charge: 0, speed: 16, morale: 55, stamina: 90, range: 380, ammo: 20, missile: 3, tags: ["artillery"], cost: 0, desc: "Bolt thrower. Pierces ranks, breaks gates." },
+    legate:     { name: "Legate", side: "rome", men: 10, hp: 5, formation: "cavalry", rows: 1, attack: 9, defence: 9, shield: 6, charge: 9, speed: 60, morale: 95, stamina: 90, tags: ["mounted", "general"], cost: 0, desc: "The legate and his escort." },
   },
 
-  // Formations: multipliers. width: frontage relative to line. missileDef: damage taken from missiles (lower is better).
+  // Formation spacing (field units between soldiers) and how they fight
   formations: {
-    line:       { label: "Line", attack: 1.0, defence: 1.0, speed: 1.0, width: 1.0, missileDef: 1.0, charge: 1.0 },
-    shieldwall: { label: "Shield wall", attack: 0.8, defence: 1.45, speed: 0.55, width: 1.1, missileDef: 0.55, charge: 0.3, braced: true },
-    wedge:      { label: "Wedge", attack: 1.15, defence: 0.8, speed: 1.05, width: 0.6, missileDef: 1.1, charge: 1.6 },
-    loose:      { label: "Loose", attack: 0.8, defence: 0.75, speed: 1.15, width: 1.6, missileDef: 0.5, charge: 0.7 },
-    testudo:    { label: "Testudo", attack: 0.6, defence: 1.5, speed: 0.4, width: 0.8, missileDef: 0.15, charge: 0.2, braced: true },
+    tight:   { label: "Tight", spacing: 7, depth: 7, jitter: 0.5, defence: 1.15, shieldFront: 75, speed: 0.95 },
+    dense:   { label: "Dense", spacing: 8, depth: 8, jitter: 1, defence: 1.05, shieldFront: 70, speed: 1 },
+    wild:    { label: "Wild", spacing: 10, depth: 9, jitter: 4, defence: 0.95, shieldFront: 60, speed: 1.05 },
+    loose:   { label: "Loose", spacing: 14, depth: 12, jitter: 3, defence: 0.85, shieldFront: 50, speed: 1.1 },
+    cavalry: { label: "Cavalry", spacing: 13, depth: 13, jitter: 1.5, defence: 1, shieldFront: 60, speed: 1 },
   },
 
-  // Veterancy: experience to reach each rank and what it gives
   ranks: [
-    { xp: 0, label: "Raw", attack: 1.0, defence: 1.0, morale: 0 },
-    { xp: 40, label: "Blooded", attack: 1.08, defence: 1.05, morale: 5 },
-    { xp: 110, label: "Veteran", attack: 1.16, defence: 1.1, morale: 10 },
-    { xp: 220, label: "Elite", attack: 1.25, defence: 1.16, morale: 18 },
+    { xp: 0, label: "Raw", attack: 0, defence: 0, morale: 0 },
+    { xp: 30, label: "Blooded", attack: 0.5, defence: 0.5, morale: 5 },
+    { xp: 80, label: "Veteran", attack: 1, defence: 1, morale: 10 },
+    { xp: 160, label: "Elite", attack: 1.5, defence: 1.5, morale: 18 },
   ],
-  xp: { perBattle: 15, perKill: 0.25, win: 15 },
-
-  // Upgrades: three levels each; cost per level (x level number)
+  xp: { perBattle: 10, perKill: 1, win: 10 },
   upgrades: {
-    weapons: { label: "Weapons", perLevel: 0.08, cost: 50 },   // +8% attack per level
-    armour:  { label: "Armour", perLevel: 0.08, cost: 50 },    // +8% defence and missile cover per level
+    weapons: { label: "Weapons", perLevel: 0.6, cost: 40 },  // + attack per level
+    armour:  { label: "Armour", perLevel: 0.6, cost: 40 },   // + defence per level
     maxLevel: 3,
   },
 
   // ---------- GENERALS ----------
-  generals: {
-    auraRadius: 170,              // nearby units hold their nerve
-    auraMorale: 4,                // morale per second regained near the general while not routing
-    deathMoraleHit: 25,           // every unit on the side when the general falls
-    xpPerBattle: 20, xpPerWin: 20,
-    rankXp: [0, 50, 130, 250],
-  },
+  generals: { auraRadius: 160, auraMorale: 3, deathMoraleHit: 25, xpPerBattle: 20, xpPerWin: 20, rankXp: [0, 40, 100, 200] },
   abilities: {
-    warcry: { label: "War Cry", cooldown: 45, radius: 220, morale: 22, attack: 1.15, duration: 20, enemyMorale: -10, desc: "Allies nearby take heart and hit harder; enemies nearby falter." },
-    rally:  { label: "Rally", cooldown: 60, radius: 260, morale: 45, desc: "Routing warriors nearby turn and fight again." },
-    fury:   { label: "Fury of the Glens", cooldown: 70, duration: 15, charge: 1.6, attack: 1.25, desc: "The selected unit fights in a frenzy: harder charge, harder blows, no fatigue." },
-    hold:   { label: "Hold the Line", cooldown: 50, radius: 220, defence: 1.25, duration: 20, morale: 15, desc: "Roman: the line braces and steadies." },
+    warcry: { label: "War Cry", cooldown: 40, radius: 200, morale: 25, attack: 1.5, duration: 18, enemyMorale: -12, desc: "Allies nearby take heart and strike harder; enemies nearby falter." },
+    rally:  { label: "Rally", cooldown: 55, radius: 240, morale: 45, desc: "Fleeing warriors nearby turn and fight." },
+    fury:   { label: "Fury", cooldown: 60, duration: 15, attack: 2, charge: 1.6, desc: "The chosen band fights in a frenzy: harder blows, a heavier charge, no tiring." },
+    hold:   { label: "Hold the Line", cooldown: 45, radius: 200, defence: 1.5, morale: 15, duration: 18, desc: "Roman: the line braces and steadies." },
   },
-  pictAbilities: ["warcry", "rally", "fury"],
+  celtAbilities: ["warcry", "rally", "fury"],
   romeAbilities: ["hold"],
 
   // ---------- BATTLE ----------
   battle: {
-    width: 1200, height: 800, cell: 20,  // field units; terrain grid cell size
-    tick: 0.1,                            // seconds per simulation step
-    speeds: [1, 2, 4],
-    timeLimit: 600,                       // seconds; then the defender holds the field
-    siegeTimeLimit: 540,
-    deployDepth: 170,                     // depth of each side's deployment zone
-    killRate: 0.55,                       // base kills per second per engaged unit at even odds
-    frontage: 60,                         // men that can fight at once from a unit's front
-    contactRange: 10,                     // gap between unit edges that counts as contact
-    flankMult: 1.6, rearMult: 2.2,        // damage when hit in the flank or rear
-    flankMoralePerSec: 2.5, rearMoralePerSec: 5,
-    chargeSeconds: 3,                     // charge bonus lasts this long after impact
-    chargeMinRun: 40,                     // distance a unit must run to charge
-    chargeShockMorale: 1.2,               // morale hit on impact per point of charge
-    casualtyMorale: 55,                   // morale lost per 100% of men lost
-    routAt: 0, rallyAt: 30,               // routing units can rally after this many seconds unengaged
-    routSeconds: 14,
-    nearbyRoutMorale: 6,                  // one-off morale hit to units near a friend that breaks
-    pursuitKills: 1.5,                    // multiplier when cutting down a routing unit
-    fatiguePerSecRun: 0.6, fatiguePerSecFight: 0.35, fatigueRecover: 0.8,
-    missileReload: 4,                     // seconds between volleys
-    missileForestCover: 0.5,
-    hillAttack: 1.2, hillDefence: 1.15,   // fighting downhill / holding high ground
-    forestSpeed: 0.6, forestDefence: 1.15, forestMountedSpeed: 0.45, riverSpeed: 0.4, riverDefence: 0.75,
-    ambushRevealRange: 70,                // hidden units are seen inside this range
-    ambushMorale: 15,                     // morale hit on a unit charged from hiding
-    pilaRange: 55,
+    width: 1200, height: 760, cell: 20,   // field units; terrain grid cell size
+    tick: 0.05,                           // seconds per step
+    speeds: [0.5, 1, 2, 3],               // slow motion to fast
+    timeLimit: 480, siegeTimeLimit: 480,
+    deployDepth: 190,
+    radius: { foot: 3.2, mounted: 5.5 },  // soldier body radius for spacing
+    engageRange: 18,                      // a soldier picks a foe within this
+    reach: { foot: 7, mounted: 9 },       // striking distance
+    leash: 55,                            // how far a soldier strays from its place in a melee
+    attackInterval: 1.1,                  // seconds between blows
+    hitBase: 0.5, hitPerSkill: 0.05,      // chance to hit: base + (attack - defence) x this
+    shieldPerPoint: 0.06,                 // chance to block a frontal blow per point of shield
+    flankBonus: 0.2, flankMoralePerSec: 3, rearAngle: 1.9, // blows from behind (radians off the facing)
+    chargeRun: 60,                        // a unit must run this far to charge
+    chargeSeconds: 2.5,
+    chargeDamage: 0.12, chargeKnock: 0.05, // per point of charge energy: extra damage, knock-down chance
+    chargeMorale: 0.9,                    // morale shock per point of charge on impact
+    braceVsHorse: 0.25,                   // charge left to horse hitting braced spears in front
+    casualtyMorale: 75,                   // morale lost when a unit loses all its men (pro rata)
+    nearbyRoutMorale: 8, rallyAt: 35, routSeconds: 12,
+    staminaRun: 2.2, staminaFight: 1.2, staminaRest: 2.5, tiredAt: 30,
+    reload: 4.5, missileSpread: 14, missileHitRadius: 4.5, shieldVsMissile: 0.08, missileHit: 0.32,
+    throwSpread: 16, throwFlight: 0.9,
+    artilleryPierce: 3, artilleryReload: 6,
+    forestCover: 0.5, forestSpeed: 0.65, forestMountedSpeed: 0.45, riverSpeed: 0.45,
+    hillAttack: 0.12, // hit chance bonus for the higher fighter
+    ambushReveal: 90, ambushMorale: 15,
     // sieges
-    gateHp: 100, gateDamagePerSec: 0.022, // per 100 men hacking at the gate
-    artilleryGateDamage: 4,               // per ballista volley
-    ladderSpeed: 0.18, ladderDefence: 0.55, // units climbing a wall
-    wallDefence: 1.35, wallMissile: 1.3,  // defenders right behind the wall
-    wallMorale: 0.55,                     // share of casualty morale felt by defenders behind walls
-    garrisonCourage: 12,                  // extra nerve for anyone defending inside walls
-    plazaRadius: 70, plazaHold: 45,       // seconds attackers must hold the centre with no defenders
-    garrison: { oppidum: ["spearmen", "skirmishers", "spearmen"], fort: ["auxilia", "archers", "auxilia"], village: ["spearmen", "skirmishers"], fortress: ["legionaries", "legionaries", "auxilia", "archers", "ballista"] },
+    gateHp: 100, gateBlow: 0.12, gateReach: 16, gateHackers: 6, palisadeCover: 0.4, artilleryGate: 2, // only men at the gate face can hack at it
+    wallSpeed: 0.15, wallDefence: 2, wallMorale: 0.6, garrisonCourage: 12,
+    plazaRadius: 70, plazaHold: 40,
   },
 
-  // ---------- ROME ----------
+  // ---------- CAMPAIGN ----------
+  seasons: ["Spring", "Summer", "Autumn", "Winter"],
+  maxUnitsPerArmy: 10,
+  maxArmies: 4,
+  newArmyCost: 120,
+  movesPerSeason: 1, fastMoves: 2,
+  upkeepPerUnit: 2,                     // silver per unit per season
+  // Wheat: every army carries food. It eats each season; at home or in friendly land it is fed from
+  // the region's harvest; abroad it forages in summer and autumn; in winter it eats more and finds none.
+  food: {
+    carry: 8,                           // seasons of food an army can carry
+    eatPerUnit: 1, winterExtra: 0.5,    // food per unit per season (x carry scale)
+    forageSummer: 0.5,                  // share of needs found abroad in summer and autumn
+    starvingLossPct: 0.12,              // men lost per season when the wagons are empty
+  },
+  regionYield: { village: { silver: 15, food: 6 }, oppidum: { silver: 30, food: 10 }, fort: { silver: 20, food: 6 }, town: { silver: 45, food: 10 } },
+  pacify: { silver: 0, food: 0, unrest: 0 },
+  plunder: { silver: 90, food: 12, unrest: 4, nearbyAnger: 1 }, // unrest: seasons a region may rise; neighbours grow wary
+  revoltChance: 0.3,                    // per season of unrest, if no host stands there
+  replenishPct: 0.2, replenishCost: 1,  // men regained per season at home; silver per man
+  garrison: { village: ["warriors", "slingers"], oppidum: ["spearmen", "warriors", "slingers"], fort: ["auxilia", "archers", "auxilia"], town: ["legionaries", "auxilia", "archers"], fortress: ["legionaries", "legionaries", "auxilia", "archers", "scorpion"] },
+  requires: { champions: "oppidum", chariots: "lowland" },
   rome: {
-    legionTemplate: ["legate", "legionaries", "legionaries", "legionaries", "auxilia", "auxilia", "archers", "equites", "ballista"],
-    vexillationTemplate: ["legate", "legionaries", "auxilia", "auxilia", "archers", "equites"],
-    reinforceEvery: 2,             // seasons between a unit added to each Roman army (while Eboracum holds)
-    newArmyEvery: 10,              // seasons between new armies landing at Eboracum
-    maxArmies: 4,
-    attackRatio: 1.25,             // Rome attacks when this much stronger (walls count)
-    siegeRatio: 1.1,
-    buildFortSeasons: 2,           // a captured region becomes a walled fort after this long
-    campaignSeasons: [2, 10, 18, 26], // seasons when a governor launches a great push (extra army)
+    legion: ["legate", "legionaries", "legionaries", "legionaries", "auxilia", "auxilia", "archers", "equites", "scorpion"],
+    vexillation: ["legate", "legionaries", "auxilia", "auxilia", "archers", "equites"],
+    reinforceEvery: 2, newArmyEvery: 8, maxArmies: 4,
+    attackRatio: 1.2,
+    fortAfter: 2,
+  },
+  difficulty: {
+    easy:   { label: "Easy", silver: 1.4, romeStrength: 0.8, romeEvery: 1.4 },
+    normal: { label: "Normal", silver: 1, romeStrength: 1, romeEvery: 1 },
+    hard:   { label: "Hard", silver: 0.8, romeStrength: 1.2, romeEvery: 0.75 },
   },
 };
