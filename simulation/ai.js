@@ -219,7 +219,7 @@ export function orders(state, fid, view) {
     const targets = raidTargets(state, a).filter((did) => state.districts[did].owner).map((did) => {
       const d = state.districts[did];
       const defence = armiesIn(state, did).filter((x) => x.factionId !== fid).reduce((n, x) => n + armyStrength(x), 0) + (d.owner ? 0 : garrisonStrength(d));
-      return { did, defence, value: (d.prosperity ?? 50) + (d.owner === state.playerFactionId ? 10 : 0) };
+      return { did, defence, value: (d.prosperity ?? 50) + (d.owner === state.playerFactionId ? 10 : 0) + (d.owner === "rome" && d.construction.length ? 40 : 0) };
     }).filter((t) => t.defence * O.raid.repelRatio * 1.3 < ours).sort((x, y) => y.value - x.value);
     const threatened = (view.threatened[a.districtId] || 0) > 0;
     if (targets.length && !threatened && chance(state, O.aiRaidChance[f.personality] ?? 0.2)) {

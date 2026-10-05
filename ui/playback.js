@@ -7,7 +7,7 @@ import { esc, factionName, label } from "./format.js";
 import { icon } from "./icons.js";
 import { dateLabel } from "../simulation/campaign.js";
 
-const PAUSE = { siege: 1100, objective: 1100, raid: 900, battle: 1200, capture: 900, landing: 1500, rebellion: 1000, built: 450 };
+const PAUSE = { works: 800, siege: 1100, objective: 1100, raid: 900, battle: 1200, capture: 900, landing: 1500, rebellion: 1000, built: 450 };
 
 export async function playSeason(state, map, visible, control) {
   const me = state.playerFactionId;
@@ -26,12 +26,15 @@ export async function playSeason(state, map, visible, control) {
     } else if (e.t === "raid" && (e.faction === me || e.owner === me || seen(e.district))) {
       map.ensureVisible(e.district);
       if (map.hasArmy(e.army)) await map.animateArmy(e.army, [e.from, e.district]);
-      const text = e.faction === me ? (e.repelled ? "Driven off" : `Plunder +${e.loot.food} food`)
+      const text = e.faction === me ? (e.repelled ? "Driven off" : e.burned?.length ? "Works burned!" : `Plunder +${e.loot.food} food`)
         : e.owner === me ? (e.repelled ? "Raid repelled" : "Raided!") : e.repelled ? "Raid fails" : "Raided";
       const good = (e.faction === me) !== !!e.repelled;
       map.flash(e.district, "raid", text, e.faction === me || e.owner === me ? (good === (e.faction === me) ? "good" : "bad") : "");
       await wait(PAUSE.raid);
       if (map.hasArmy(e.army)) await map.animateArmy(e.army, [e.district, e.from]);
+    } else if (e.t === "works" && seen(e.district)) {
+      map.flash(e.district, "works", e.what === "fort" ? "Roman fort rising" : "Roman road", "bad");
+      await wait(PAUSE.works);
     } else if (e.t === "siege" && (seen(e.district) || e.owner === me || e.by === me)) {
       map.ensureVisible(e.district);
       map.flash(e.district, "siege", e.owner === me ? "Under siege!" : "Siege", e.owner === me ? "bad" : e.by === me ? "good" : "");

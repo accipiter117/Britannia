@@ -160,6 +160,8 @@ export function createMap(svg, state, { onTap }) {
         <text x="${x}" y="${y + 80}" class="pop">${num(d.population)}</text>
         ${infrastructureSvg(d, x, y)}
         ${d.siege ? siegeSvg(d, x, y, factionColour(state, d.siege.by)) : ""}
+        ${d.construction.length ? worksSvg(state, d, x, y) : ""}
+        ${(d.disruptedUntil ?? -1) >= state.turn ? smokeSvg(x, y) : ""}
       </g>`;
     }).join("");
 
@@ -328,6 +330,7 @@ export function createMap(svg, state, { onTap }) {
     const col = factionId ? factionColour(state, factionId) : null;
     const glyph = kind === "built" ? `<use href="#i-${building}" x="-14" y="-14" width="28" height="28" class="fx-icon"/>`
       : kind === "landing" ? `<use href="#i-eagle" x="-18" y="-18" width="36" height="36" class="fx-icon"/>`
+      : kind === "works" ? `<use href="#i-fortification" x="-16" y="-16" width="32" height="32" class="fx-icon"/>`
       : kind === "siege" ? `<use href="#i-fortification" x="-16" y="-16" width="32" height="32" class="fx-icon"/>`
       : kind === "objective" ? `<use href="#i-trophy" x="-16" y="-16" width="32" height="32" class="fx-icon"/>`
       : kind === "raid" ? `<use href="#i-torch" x="-16" y="-16" width="32" height="32" class="fx-icon"/>`
@@ -349,6 +352,28 @@ export function createMap(svg, state, { onTap }) {
 // District zoom: each finished building as a small plaque around the settlement, with
 // loyalty and prosperity gauges for owned districts.
 const SLOTS = [[-92, 34], [92, 40], [-100, -22], [104, -30], [-60, 96], [62, 100], [0, -70]];
+// Works in progress: a timber scaffold beside the settlement with a progress bar; Roman works
+// are framed in red and gold so their spread reads at a glance.
+function worksSvg(state, d, x, y) {
+  return d.construction.slice(0, 2).map((job, i) => {
+    const done = Math.min(1, job.progress / BALANCE.buildings[job.building].seasons);
+    const roman = job.roman || d.owner === "rome";
+    const wx = x - 92 - i * 40, wy = y + 6;
+    return `<g class="works ${roman ? "roman" : ""}" transform="translate(${wx} ${wy})" pointer-events="none">
+      <path d="M-12 14V-14M12 14V-14M-12 -6H12M-12 4H12M-12 14L12 -14" class="scaffold"/>
+      <use href="#i-${job.building}" x="-9" y="-30" width="18" height="18" class="works-icon"/>
+      <rect x="-14" y="18" width="28" height="5" rx="2" class="gauge-bg"/><rect x="-14" y="18" width="${28 * done}" height="5" rx="2" class="works-bar"/>
+    </g>`;
+  }).join("");
+}
+
+// Smoke over a raided district: its supply is cut for now.
+function smokeSvg(x, y) {
+  return `<g class="smoke" transform="translate(${x + 40} ${y - 40})" pointer-events="none">
+    <circle r="10" cx="0" cy="0"/><circle r="14" cx="8" cy="-16"/><circle r="18" cx="2" cy="-36"/>
+    <path d="M-6 8q6-10 0-16q8 4 6 14z" class="ember"/></g>`;
+}
+
 // A siege camp: a ring of stakes and tents round the town in the besieger's colour, with the
 // town's remaining stores as pips.
 function siegeSvg(d, x, y, colour) {

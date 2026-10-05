@@ -7,6 +7,7 @@ import { BALANCE } from "../config/balance.js";
 import { addChronicle, armiesIn, armyTroops, districtsOf, logSeason, neighbours, newArmy, uid } from "./campaign.js";
 import { armyStrength, garrisonStrength, moveArmy, reachable, setStance } from "./armies.js";
 import { isBesieging, wallsBonus } from "./siege.js";
+import { isDisrupted, resolveRomanWorks } from "./romanWorks.js";
 import { atWar, declareWar } from "./diplomacy.js";
 import { engagePlayer, playerDefends, resolveEngagementAuto } from "./engagement.js";
 import { supplyState } from "./supply.js";
@@ -44,6 +45,7 @@ export function resolveRome(state, notes) {
     collectClientTribute(state, notes);
     reinforce(state, notes);
     advance(state, notes);
+    resolveRomanWorks(state, notes);
     if (!state.armies.some((a) => a.factionId === "rome") && !districtsOf(state, "rome").length) {
       rome.stage = "repulsed";
       addChronicle(state, "Rome was thrown back into the sea. In the histories you know, the legions stayed four hundred years; here they did not.", "HISTORICAL_DIVERGENCE");
@@ -87,6 +89,11 @@ function reinforce(state, notes) {
   rome.nextReinforcement = state.turn + 1 + R.reinforcements.everySeasons;
   const road = state.districts[R.entryDistrict];
   if (R.reinforcements.requiresSupplyLine && road.owner !== "rome") return;
+  if (isDisrupted(state, road)) {
+    addChronicle(state, `Raiders at ${road.name} kept Rome's reinforcements from landing.`, "HISTORICAL_DIVERGENCE");
+    notes.push({ level: "important", text: `The Old Road is cut: Rome's reinforcements could not land this season.`, districtId: road.id });
+    return;
+  }
   const onIsland = state.armies.filter((a) => a.factionId === "rome").reduce((n, a) => n + armyTroops(a), 0);
   if (onIsland + R.reinforcements.legionaries > R.maxTotalTroops) return;
   const there = armiesIn(state, road.id, "rome")[0];

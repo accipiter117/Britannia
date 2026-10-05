@@ -151,6 +151,16 @@ export const BALANCE = {
     romeEngineering: 0.5,         // Rome's engineers halve the walls' defence bonus when storming
   },
 
+  // ---------- ROMAN WORKS (after the landing) ----------
+  // Each season Rome's engineers start a road along its lines and a fort in a held district, at
+  // no cost. Raids on a district burn works in progress there and cut the owner's supply through
+  // it for a season; with the Old Road cut, Rome's reinforcements cannot land.
+  romanWorks: {
+    roadsPerSeason: 1,
+    fortsAtOnce: 1,
+    disruptSeasons: 1,
+  },
+
   // ---------- RIVALRY (the two kingdoms that flank the Confederation) ----------
   // They share no border: their feud runs through the player's land. Relations sour each season
   // until one declares war; then both ask the player for passage. Rome's coming cools it.
