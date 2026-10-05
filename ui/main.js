@@ -20,6 +20,7 @@ import { createMap } from "./map.js";
 import { armiesPanel, diplomacyPanel, morePanel, realmPanel } from "./panels.js";
 import { confirmHtml, endingHtml, messageHtml, pendingHtml, preBattleHtml, resultHtml, warConfirmHtml } from "./modal.js";
 import { openBattle } from "./battleView.js";
+import { chronicleHtml } from "./chronicle.js";
 import { icon, injectIconSprite } from "./icons.js";
 import { initAudio, setScene, sfx, soundOn, toggleSound } from "./audio.js";
 import { clearSave, loadGame, saveGame, saveLabel } from "./save.js";
@@ -285,6 +286,9 @@ const actions = {
   "battle-auto": () => { ui.modal = null; afterBattle(finishBattle(state, ui.pendingBattle, true)); },
   "close-modal": closeModal,
   ending: () => modal(endingHtml(state)),
+  "open-chronicle": () => { ui.chronicle = "all"; renderChronicle(); },
+  "chronicle-filter": (el) => { ui.chronicle = el.dataset.filter; renderChronicle(); },
+  "close-chronicle": () => { ui.chronicle = null; renderChronicle(); },
   save: () => { toast(saveGame(state) ? "Saved" : "Could not save: storage is blocked"); render(); },
   load: () => {
     const s = loadGame();
@@ -393,6 +397,12 @@ function paintSoundButton() {
   const b = $("sound-toggle");
   b.innerHTML = icon(soundOn() ? "sound_on" : "sound_off");
   b.setAttribute("aria-label", soundOn() ? "Mute sound" : "Turn sound on");
+}
+
+function renderChronicle() {
+  const el = $("chronicle-view");
+  el.hidden = !ui.chronicle;
+  el.innerHTML = ui.chronicle ? chronicleHtml(state, ui.chronicle) : "";
 }
 
 let toastTimer;

@@ -65,21 +65,24 @@ export function resolveVictory(state, notes) {
 }
 
 // A short history of the campaign, written from the Chronicle.
-export function narrative(state) {
+// closing: true for the End Chronicle summary, false for the story so far.
+export function narrative(state, closing = true) {
   const p = state.factions[state.playerFactionId];
+  const fought = state.chronicle.filter((c) => c.text.startsWith("Battle of"));
   const count = (t) => state.chronicle.filter((c) => c.type === t).length;
-  const wins = count("VICTORY"), losses = count("DEFEAT"), battles = state.chronicle.filter((c) => c.text.startsWith("Battle of")).length;
+  const wins = fought.filter((c) => c.type === "VICTORY").length, losses = fought.filter((c) => c.type === "DEFEAT").length, battles = fought.length;
   const held = districtsOf(state, p.id).map((d) => d.name);
   const level = dominanceLevel(state.victory.score?.[p.id] || 0);
   const rome = state.rome.stage;
   const lines = [];
-  lines.push(`Across ${state.turn - 1} seasons the ${p.name} wrote their own history.`);
+  lines.push(closing ? `Across ${state.turn - 1} seasons the ${p.name} wrote their own history.` : `${state.turn - 1} seasons into their history, the ${p.name} write on.`);
+  const hold = closing ? "At the close they held" : "They hold";
   lines.push(held.length
-    ? `At the close they held ${held.length} district${held.length > 1 ? "s" : ""}: ${held.join(", ")}${level ? `, and were reckoned a ${level}` : ""}.`
-    : "At the close they held no land at all, a people remembered in song more than stone.");
-  if (battles) lines.push(`${battles} battle${battles > 1 ? "s were" : " was"} fought in their time; the Chronicle counts ${wins} triumph${wins === 1 ? "" : "s"} and ${losses} loss${losses === 1 ? "" : "es"}.`);
+    ? `${hold} ${held.length} district${held.length > 1 ? "s" : ""}: ${held.join(", ")}${level ? `, and ${closing ? "were" : "are"} reckoned a ${level}` : ""}.`
+    : `${hold} no land at all, a people remembered in song more than stone.`);
+  if (battles) lines.push(`${battles} battle${battles > 1 ? "s have" : " has"} been fought in the land; the ${p.name} won ${wins} and lost ${losses}.`);
   if (rome === "repulsed") lines.push("Rome came, and Rome was driven back into the sea. History turned on that shore.");
-  else if (rome === "invasion") lines.push(`Rome came and stayed, holding ${districtsOf(state, "rome").length} district${districtsOf(state, "rome").length === 1 ? "" : "s"} when the Chronicle closed.`);
+  else if (rome === "invasion") lines.push(`Rome came and stayed, holding ${districtsOf(state, "rome").length} district${districtsOf(state, "rome").length === 1 ? "" : "s"}${closing ? " when the Chronicle closed" : " for now"}.`);
   else lines.push("Rome's legions never set foot on the island while the Chronicle was kept.");
   const fallen = state.chronicle.filter((c) => c.type === "FACTION_DEFEATED").map((c) => c.text);
   if (fallen.length) lines.push(fallen.join(" "));

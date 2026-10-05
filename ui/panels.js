@@ -144,7 +144,7 @@ export function diplomacyPanel(state) {
 }
 
 export function morePanel(state, saveInfo) {
-  const entries = [...state.chronicle].reverse().slice(0, 60)
+  const entries = [...state.chronicle].reverse().slice(0, 6)
     .map((c) => `<li class="ch-${c.type || "LOG"}"><small class="muted">${esc(c.date)}</small> ${CH_ICON[c.type] || ""} ${esc(c.text)}</li>`).join("");
   return `<header class="panel-head"><h2>More</h2></header>
     <section class="buttons">
@@ -154,7 +154,8 @@ export function morePanel(state, saveInfo) {
       <button data-action="new" class="danger">New campaign</button>
     </section>
     <p class="muted small">${saveInfo ? `Saved: ${esc(saveInfo)}. ` : ""}The game also saves itself every End Season.</p>
-    <section><h3>Chronicle</h3><ul class="chronicle">${entries}</ul></section>
+    <section><h3>Chronicle</h3><ul class="chronicle">${entries}</ul>
+      <button class="primary wide" data-action="open-chronicle">Open the Chronicle</button></section>
     <details class="help"><summary>How to play</summary>
       <ul>
         <li><b>Map:</b> tap a district or army to select it, tap again for its full panel. Drag to pan, pinch or scroll to zoom.</li>
