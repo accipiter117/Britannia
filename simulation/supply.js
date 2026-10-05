@@ -79,6 +79,7 @@ export function resolveRecovery(state, notes) {
     army.fatigue = Math.max(0, army.fatigue - BALANCE.army.fatigueRecoveryPerSeason);
     const d = state.districts[army.districtId];
     if (d.owner !== army.factionId) continue; // replacements only in friendly territory
+    if (army.factionId === "rome") continue;  // Rome's numbers come only from reinforcements (capped)
     const res = state.factions[army.factionId].resources;
     let added = 0;
     for (const f of army.formations) {

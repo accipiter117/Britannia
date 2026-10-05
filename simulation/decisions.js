@@ -5,7 +5,7 @@
 // (or auto-resolve); the UI then calls finishBattle.
 
 import { answerAllyCall, changeRelation, formAlliance, makePeace } from "./diplomacy.js";
-import { applyBattle, defenceOptions, resolveWithoutBattle, setupBattle } from "./engagement.js";
+import { applyBattle, defenceOptions, engagementStillValid, resolveWithoutBattle, setupBattle } from "./engagement.js";
 import { applyEventChoice } from "./events.js";
 import { autoResolve } from "./battle.js";
 import { endChronicle } from "./victory.js";
@@ -25,7 +25,7 @@ export function pendingText(state, p) {
 export function resolveDefence(state, p, response) {
   state.pending = state.pending.filter((x) => x !== p);
   // the attacker may no longer exist (destroyed in an earlier decision this season)
-  if (!state.armies.some((a) => p.eng.armyIds.includes(a.id))) return { text: "The attack came to nothing." };
+  if (!engagementStillValid(state, p.eng)) return { text: "The attack came to nothing." };
   const opt = defenceOptions(state, p.eng).find((o) => o.id === response);
   if (!opt?.ok) response = "none";
   const quiet = resolveWithoutBattle(state, p.eng, response);

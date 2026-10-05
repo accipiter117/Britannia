@@ -83,7 +83,7 @@ function reinforce(state, notes) {
   const road = state.districts[R.entryDistrict];
   if (R.reinforcements.requiresSupplyLine && road.owner !== "rome") return;
   const onIsland = state.armies.filter((a) => a.factionId === "rome").reduce((n, a) => n + armyTroops(a), 0);
-  if (onIsland >= R.maxTotalTroops) return;
+  if (onIsland + R.reinforcements.legionaries > R.maxTotalTroops) return;
   const there = armiesIn(state, road.id, "rome")[0];
   const troops = R.reinforcements.legionaries;
   if (there) {

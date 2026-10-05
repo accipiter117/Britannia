@@ -143,5 +143,18 @@ export function morePanel(state, saveInfo) {
       <button data-action="new" class="danger">New campaign</button>
     </section>
     <p class="muted small">${saveInfo ? `Saved: ${esc(saveInfo)}. ` : ""}The game also saves itself every End Season.</p>
-    <section><h3>Chronicle</h3><ul class="chronicle">${entries}</ul></section>`;
+    <section><h3>Chronicle</h3><ul class="chronicle">${entries}</ul></section>
+    <details class="help"><summary>How to play</summary>
+      <ul>
+        <li><b>Map:</b> tap a district or army to select it, tap again for its full panel. Drag to pan, pinch or scroll to zoom.</li>
+        <li><b>Build:</b> in your district's panel. Greyed options say why. Farms first: every faction starts short of food.</li>
+        <li><b>Armies:</b> select one, press Move, tap a highlighted district. Red means battle. Your moves happen at once; everyone else moves at End Season.</li>
+        <li><b>Recruit:</b> raising troops costs Wealth and takes people from the land. Warriors need a Warrior Hall.</li>
+        <li><b>Supply:</b> armies far from friendly land go hungry and shrink, worse in Winter. Roads and Supply Depots help.</li>
+        <li><b>Battle:</b> tap your blocks (light outline) to select, tap ground to move, tap an enemy to attack. Press Play; pause any time. Morale breaks armies before they die.</li>
+        <li><b>Defence:</b> when attacked you choose Intercept, Hold, Ambush or Withdraw at the start of your season.</li>
+        <li><b>Conquest:</b> taken districts are Occupied, then Administered (keep an army there), then Integrated. Pick a policy; low loyalty breeds rebellion.</li>
+        <li><b>Rome:</b> watch the south. When the warning comes, you have four seasons.</li>
+      </ul>
+    </details>`;
 }

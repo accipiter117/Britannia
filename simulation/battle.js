@@ -78,9 +78,14 @@ function deploy(battle, side, force) {
     for (const f of army.formations) blocks.push({ armyId: army.id, type: f.type, troops: f.troops, morale: start, experience: army.experience, stance: army.stance });
   }
   if (force.garrison) blocks.push({ armyId: null, type: "levies", troops: force.garrison, morale: B.morale.start, experience: "Green", stance: BALANCE.neutralGarrison.stance });
-  const total = blocks.reduce((n, b) => n + b.troops, 0);
+  // grow the block size until every block has a cell: 12 front (melee), 12 back (ranged), 12 overflow
+  const fits = (size) => {
+    const count = (ranged) => blocks.filter((b) => !!BALANCE.formations[b.type].ranged === ranged).reduce((n, b) => n + Math.ceil(b.troops / size), 0);
+    const melee = count(false), ranged = count(true);
+    return melee + ranged <= B.maxBlocksPerSide && Math.max(0, melee - N) + Math.max(0, ranged - N) <= N;
+  };
   let size = B.troopsPerBlock;
-  while (Math.ceil(total / size) > B.maxBlocksPerSide) size += 50;
+  while (!fits(size)) size += 50;
 
   const units = [];
   for (const b of blocks) {

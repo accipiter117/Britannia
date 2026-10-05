@@ -27,8 +27,8 @@ export function defendersOf(state, eng) {
   return { factionId, armies: armies.filter((a) => a.factionId === factionId), garrison: !d.owner && !armies.length && d.garrison ? d.garrison.levies : 0 };
 }
 
-function retreatTarget(state, army, avoidId) {
-  return neighbours(state, army.districtId).find((n) => n !== avoidId &&
+function retreatTarget(state, army, ...avoid) {
+  return neighbours(state, army.districtId).find((n) => !avoid.includes(n) &&
     hasAccess(state, army.factionId, state.districts[n].owner) &&
     !armiesIn(state, n).some((a) => atWar(state, a.factionId, army.factionId)));
 }
@@ -95,9 +95,13 @@ export function resolveWithoutBattle(state, eng, response) {
   const d = state.districts[eng.districtId];
   if (response === "withdraw") {
     for (const a of def.armies) a.districtId = retreatTarget(state, a, eng.fromId);
+    // another hostile faction may still stand in the district: then the attacker waits
+    if (defendersOf(state, eng).armies.length) return `${name(state, def.factionId)} fell back from ${d.name}, but others still hold it.`;
     advanceInto(state, eng);
     return `${name(state, def.factionId)} fell back from ${d.name}.`;
   }
+  // interceptors from a neighbouring district fight even if the district itself is empty
+  if (response === "intercept" && defenceOptions(state, eng).find((o) => o.id === "intercept").ok) return null;
   if (!def.armies.length && !def.garrison) {
     advanceInto(state, eng);
     return `${name(state, eng.attackerFactionId)} marched into ${d.name} unopposed.`;
@@ -178,7 +182,7 @@ export function applyBattle(state, battle) {
   // the losers fall back or scatter; winning attackers advance
   if (win === "attacker") {
     for (const a of state.armies.filter((x) => battle.defenderArmyIds.includes(x.id))) {
-      const to = retreatTarget(state, a, eng.fromId);
+      const to = a.districtId === eng.districtId ? retreatTarget(state, a, eng.fromId) : a.districtId; // interceptors stay home
       if (to) a.districtId = to;
       else {
         addChronicle(state, `The ${a.name} was scattered with nowhere left to run.`, a.factionId === state.playerFactionId ? "DEFEAT" : "BATTLE");
@@ -239,4 +243,14 @@ export function engagePlayer(state, eng) {
   if (!opts.some((o) => o.ok)) return { text: resolveWithoutBattle(state, eng, "none") };
   state.pending.push({ kind: "defend", eng });
   return { pending: true };
+}
+
+// Is a queued engagement still meaningful? Attackers must still stand where they set out from,
+// and still be at war with whoever holds the district.
+export function engagementStillValid(state, eng) {
+  const att = attackers(state, eng);
+  if (!att.length) return false;
+  if (!att.every((a) => a.districtId === (eng.fromId ?? eng.districtId))) return false;
+  const def = defendersOf(state, eng);
+  return def.factionId ? atWar(state, eng.attackerFactionId, def.factionId) : true;
 }

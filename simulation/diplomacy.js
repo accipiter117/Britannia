@@ -65,7 +65,7 @@ export function makePeace(state, a, b) {
 }
 
 export function formAlliance(state, a, b) {
-  if (allied(state, a, b)) return;
+  if (allied(state, a, b) || atWar(state, a, b)) return;
   state.diplomacy.alliances.push(pairKey(a, b));
   addChronicle(state, `${state.factions[a].name} and ${state.factions[b].name} swore an alliance.`, "ALLIANCE");
 }
@@ -99,8 +99,7 @@ function aiAllyAnswer(state, ally, aggressor) {
 // answer: "honour" (join the war), "limited" (send wealth), "refuse"
 export function answerAllyCall(state, ally, victim, aggressor, answer) {
   if (answer === "honour") {
-    state.diplomacy.wars.push(pairKey(ally, aggressor));
-    changeRelation(state, ally, aggressor, D.declareWar);
+    declareWar(state, ally, aggressor); // also ends any alliance, access or trade with the aggressor
     addChronicle(state, `${state.factions[ally].name} honoured its alliance and marched against ${state.factions[aggressor].name}.`, "ALLIANCE");
   } else if (answer === "limited") {
     const res = state.factions[ally].resources;
