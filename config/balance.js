@@ -285,8 +285,8 @@ export const BALANCE = {
 
   // ---------- EVENTS ----------
   events: {
-    minorChancePerSeason: 0.35,
-    playerChoiceCooldownSeasons: 3, // at most one event choice for the player in this many seasons
+    minorChancePerSeason: 0.45,
+    playerChoiceCooldownSeasons: 2, // at most one event choice for the player in this many seasons
     majorChancePerSeason: 0.08,
     harvestFailure: { foodMultiplier: 0.5, seasons: ["Summer", "Autumn"] },
     mineCollapse:   { materialsMultiplier: 0.5, durationSeasons: 2 },

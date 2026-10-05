@@ -65,7 +65,8 @@ export function createCampaign(data) {
       BALANCE.army.startingCommanders[a.id] || BALANCE.army.defaultCommander)),
     diplomacy: { relations: {}, wars: [], alliances: [], access: [], trades: [] },
     pending: [],          // decisions waiting for the player (defence choices, alliance calls, events)
-    events: [],           // ongoing event effects { kind, districtId, factionId, until }
+    events: [],           // events waiting for their crisis { id, def, factionId, districtId, due, prepared }
+    modifiers: [],        // production modifiers left by events { districtId|null, factionId, resource, mult, from, until, label }
     rome: { stage: data.roman_invasion.stage, countdown: null, nextReinforcement: null },
     victory: { offered: false, ended: false, score: {} },
     nextId: 1,
@@ -152,5 +153,9 @@ export function serialise(state) {
 export function deserialise(json) {
   const state = JSON.parse(json);
   if (!state || state.version !== SAVE_VERSION) throw new Error("Save is from a different version");
+  // older saves of this version: events engine v2 and modifiers
+  state.modifiers ||= [];
+  state.events = (state.events || []).filter((e) => e.def);
+  state.pending = (state.pending || []).filter((p) => p.kind !== "event" || p.def);
   return state;
 }

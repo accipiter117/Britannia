@@ -9,6 +9,8 @@ import { attackers, defenceOptions, oddsText } from "../simulation/engagement.js
 import { sideSummary } from "../simulation/battle.js";
 import { narrative } from "../simulation/victory.js";
 import { pendingText } from "../simulation/decisions.js";
+import { defById } from "../simulation/eventDefs.js";
+import { choiceStatus } from "../simulation/events.js";
 import { esc, num } from "./format.js";
 import { icon } from "./icons.js";
 
@@ -30,9 +32,7 @@ export function pendingHtml(state, p, index) {
       ["proposal", "yes", "Accept"], ["proposal", "no", "Decline"],
     ], index) + more;
   }
-  if (p.kind === "event") {
-    return box(`${icon("scroll")} ${esc(p.title)}`, esc(p.text), p.choices.map((c, i) => ["event", String(i), c.label]), index) + more;
-  }
+  if (p.kind === "event") return eventHtml(state, p, index) + more;
   if (p.kind === "dominance") {
     return box(`${icon("crown")} Decisive Dominance`, "No power in Britannia can stand against you. The bards are already composing. Will you close the Chronicle here, or play on?", [
       ["ending", "continue", "Continue the campaign"], ["ending", "end", "End the Chronicle"],
@@ -44,6 +44,19 @@ export function pendingHtml(state, p, index) {
     ], index);
   }
   return "";
+}
+
+// Events: each choice shows what it costs or risks; impossible ones are greyed with the reason.
+function eventHtml(state, p, index) {
+  const def = defById(p.def);
+  const when = p.prepare ? `<p class="deadline">${icon("warning")} Strikes at the end of ${p.prepare === 1 ? "this season" : `${p.prepare} seasons`}. Choose how to prepare.</p>` : "";
+  const buttons = def.choices.map((c, i) => {
+    const st = choiceStatus(state, p.ev, c);
+    if (st.hidden) return "";
+    return `<button data-action="decide" data-kind="event" data-value="${i}" data-index="${index}" ${st.ok ? "" : "disabled"}>
+      <b>${esc(c.label)}</b><small class="muted">${esc(st.ok ? c.hint : st.reason)}</small></button>`;
+  }).join("");
+  return `<h2>${icon(def.major ? "warning" : "scroll")} ${esc(p.title)}</h2><p>${esc(p.text)}</p>${when}<div class="choices">${buttons}</div>`;
 }
 
 function box(title, text, buttons, index) {

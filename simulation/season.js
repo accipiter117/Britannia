@@ -33,7 +33,7 @@ export function endSeason(state) {
   resolveDiplomacy(state);                                          // 9
   resolveAI(state, ctx.notes);                                      // 10
   resolveGovernance(state, ctx.notes);                              // 11
-  resolveEvents(state, ctx.notes, season);                          // 12
+  resolveEvents(state, ctx.notes);                                  // 12
   resolveRome(state, ctx.notes);                                    // 13
   resolveRegions(state, ctx.notes);                                 // 14
   checkEliminations(state);

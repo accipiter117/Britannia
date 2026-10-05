@@ -8,6 +8,7 @@ import { BALANCE } from "../config/balance.js";
 import { addChronicle, armiesIn, districtsOf, newArmy, uid } from "./campaign.js";
 import { declareWar } from "./diplomacy.js";
 import { chance } from "./random.js";
+import { refugeesFrom } from "./events.js";
 
 const O = BALANCE.occupation;
 const L = BALANCE.loyalty;
@@ -25,6 +26,7 @@ export function captureDistrict(state, districtId, fid) {
   d.construction = [];
   const player = state.playerFactionId;
   const taker = state.factions[fid].name;
+  if (fid === "rome") refugeesFrom(state, districtId, []);
   if (prev === player) addChronicle(state, `${d.name} fell to ${taker}.`, "DEFEAT");
   else if (fid === player) addChronicle(state, `${d.name} was taken by the ${taker}.`, "VICTORY");
   else addChronicle(state, `${taker} took ${d.name}${prev ? ` from ${state.factions[prev].name}` : ""}.`, "BATTLE");
