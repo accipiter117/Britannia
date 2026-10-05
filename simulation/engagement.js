@@ -5,7 +5,7 @@
 // An engagement is { attackerFactionId, armyIds, fromId, districtId }.
 
 import { BALANCE } from "../config/balance.js";
-import { addChronicle, armiesIn, armyTroops, neighbours } from "./campaign.js";
+import { addChronicle, armiesIn, armyTroops, logSeason, neighbours } from "./campaign.js";
 import { armyStrength, garrisonStrength, removeEmptyArmies } from "./armies.js";
 import { atWar, changeRelation, hasAccess } from "./diplomacy.js";
 import { captureDistrict, checkEliminations } from "./governance.js";
@@ -199,6 +199,7 @@ export function applyBattle(state, battle) {
     if (f) f.memory.battles = [...f.memory.battles.slice(-7), { turn: state.turn, district: d.id, won: side === win, enemy: factions[side === "attacker" ? "defender" : "attacker"] }];
   }
 
+  logSeason(state, { t: "battle", district: d.id, attacker: factions.attacker, defender: factions.defender, winner: factions[win], lost });
   const text = `Battle of ${d.name}: ${name(state, factions[win])} defeated ${name(state, factions[lose])}. ${battle.result.reason}. Losses ${lost.attacker} attacking, ${lost.defender} defending.`;
   const player = state.playerFactionId;
   const type = factions[win] === player ? "VICTORY" : factions[lose] === player ? "DEFEAT" : "BATTLE";

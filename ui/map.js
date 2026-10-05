@@ -7,7 +7,8 @@ import { BALANCE } from "../config/balance.js";
 import { settlementTier } from "../simulation/economy.js";
 import { MAP_BOUNDS, coastline, pathFrom, voronoiCells } from "./geometry.js";
 import { esc, factionColour, num } from "./format.js";
-import { artDefs, badgeSvg, bannerSvg, landmarksSvg, riverSvg, settlementSvg, terrainFill } from "./art.js";
+import { createUnitLayer } from "./units.js";
+import { artDefs, badgeSvg, landmarksSvg, riverSvg, settlementSvg, terrainFill } from "./art.js";
 
 const ZOOM_MIN_W = 280;
 const ZOOM_MAX_W = 1500;
@@ -31,6 +32,9 @@ export function createMap(svg, state, { onTap }) {
       ${artDefs()}
       <clipPath id="island"><path d="${coast}"/></clipPath>
       ${ids.map((id) => `<clipPath id="cp-${id}"><path d="${cellPath[id]}"/></clipPath>`).join("")}
+      <marker id="route-arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto">
+        <path d="M0 0 L10 5 L0 10 z" fill="#f2cf5b"/>
+      </marker>
       <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
         <path d="M0 0 L10 5 L0 10 z" fill="var(--critical)"/>
       </marker>
@@ -51,8 +55,11 @@ export function createMap(svg, state, { onTap }) {
     <g id="labels"></g>
     <g id="armies"></g>
     <g id="sel" clip-path="url(#island)" pointer-events="none"></g>
+    <g id="fx" pointer-events="none"></g>
     <g id="rome" pointer-events="none"></g>
     <text x="520" y="1225" class="sea-label">The Narrow Sea · Rome lies beyond</text>`;
+
+  const units = createUnitLayer(svg.querySelector("#armies"), (did) => state.districts[did].pos);
 
   // overlay: { reach: { districtId: { kind } }, threats: [{ from, to }], armies: [visible armies] }
   function render(s, sel, overlay = {}) {
@@ -89,6 +96,19 @@ export function createMap(svg, state, { onTap }) {
       return `<line x1="${a[0]}" y1="${a[1]}" x2="${mx}" y2="${my}" class="threat" marker-end="url(#arrow)"/>`;
     }).join("");
 
+    // move mode: movement cost on each reachable district, and the previewed route
+    if (overlay.reach) {
+      g("links").innerHTML += Object.entries(reach).filter(([, r]) => r.kind !== "blocked").map(([did, r]) => {
+        const [x, y] = state.districts[did].pos;
+        return `<g transform="translate(${x - 44} ${y - 44})" class="cost-tag ${r.kind}"><circle r="13"/><text y="5">${r.cost}</text></g>`;
+      }).join("");
+    }
+    if (overlay.path?.length > 1) {
+      const pts = overlay.path.map((did) => state.districts[did].pos);
+      g("links").innerHTML += `<polyline points="${pts.map((p) => p.join(",")).join(" ")}" class="route-shadow"/>
+        <polyline points="${pts.map((p) => p.join(",")).join(" ")}" class="route" marker-end="url(#route-arrow)"/>`;
+    }
+
     // transparent tap targets, also showing move-mode highlights
     g("hits").innerHTML = ids.map((id) => {
       const r = reach[id] ? ` reach-${reach[id].kind}` : "";
@@ -114,22 +134,12 @@ export function createMap(svg, state, { onTap }) {
       </g>`;
     }).join("");
 
-    const byDistrict = {};
-    for (const a of overlay.armies || state.armies) (byDistrict[a.districtId] ||= []).push(a);
-    g("armies").innerHTML = Object.entries(byDistrict).map(([did, list]) => {
-      const [x, y] = state.districts[did].pos;
-      return list.map((a, i) => {
-        const troops = a.formations.reduce((n, f) => n + f.troops, 0);
-        const f = state.factions[a.factionId];
-        const on = selection?.type === "army" && selection.id === a.id;
-        const spent = a.factionId === state.playerFactionId && a.movesLeft <= 0;
-        return `<g data-army="${a.id}" class="army">${bannerSvg(factionColour(state, a.factionId), f?.culture, x + 70 + i * 34, y - 2 + (i % 2) * 14, num(troops), { selected: on, spent, rebel: f?.emergent })}</g>`;
-      }).join("");
-    }).join("");
+    units.update(state, overlay.armies || state.armies, overlay.ghosts || [], selection, (t) => seasonShort(t));
 
     const rome = state.rome;
     const entry = state.districts[BALANCE.rome.entryDistrict].pos;
-    g("sel").innerHTML = selection?.type === "district" ? `<path d="${cellPath[selection.id]}" class="selected"/>` : "";
+    g("sel").innerHTML = (selection?.type === "district" ? `<path d="${cellPath[selection.id]}" class="selected"/>` : "") +
+      (overlay.highlight ? `<path d="${cellPath[overlay.highlight]}" class="pulse"/>` : "");
     svg.querySelector("#rome").innerHTML = rome.stage === "warning"
       ? `<line x1="${entry[0] + 80}" y1="${entry[1] + 200}" x2="${entry[0] + 20}" y2="${entry[1] + 50}" class="threat rome" marker-end="url(#arrow)"/>
          <text x="${entry[0] + 90}" y="${entry[1] + 230}" class="rome-label">Rome lands in ${rome.countdown}</text>` : "";
@@ -259,8 +269,35 @@ export function createMap(svg, state, { onTap }) {
     applyView();
   }
 
+  // ---------- playback effects ----------
+
+  function ensureVisible(did) {
+    const [x, y] = state.districts[did].pos;
+    const m = 80;
+    if (x < view.x + m || x > view.x + view.w - m || y < view.y + m || y > view.y + view.h - m) focus(did);
+  }
+
+  // kind: battle | capture | built | landing | rebellion; tone: good | bad | ""
+  function flash(did, kind, text, tone = "", factionId = null, building = null) {
+    const [x, y] = state.districts[did].pos;
+    const node = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    node.setAttribute("class", `fx fx-${kind} ${tone}`);
+    const col = factionId ? factionColour(state, factionId) : null;
+    const glyph = kind === "built" ? `<use href="#i-${building}" x="-14" y="-14" width="28" height="28" class="fx-icon"/>`
+      : kind === "landing" ? `<use href="#i-eagle" x="-18" y="-18" width="36" height="36" class="fx-icon"/>`
+      : kind === "capture" ? `<path d="M-2 18V-22h22l-6 8 6 8H-2" fill="${col}" stroke="#1d1b16" stroke-width="2"/>`
+      : `<use href="#i-armies" x="-18" y="-18" width="36" height="36" class="fx-icon"/>`;
+    node.innerHTML = `<g transform="translate(${x} ${y - 20})">
+      ${kind === "battle" || kind === "landing" ? `<circle r="10" class="fx-ring"/><circle r="10" class="fx-ring late"/>` : ""}
+      <circle r="26" class="fx-disc"/>${glyph}
+      <text y="50" class="fx-text">${text}</text></g>`;
+    svg.querySelector("#fx").appendChild(node);
+    setTimeout(() => node.classList.add("out"), 1300);
+    setTimeout(() => node.remove(), 1900);
+  }
+
   render(state, selection);
-  return { render, zoomBy, focus, reset };
+  return { ensureVisible, flash, hasArmy: (id) => units.has(id), animateArmy: (id, path) => units.animatePath(id, path), ghostMarch: (army, path) => units.ghostMarch(state, army, path), render, zoomBy, focus, reset };
 }
 
 // District zoom: each finished building as a small plaque around the settlement, with
@@ -276,6 +313,12 @@ function infrastructureSvg(d, x, y) {
       <rect width="80" height="5" rx="2" class="gauge-bg"/><rect width="${0.8 * d.loyalty}" height="5" rx="2" class="gauge-loyalty"/>
       <rect y="8" width="80" height="5" rx="2" class="gauge-bg"/><rect y="8" width="${0.8 * (d.prosperity ?? 50)}" height="5" rx="2" class="gauge-prosperity"/></g>` : "";
   return `<g class="z-district">${plaques}${gauges}</g>`;
+}
+
+// "Y3 Sp" for a turn number (turn 1 = Year 1 Spring)
+function seasonShort(turn) {
+  const y = Math.floor((turn - 1) / 4) + 1;
+  return `Y${y} ${["Sp", "Su", "Au", "Wi"][(turn - 1) % 4]}`;
 }
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));

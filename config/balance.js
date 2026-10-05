@@ -124,6 +124,7 @@ export const BALANCE = {
     fatigueRecoveryPerSeason: 20,
     unpaidMoralePenalty: 10,        // per season of unpaid upkeep (food or wealth)
     visibilityRange: 1,             // connections from owned districts and armies that a faction can see
+    intelSeasons: 6,                // a host out of sight is remembered where last seen for this long
   },
 
   movement: {

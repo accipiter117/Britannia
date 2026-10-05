@@ -5,7 +5,7 @@
 
 import { createCampaign, dateLabel } from "../simulation/campaign.js";
 import { startBuilding, startRoad } from "../simulation/economy.js";
-import { disband, mergeArmies, moveArmy, reachable, recruit, setStance, visibleArmies } from "../simulation/armies.js";
+import { disband, ghostsFor, mergeArmies, moveArmy, updateIntel, visibleDistricts, reachable, recruit, setStance, visibleArmies } from "../simulation/armies.js";
 import { aiResponse, resolveWithoutBattle, setupBattle } from "../simulation/engagement.js";
 import { cancelTrade, declareWar, playerAction } from "../simulation/diplomacy.js";
 import { finishBattle, resolveAllyCall, resolveDefence, resolveEnding, resolveEvent, resolveProposal } from "../simulation/decisions.js";
@@ -14,13 +14,14 @@ import { answerOverture } from "../simulation/overtures.js";
 import { endSeason } from "../simulation/season.js";
 import { districtPanel, summaryCard } from "./drawer.js";
 import { armyPanel } from "./armyPanel.js";
-import { factionColour, label } from "./format.js";
+import { esc, factionColour, label } from "./format.js";
 import { renderHud, renderNotifications } from "./hud.js";
 import { createMap } from "./map.js";
 import { armiesPanel, diplomacyPanel, morePanel, realmPanel } from "./panels.js";
 import { confirmHtml, endingHtml, messageHtml, pendingHtml, preBattleHtml, resultHtml, warConfirmHtml } from "./modal.js";
 import { openBattle } from "./battleView.js";
 import { chronicleHtml } from "./chronicle.js";
+import { playSeason, seasonReportHtml } from "./playback.js";
 import { icon, injectIconSprite } from "./icons.js";
 import { initAudio, setScene, sfx, soundOn, toggleSound } from "./audio.js";
 import { clearSave, loadGame, saveGame, saveLabel } from "./save.js";
@@ -53,15 +54,20 @@ function render() {
   renderHud($("hud"), state);
   renderNotifications($("notifications"), state, onNotification);
 
-  const overlay = { armies: visibleArmies(state, player), threats: state.pending.filter((p) => p.kind === "defend").map((p) => ({ from: p.eng.fromId, to: p.eng.districtId })) };
+  updateIntel(state, player);
+  const overlay = { highlight: ui.modal?.anchored ? ui.highlight : null, armies: visibleArmies(state, player), ghosts: ghostsFor(state, player), threats: state.pending.filter((p) => p.kind === "defend").map((p) => ({ from: p.eng.fromId, to: p.eng.districtId })) };
   const mover = ui.moveArmyId && state.armies.find((a) => a.id === ui.moveArmyId);
-  if (mover) overlay.reach = reachable(state, mover);
+  if (mover) {
+    overlay.reach = reachable(state, mover);
+    if (ui.preview) overlay.path = overlay.reach[ui.preview.districtId]?.path;
+  }
   else ui.moveArmyId = null;
   map.render(state, ui.selection, overlay);
   setScene(state);
 
   document.body.classList.toggle("move-mode", !!ui.moveArmyId);
   $("move-banner").hidden = !ui.moveArmyId;
+  $("move-banner").innerHTML = ui.moveArmyId ? moveBanner() : "";
   $("summary").innerHTML = desktop.matches ? "" : summaryCard(state, ui.selection);
   $("summary").hidden = desktop.matches || !ui.selection || ui.drawerOpen || !!ui.moveArmyId;
   document.body.classList.toggle("drawer-open", ui.drawerOpen && !ui.moveArmyId);
@@ -92,6 +98,7 @@ function drawerHtml() {
 function modal(html, extra = {}) {
   ui.modal = { html, ...extra };
   render();
+  $("modal").classList.toggle("anchored", !!extra.anchored);
 }
 
 function closeModal() {
@@ -101,21 +108,48 @@ function closeModal() {
 }
 
 function showNextPending() {
-  if (ui.modal || ui.battle) return;
+  if (ui.modal || ui.battle || ui.playing) return;
   if (state.victory.ended && !ui.endingShown) {
     ui.endingShown = true;
     return modal(endingHtml(state));
   }
+  ui.highlight = null;
   if (state.pending.length) {
     const p = state.pending[0];
-    if (p.eng) map.focus(p.eng.districtId);
-    modal(pendingHtml(state, p, 0));
+    // decisions about a place are shown over the map, with that district lit
+    const where = p.eng?.districtId || p.ev?.districtId || p.district || null;
+    if (where) { ui.highlight = where; map.focus(where); }
+    modal(pendingHtml(state, p, 0), { anchored: !!where });
   }
+}
+
+// End Season: resolve, play the season back on the board, sum it up, then the decisions.
+async function endSeasonFlow() {
+  if (ui.playing) return;
+  if (state.pending.length) return showNextPending();
+  Object.assign(ui, { moveArmyId: null, preview: null });
+  const player = state.playerFactionId;
+  const before = { resources: { ...state.factions[player].resources } };
+  const visible = visibleDistricts(state, player);
+  endSeason(state);
+  saveGame(state);
+  visibleDistricts(state, player).forEach((d) => visible.add(d));
+  sfx(state.notifications.some((n) => n.level === "critical") ? "alert" : "season");
+  ui.playing = { skip: false };
+  document.body.classList.add("playing");
+  $("playback").hidden = false;
+  await playSeason(state, map, visible, ui.playing);
+  ui.playing = null;
+  document.body.classList.remove("playing");
+  $("playback").hidden = true;
+  render();
+  modal(seasonReportHtml(state, before));
 }
 
 // ---------- map input ----------
 
 function onTap(target) {
+  if (ui.playing) { ui.playing.skip = true; return; }
   if (ui.moveArmyId) return moveTap(target);
   const same = target && ui.selection && target.type === ui.selection.type && target.id === ui.selection.id;
   if (!target) {
@@ -134,29 +168,60 @@ function onTap(target) {
   render();
 }
 
+// Move mode: the first tap on a destination previews the route and its cost; a second tap
+// on the same district (or the March button) commits.
 function moveTap(target) {
   const armyId = ui.moveArmyId;
-  ui.moveArmyId = null;
   // tapping an army marker means its district
   if (target?.type === "army") target = { type: "district", id: state.armies.find((a) => a.id === target.id)?.districtId };
-  if (!target || target.type !== "district" || !target.id) return render();
   const army = state.armies.find((a) => a.id === armyId);
+  if (!target || target.type !== "district" || !target.id || target.id === army.districtId) {
+    Object.assign(ui, { moveArmyId: null, preview: null });
+    return render();
+  }
   const route = reachable(state, army)[target.id];
   if (!route) { toast("Out of reach this season"); return render(); }
-  if (route.kind === "blocked") {
-    const owner = state.districts[target.id].owner;
-    return modal(warConfirmHtml(state, owner, armyId, target.id));
+  if (ui.preview?.districtId !== target.id) {
+    ui.preview = { districtId: target.id };
+    return render();
   }
-  doMove(armyId, target.id);
+  commitMove();
 }
 
-function doMove(armyId, districtId) {
+function commitMove() {
+  const armyId = ui.moveArmyId, districtId = ui.preview?.districtId;
+  Object.assign(ui, { moveArmyId: null, preview: null });
+  if (!armyId || !districtId) return render();
+  const army = state.armies.find((a) => a.id === armyId);
+  const route = reachable(state, army)[districtId];
+  if (route?.kind === "blocked") return modal(warConfirmHtml(state, state.districts[districtId].owner, armyId, districtId));
+  doMove(armyId, districtId);
+}
+
+function moveBanner() {
+  const army = state.armies.find((a) => a.id === ui.moveArmyId);
+  if (!army) return "";
+  const route = ui.preview && reachable(state, army)[ui.preview.districtId];
+  if (!route) return `<span>${icon("move")} Choose where the ${esc(army.name)} marches (${army.movesLeft} movement left). Red means battle.</span><button data-action="cancel-move">Cancel</button>`;
+  const to = state.districts[ui.preview.districtId].name;
+  const what = route.kind === "attack" ? `Attack ${esc(to)}` : route.kind === "blocked" ? `Declare war and march on ${esc(to)}` : `March to ${esc(to)}`;
+  return `<span><b>${what}</b> · ${route.path.length - 1} step${route.path.length > 2 ? "s" : ""}, ${route.cost} movement</span>
+    <button class="primary" data-action="commit-move">${route.kind === "move" ? "March" : "Attack"}</button><button data-action="cancel-move">Cancel</button>`;
+}
+
+async function doMove(armyId, districtId) {
+  const route = reachable(state, state.armies.find((a) => a.id === armyId))[districtId];
   const r = moveArmy(state, armyId, districtId);
   if (!r.ok) { toast(r.reason); return render(); }
   ui.selection = { type: "army", id: armyId };
   ui.panel = "army";
-  if (r.engagement) return playerAttack(r.engagement);
   sfx("march");
+  // the host marches across the board, stopping short of an enemy it means to attack
+  const steps = r.engagement ? route.path.slice(0, -1) : route.path;
+  ui.animating = true;
+  await map.animateArmy(armyId, steps);
+  ui.animating = false;
+  if (r.engagement) return playerAttack(r.engagement);
   toast(`Marched to ${state.districts[state.armies.find((a) => a.id === armyId).districtId].name}`);
   saveGame(state);
   render();
@@ -248,7 +313,8 @@ const actions = {
     ui.drawerOpen = desktop.matches;
     render();
   },
-  "cancel-move": () => { ui.moveArmyId = null; render(); },
+  "cancel-move": () => { Object.assign(ui, { moveArmyId: null, preview: null }); render(); },
+  "commit-move": () => commitMove(),
   stance: (el) => { setStance(state, el.dataset.army, el.dataset.stance); render(); },
   disband: (el) => {
     const r = disband(state, el.dataset.army, el.dataset.type);
@@ -285,6 +351,7 @@ const actions = {
   "battle-fight": fight,
   "battle-auto": () => { ui.modal = null; afterBattle(finishBattle(state, ui.pendingBattle, true)); },
   "close-modal": closeModal,
+  "skip-playback": () => { if (ui.playing) ui.playing.skip = true; },
   ending: () => modal(endingHtml(state)),
   "open-chronicle": () => { ui.chronicle = "all"; renderChronicle(); },
   "chronicle-filter": (el) => { ui.chronicle = el.dataset.filter; renderChronicle(); },
@@ -350,16 +417,7 @@ function wire() {
     render();
   });
 
-  $("end-season").addEventListener("click", () => {
-    if (state.pending.length) return showNextPending();
-    ui.moveArmyId = null;
-    endSeason(state);
-    saveGame(state);
-    sfx(state.notifications.some((n) => n.level === "critical") ? "alert" : "season");
-    toast(`${dateLabel(state)}`);
-    render();
-    showNextPending();
-  });
+  $("end-season").addEventListener("click", endSeasonFlow);
 
   $("sound-toggle").onclick = () => { toggleSound(); paintSoundButton(); };
   paintSoundButton();

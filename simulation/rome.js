@@ -4,7 +4,7 @@
 // Consolidate, Secure Supply, then Advance. Rome is pressure, not a script: it can be beaten.
 
 import { BALANCE } from "../config/balance.js";
-import { addChronicle, armiesIn, armyTroops, districtsOf, neighbours, newArmy, uid } from "./campaign.js";
+import { addChronicle, armiesIn, armyTroops, districtsOf, logSeason, neighbours, newArmy, uid } from "./campaign.js";
 import { armyStrength, garrisonStrength, moveArmy, reachable, setStance } from "./armies.js";
 import { atWar, declareWar } from "./diplomacy.js";
 import { engagePlayer, playerDefends, resolveEngagementAuto } from "./engagement.js";
@@ -64,6 +64,7 @@ function land(state, notes) {
   army.holdSeasons = 0;
   state.armies.push(army);
   addChronicle(state, `The legions of Rome came ashore at ${state.districts[R.entryDistrict].name}.`, "INVASION");
+  logSeason(state, { t: "landing", district: R.entryDistrict });
 
   // the landing is an engagement from the sea
   const d = state.districts[R.entryDistrict];

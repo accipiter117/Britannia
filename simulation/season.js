@@ -3,7 +3,7 @@
 // the rest call into their own system files. No DOM; returns notifications for the UI.
 
 import { BALANCE } from "../config/balance.js";
-import { chronicleEntry, dateLabel, districtsOf, seasonName } from "./campaign.js";
+import { chronicleEntry, dateLabel, districtsOf, logSeason, seasonName } from "./campaign.js";
 import {
   RESOURCES, armyUpkeep, districtConsumption, factionProduction, settlementTier, storageCaps,
 } from "./economy.js";
@@ -22,6 +22,8 @@ export function endSeason(state) {
   const season = seasonName(state);
   const ctx = { season, notes: [], chronicle: [], foodStatus: {} };
   const playing = Object.keys(state.factions).filter((id) => districtsOf(state, id).length > 0);
+  state.seasonLog = [];
+  state.logging = true;
 
   resolveConstruction(state, ctx);                                  // 1
   for (const fid of playing) resolveEconomy(state, ctx, fid);       // 2 production, 3 consumption
@@ -40,6 +42,7 @@ export function endSeason(state) {
   resolveVictory(state, ctx.notes);
   const before = dateLabel(state);
   state.chronicle.push(...ctx.chronicle.map((t) => ({ ...chronicleEntry(state, t), date: before }))); // 15
+  state.logging = false;
   advanceSeason(state);                                             // 16
   resetMovement(state);
 
@@ -61,6 +64,7 @@ function resolveConstruction(state, ctx) {
       if (job.progress >= BALANCE.buildings[job.building].seasons) {
         const tierBefore = settlementTier(d).id;
         d.buildings.push(job.building);
+        logSeason(state, { t: "built", district: d.id, building: job.building, faction: d.owner });
         if (d.owner === player) {
           ctx.notes.push(note("important", `${label(job.building)} completed at ${d.name}.`, d.id));
           ctx.chronicle.push(`A ${label(job.building)} was raised at ${d.name}.`);

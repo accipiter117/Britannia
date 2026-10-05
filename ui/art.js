@@ -173,6 +173,10 @@ const EMBLEM = {
   rebel: `<path d="M-5 4l5 -10l5 10" stroke="#f1e6c8" stroke-width="1.8" fill="none"/>`,
 };
 
+export function emblemSvg(f, roman) {
+  return f?.emergent ? EMBLEM.rebel : roman ? EMBLEM.roman : EMBLEM.celtic;
+}
+
 // Army marker: a standard on a pole with the troop count on a plaque.
 export function bannerSvg(colour, culture, x, y, label, { selected = false, spent = false, rebel = false } = {}) {
   const emblem = rebel ? EMBLEM.rebel : EMBLEM[culture] || EMBLEM.celtic;

@@ -125,6 +125,12 @@ export function chronicleEntry(state, text, type = "LOG") {
   return { turn: state.turn, date: dateLabel(state), text, type };
 }
 
+// Season log: what happened during End Season, in order, so the UI can play it back on the
+// board (marches, battles, captures, buildings). Only filled while End Season runs.
+export function logSeason(state, entry) {
+  if (state.logging) state.seasonLog.push({ ...entry, turn: state.turn });
+}
+
 export function addChronicle(state, text, type = "LOG") {
   state.chronicle.push(chronicleEntry(state, text, type));
 }
