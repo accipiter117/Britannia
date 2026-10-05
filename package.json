@@ -1,0 +1,1 @@
+{ "name": "britannia", "private": true, "type": "module", "description": "ES module flag so Node can import simulation code. No dependencies.", "scripts": { "sim": "node tools/sim20.mjs" } }

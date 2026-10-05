@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#1d2421">
+  <title>Britannia</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="hud"></header>
+
+  <main id="main">
+    <div id="map-wrap">
+      <svg id="map" role="img" aria-label="Campaign map"></svg>
+      <div id="map-controls">
+        <button id="zoom-in" aria-label="Zoom in">+</button>
+        <button id="zoom-out" aria-label="Zoom out">−</button>
+        <button id="zoom-reset" aria-label="Show whole map">⌖</button>
+      </div>
+    </div>
+    <aside id="drawer">
+      <div class="drawer-top"><span class="grip"></span><button id="drawer-close" aria-label="Close">✕</button></div>
+      <div id="drawer-body"></div>
+    </aside>
+  </main>
+
+  <section id="summary" hidden></section>
+
+  <footer id="footer">
+    <div id="notifications"></div>
+    <div class="footer-row">
+      <nav id="nav">
+        <button data-panel="realm">🏛️<span>Realm</span></button>
+        <button data-panel="armies">⚔️<span>Armies</span></button>
+        <button data-panel="diplomacy">🤝<span>Diplomacy</span></button>
+        <button data-panel="more">📜<span>More</span></button>
+      </nav>
+      <button id="end-season">End Season</button>
+    </div>
+  </footer>
+
+  <div id="toast" role="status"></div>
+  <script type="module" src="ui/main.js"></script>
+</body>
+</html>
