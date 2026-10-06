@@ -93,7 +93,7 @@ function beginCampaign(s) {
   state = s;
   document.body.classList.remove("on-title");
   $("title").hidden = true;
-  if (!map) map = createMap($("map"), data.regions, { onRegion: tapRegion, onArmy: tapArmy });
+  if (!map) map = createMap($("map"), data, { onRegion: tapRegion, onArmy: tapArmy });
   window.britanniaMap = map; // for browser tests
   ui.army = state.armies.find((a) => a.faction === "celts")?.id || null;
   ui.region = null;
