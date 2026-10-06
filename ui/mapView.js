@@ -1,8 +1,8 @@
 // ui/mapView.js
-// Owns the campaign map: Britannia in pixel art on a canvas. The island is painted at 320 x 500
-// (sea and waves, beaches, land by terrain, mountains, fields, woods, borders tinted by who holds
-// each tribe, snow in winter) and scaled up crisp. On top: settlements, tribe names, highlights for
-// where a host can march, and the hosts themselves as little pixel war bands with their banners.
+// Owns the campaign map on a canvas: the painted map of Britannia (assets/britannia-map.webp) as the
+// base, a soft wash in each owner's colour with ink-dark borders over it (snow-pale in winter), then
+// settlements, tribe names, highlights and badges for where a host can march, Rome's threats, and
+// the hosts themselves as little pixel war bands with their banners.
 // Drag to pan, pinch or wheel to zoom, tap a host or a region. No game rules here.
 
 import { BALANCE } from "../config/balance.js";
@@ -11,11 +11,11 @@ import { FACTIONS, seasonName } from "../simulation/state.js";
 import { bannerSprite, getSprite } from "./sprites.js";
 
 const OWNER_TINT = { celts: [61, 111, 181], rome: [184, 50, 58], free: null };
-const TERRAIN = { highlands: [125, 122, 90], hills: [138, 144, 88], fertile: [141, 160, 78], plains: [154, 160, 96], coast: [143, 154, 92] };
+const SEA = "#004372";
 
-export function createMap(canvas, regionsData, { onRegion, onArmy }) {
+export function createMap(canvas, { regions: regionsData, land }, { onRegion, onArmy }) {
   const ctx = canvas.getContext("2d");
-  const grid = buildMapGrid(regionsData);
+  const grid = buildMapGrid(regionsData, land);
   const ids = regionsData.map((r) => r.id);
   const index = Object.fromEntries(ids.map((id, i) => [id, i]));
   const masks = ids.map((_, i) => maskFor(grid, i));
@@ -25,53 +25,35 @@ export function createMap(canvas, regionsData, { onRegion, onArmy }) {
   let tokens = [];
 
   // ---------- painting the island ----------
+  // The painted map is the base; over it a soft wash in each owner's colour and the borders,
+  // both built at cell scale and drawn smoothed so they sit on the painting like ink.
 
-  function paintBase(s) {
+  const art = new Image();
+  art.src = land.image;
+  art.onload = () => draw();
+
+  function paintOverlay(s) {
     const c = document.createElement("canvas");
     c.width = MAP_W; c.height = MAP_H;
     const g = c.getContext("2d");
     const img = g.createImageData(MAP_W, MAP_H);
-    let seed = 7;
-    const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     const winter = seasonName(s) === "Winter";
-    for (let y = 0; y < MAP_H; y++) for (let x = 0; x < MAP_W; x++) {
+    for (let y = 1; y < MAP_H - 1; y++) for (let x = 1; x < MAP_W - 1; x++) {
       const k = y * MAP_W + x, o = k * 4;
       const reg = grid[k];
-      let col;
-      if (reg < 0) {
-        const nearLand = [grid[k - 1], grid[k + 1], grid[k - MAP_W], grid[k + MAP_W]].some((v) => v >= 0);
-        col = nearLand ? [70, 120, 140] : ((x + y * 3) % 23 === 0 || ((x * 7 + y) % 31 === 0 && y % 4 === 0)) ? [62, 106, 128] : [42, 84, 104];
-      } else {
-        const R = s.regions[ids[reg]];
-        col = [...TERRAIN[R.terrain]];
-        const n = r();
-        col = col.map((v) => v + (n < 0.25 ? -10 : n > 0.85 ? 8 : 0));
-        const coast = [grid[k - 1], grid[k + 1], grid[k - MAP_W], grid[k + MAP_W]].some((v) => v < 0);
-        if (coast) col = [196, 182, 128];
-        const tint = OWNER_TINT[R.owner];
-        if (tint && !coast) col = col.map((v, i) => Math.round(v * 0.55 + tint[i] * 0.45));
-        if (winter && !coast && n > 0.45) col = col.map((v) => Math.round(v * 0.4 + 235 * 0.6));
-        // borders: dark where two tribes meet, the owner's colour just inside
-        const right = grid[k + 1], down = grid[k + MAP_W], left = grid[k - 1], up = grid[k - MAP_W];
-        if ((right >= 0 && right !== reg) || (down >= 0 && down !== reg)) col = [44, 36, 24];
-        else if (tint && ((left >= 0 && left !== reg) || (up >= 0 && up !== reg) || (grid[k + 2] >= 0 && grid[k + 2] !== reg) || (grid[k + MAP_W * 2] >= 0 && grid[k + MAP_W * 2] !== reg))) col = tint.map((v) => Math.round(v * 0.85));
-      }
-      img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = 255;
+      if (reg < 0) continue;
+      const R = s.regions[ids[reg]];
+      const tint = OWNER_TINT[R.owner];
+      let col = null, a = 0;
+      if (tint) { col = tint; a = 0.34; }
+      if (winter) { col = col ? col.map((v) => Math.round(v * 0.5 + 235 * 0.5)) : [235, 240, 245]; a = Math.max(a, 0.3); }
+      const nb = [grid[k + 1], grid[k - 1], grid[k + MAP_W], grid[k - MAP_W]];
+      if (nb.some((v) => v >= 0 && v !== reg)) { col = [34, 26, 16]; a = 0.75; }
+      else if (tint && [grid[k + 2], grid[k - 2], grid[k + 2 * MAP_W], grid[k - 2 * MAP_W]].some((v) => v >= 0 && v !== reg)) { col = tint; a = 0.7; }
+      if (!col) continue;
+      img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = Math.round(a * 255);
     }
     g.putImageData(img, 0, 0);
-    // terrain marks: mountains, hills, fields
-    for (let i = 0; i < 2600; i++) {
-      const x = Math.floor(r() * MAP_W), y = Math.floor(r() * MAP_H);
-      const reg = grid[y * MAP_W + x];
-      if (reg < 0) continue;
-      const t = s.regions[ids[reg]].terrain;
-      const near = (dx, dy) => grid[(y + dy) * MAP_W + x + dx] === reg;
-      if (!near(-3, 0) || !near(3, 0) || !near(0, -4) || !near(0, 2)) continue;
-      if (t === "highlands" && r() < 0.6) { px(g, x, y, "#5e5a40"); px(g, x - 1, y + 1, "#5e5a40"); px(g, x + 1, y + 1, "#5e5a40"); px(g, x - 2, y + 2, "#4a4632", 5, 1); px(g, x, y, winter ? "#fff" : "#e8e4d4"); }
-      else if (t === "hills" && r() < 0.35) { px(g, x - 1, y, "#6a6e42", 3, 1); px(g, x - 2, y + 1, "#5c6038", 1, 1); px(g, x + 2, y + 1, "#5c6038", 1, 1); }
-      else if (t === "fertile" && r() < 0.3) { px(g, x - 2, y, "#a8b45a", 4, 1); px(g, x - 2, y + 2, "#7a8a3e", 4, 1); }
-      else if (r() < 0.15) { px(g, x, y, "#3f6a2e"); px(g, x, y - 1, "#4f7d36"); } // a copse
-    }
     return c;
   }
 
@@ -102,12 +84,14 @@ export function createMap(canvas, regionsData, { onRegion, onArmy }) {
   function draw() {
     if (!state) return;
     const key = Object.values(state.regions).map((r) => r.owner[0]).join("") + seasonName(state);
-    if (key !== baseKey) { base = paintBase(state); baseKey = key; }
+    if (key !== baseKey) { base = paintOverlay(state); baseKey = key; }
     const W = canvas.width, H = canvas.height, s = cam.scale * cam.dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = "#2a5468"; ctx.fillRect(0, 0, W, H);
-    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = SEA; ctx.fillRect(0, 0, W, H);
     ctx.setTransform(s, 0, 0, s, -cam.x * s, -cam.y * s);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    if (art.complete && art.naturalWidth) ctx.drawImage(art, 0, 0, MAP_W, MAP_H);
     ctx.drawImage(base, 0, 0);
     // highlights: a faint wash and a bright pulsing edge
     const t = performance.now() / 1000;
@@ -125,6 +109,7 @@ export function createMap(canvas, regionsData, { onRegion, onArmy }) {
       }
     }
     ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = false;
     // settlements
     for (const r of Object.values(state.regions)) settlement(ctx, r);
     // names and hosts in screen space, so text stays crisp

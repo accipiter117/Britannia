@@ -109,7 +109,7 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
     const s = b.terrain.siege;
     root.querySelector("#b-clock").textContent = b.phase === "deploy" ? "Deploy" : `${mins}:${secs}${s ? ` · gate ${Math.max(0, Math.round(100 * s.gateHp / B.gateHp))}%${b.plazaTimer > 0 ? ` · centre ${Math.round(b.plazaTimer)}/${B.plazaHold}s` : ""}` : ""}`;
     const mine = b.units.filter((u) => u.side === side && u.state !== "gone");
-    root.querySelector("#b-cards").innerHTML = mine.map((u) => {
+    morph(root.querySelector("#b-cards"), mine.map((u) => {
       const m = Math.max(0, Math.min(1, u.morale / 80));
       return `<div class="b-card ${selected.has(u.id) ? "on" : ""} ${u.state} ${u.ai ? "ai" : ""}" data-unit="${u.id}">
         <span class="b-card-name">${u.general ? "★ " : ""}${u.name}</span>
@@ -118,11 +118,11 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
         <i class="b-bar sta" style="width:${(u.stamina / u.def.stamina) * 100}%"></i>
         <span class="b-card-state">${u.state === "routing" ? "Fleeing" : u.hidden ? "Hidden" : u.fighting ? "Fighting" : u.state === "moving" ? "Marching" : "Ready"}</span>
         <button class="b-ai" data-ai="${u.id}" title="Hand this band to the AI">${u.ai ? "AI" : "⚙"}</button></div>`;
-    }).join("");
+    }).join(""));
     const sel = [...selected].map((id) => b.units.find((u) => u.id === id)).filter(Boolean);
     const thrower = sel.find((u) => canThrow(b, u));
     const deploying = b.phase === "deploy";
-    root.querySelector("#b-orders").innerHTML = `
+    morph(root.querySelector("#b-orders"), `
       <div class="b-row">
         <button data-cmd="all">Select all</button>
         <button data-cmd="multi" class="${multi ? "on" : ""}">Multi</button>
@@ -138,11 +138,11 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
             const left = Math.max(0, Math.ceil((b.sides[side].cooldowns[k] ?? 0) - b.time));
             return `<button data-ability="${k}" class="ability" ${ready ? "" : "disabled"} title="${A.desc}">${A.label}${ready ? "" : ` ${b.sides[side].generalAlive ? `${left}s` : "✝"}`}</button>`;
           }).join("") + `<button data-cmd="allai">All to AI</button><button data-cmd="retreat" class="danger">Retreat</button>`}
-      </div>`;
+      </div>`);
     const banner = root.querySelector("#b-banner");
     banner.innerHTML = deploying ? `Drag your bands into place within the lit ground. Bands in woods lie hidden until the enemy is close.${b.siege ? (side === "attacker" ? " Batter the gate or climb the palisade, then hold the centre." : " Hold the palisade and the centre until nightfall.") : ""}` : "";
     banner.hidden = !deploying;
-    root.querySelector("#b-log").innerHTML = b.log.slice(-3).filter((l) => b.time - l.t < 8).map((l) => `<div>${l.text}</div>`).join("");
+    morph(root.querySelector("#b-log"), b.log.slice(-3).filter((l) => b.time - l.t < 8).map((l) => `<div>${l.text}</div>`).join(""));
   }
   panels();
 
@@ -321,4 +321,25 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
   }
 
   return { close };
+}
+
+// Update a panel to match new HTML while keeping the same elements wherever the shape is unchanged,
+// so a button being tapped is never swapped out from under the finger by the 4-a-second refresh.
+const scratch = document.createElement("div");
+function morph(el, html) {
+  scratch.innerHTML = html;
+  sync(el, scratch);
+}
+function sync(a, b) {
+  const an = a.childNodes, bn = b.childNodes;
+  if (an.length !== bn.length) { a.replaceChildren(...[...bn].map((n) => n.cloneNode(true))); return; }
+  for (let i = 0; i < bn.length; i++) {
+    const x = an[i], y = bn[i];
+    if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName) { a.replaceChild(y.cloneNode(true), x); continue; }
+    if (x.nodeType === 3) { if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue; continue; }
+    if (x.nodeType !== 1) continue;
+    for (const { name } of [...x.attributes]) if (!y.hasAttribute(name)) x.removeAttribute(name);
+    for (const { name, value } of [...y.attributes]) if (x.getAttribute(name) !== value) x.setAttribute(name, value);
+    sync(x, y);
+  }
 }

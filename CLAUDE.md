@@ -12,17 +12,17 @@ Archived: Britannia v1 (grand strategy) on the `britannia-v1` branch, spec in `d
 ## Tech
 - Vanilla JavaScript ES modules, HTML and CSS. No frameworks, no build step, no runtime dependencies.
 - Entry point `index.html`; GitHub Pages deploys from `main` (https://accipiter117.github.io/Britannia/). `skirmish.html` is a dev page for custom battles (`?terrain=&siege=&side=&seed=`).
-- Campaign map: pixel-art canvas (`ui/mapView.js`) over a 320x500 region grid built from a coastline polygon (`simulation/mapGrid.js`). Battles: canvas (`ui/battleArt.js`, `ui/battleView.js`), sprites generated in code (`ui/sprites.js`).
+- Campaign map: a painted map (`assets/britannia-map.webp`, 1024x1536, made with ChatGPT) drawn on a canvas (`ui/mapView.js`), with owner washes, borders and pieces layered over it. The rules use a 320x480 cell grid over the same picture (`simulation/mapGrid.js`): land cells come from `land.runs` in `data/britannia.json` (traced from the painting's sea and closed over thin river channels), and each cell goes to its nearest tribe through a noise warp so borders meander. Replacing the art means re-tracing `land` and re-placing tribe `pos` values (grid units = image pixels / 3.2). Battles: canvas (`ui/battleArt.js`, `ui/battleView.js`), sprites generated in code (`ui/sprites.js`).
 - Save: `localStorage` key `britannia-invicta.save.v2`, saved after every action. State must stay JSON-serialisable (battles are rebuilt from the map, never saved).
 - Sound is synthesised (`ui/audio.js`).
 
 ## Folders
 ```
 config/balance.js       every number: units, formations, ranks, upgrades, generals, abilities, battle, campaign, Rome, difficulty
-data/britannia.json     23 tribes (pos, terrain, settlement) and the three eras (Caratacus AD 43, Boudica AD 60, Calgacus AD 83)
+data/britannia.json     23 tribes (pos, terrain, settlement), the land mask, and the three eras (Caratacus AD 43, Boudica AD 60, Calgacus AD 83)
 simulation/             rules only, no DOM
   state.js              campaign state, units, hosts, lookups, power estimates, save/load
-  mapGrid.js            coastline, region grid and links
+  mapGrid.js            land mask, region grid and links
   campaign.js           moving, clashes, capture (win over or plunder), recruiting, upgrades, income, food, end of season
   romeAI.js             Rome's season: replacements, new legions at the port, attacks and marches
   random.js             seeded RNG

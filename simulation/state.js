@@ -40,7 +40,7 @@ export function foodCap(army) {
 export function createCampaign(data, { era = "caratacus", difficulty = "normal", seed = 1 } = {}) {
   const E = data.eras[era];
   const D = BALANCE.difficulty[difficulty];
-  const grid = buildMapGrid(data.regions);
+  const grid = buildMapGrid(data.regions, data.land);
   const state = {
     version: SAVE_VERSION, era, difficulty, turn: 1, startYear: E.year, rng: (seed | 0) || 1, nextId: 10,
     silver: Math.round(E.silver * D.silver), wheat: E.wheat,

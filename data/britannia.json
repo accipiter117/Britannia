@@ -1,78 +1,244 @@
 {
   "regions": [
-    { "id": "caledonii", "name": "Caledonii", "pos": [130, 72], "terrain": "highlands", "settlement": "village" },
-    { "id": "taexali", "name": "Taexali", "pos": [200, 104], "terrain": "hills", "settlement": "village" },
-    { "id": "venicones", "name": "Venicones", "pos": [182, 140], "terrain": "fertile", "settlement": "village" },
-    { "id": "damnonii", "name": "Damnonii", "pos": [132, 152], "terrain": "hills", "settlement": "oppidum" },
-    { "id": "votadini", "name": "Votadini", "pos": [192, 182], "terrain": "fertile", "settlement": "oppidum", "seat": "Traprain Law" },
-    { "id": "selgovae", "name": "Selgovae", "pos": [155, 202], "terrain": "hills", "settlement": "village" },
-    { "id": "novantae", "name": "Novantae", "pos": [108, 212], "terrain": "hills", "settlement": "village" },
-    { "id": "brigantes", "name": "Brigantes", "pos": [165, 248], "terrain": "hills", "settlement": "oppidum", "seat": "Stanwick" },
-    { "id": "parisi", "name": "Parisi", "pos": [208, 268], "terrain": "fertile", "settlement": "village" },
-    { "id": "deceangli", "name": "Deceangli", "pos": [124, 298], "terrain": "hills", "settlement": "village" },
-    { "id": "ordovices", "name": "Ordovices", "pos": [98, 326], "terrain": "highlands", "settlement": "village" },
-    { "id": "cornovii", "name": "Cornovii", "pos": [152, 318], "terrain": "plains", "settlement": "village" },
-    { "id": "corieltauvi", "name": "Corieltauvi", "pos": [202, 314], "terrain": "fertile", "settlement": "village" },
-    { "id": "iceni", "name": "Iceni", "pos": [254, 330], "terrain": "fertile", "settlement": "oppidum", "seat": "Venta" },
-    { "id": "demetae", "name": "Demetae", "pos": [74, 364], "terrain": "coast", "settlement": "village" },
-    { "id": "silures", "name": "Silures", "pos": [108, 378], "terrain": "hills", "settlement": "village" },
-    { "id": "dobunni", "name": "Dobunni", "pos": [150, 374], "terrain": "fertile", "settlement": "oppidum", "seat": "Corinion" },
-    { "id": "catuvellauni", "name": "Catuvellauni", "pos": [200, 358], "terrain": "fertile", "settlement": "oppidum", "seat": "Verlamion" },
-    { "id": "trinovantes", "name": "Trinovantes", "pos": [244, 360], "terrain": "fertile", "settlement": "oppidum", "seat": "Camulodunon" },
-    { "id": "atrebates", "name": "Atrebates", "pos": [190, 400], "terrain": "fertile", "settlement": "oppidum", "seat": "Calleva" },
-    { "id": "cantiaci", "name": "Cantiaci", "pos": [250, 400], "terrain": "coast", "settlement": "village", "port": true },
-    { "id": "durotriges", "name": "Durotriges", "pos": [140, 420], "terrain": "hills", "settlement": "oppidum", "seat": "Mai Dun" },
-    { "id": "dumnonii", "name": "Dumnonii", "pos": [90, 446], "terrain": "coast", "settlement": "village" }
+    { "id": "caledonii", "name": "Caledonii", "pos": [119, 72], "terrain": "highlands", "settlement": "village" },
+    { "id": "taexali", "name": "Taexali", "pos": [195, 88], "terrain": "hills", "settlement": "village" },
+    { "id": "venicones", "name": "Venicones", "pos": [178, 138], "terrain": "fertile", "settlement": "village" },
+    { "id": "damnonii", "name": "Damnonii", "pos": [134, 147], "terrain": "hills", "settlement": "oppidum" },
+    { "id": "votadini", "name": "Votadini", "pos": [184, 170], "terrain": "fertile", "settlement": "oppidum", "seat": "Traprain Law" },
+    { "id": "selgovae", "name": "Selgovae", "pos": [155, 188], "terrain": "hills", "settlement": "village" },
+    { "id": "novantae", "name": "Novantae", "pos": [113, 195], "terrain": "hills", "settlement": "village" },
+    { "id": "brigantes", "name": "Brigantes", "pos": [163, 228], "terrain": "hills", "settlement": "oppidum", "seat": "Stanwick" },
+    { "id": "parisi", "name": "Parisi", "pos": [220, 247], "terrain": "fertile", "settlement": "village" },
+    { "id": "deceangli", "name": "Deceangli", "pos": [131, 281], "terrain": "hills", "settlement": "village" },
+    { "id": "ordovices", "name": "Ordovices", "pos": [97, 302], "terrain": "highlands", "settlement": "village" },
+    { "id": "cornovii", "name": "Cornovii", "pos": [166, 292], "terrain": "plains", "settlement": "village" },
+    { "id": "corieltauvi", "name": "Corieltauvi", "pos": [219, 289], "terrain": "fertile", "settlement": "village" },
+    { "id": "iceni", "name": "Iceni", "pos": [275, 316], "terrain": "fertile", "settlement": "oppidum", "seat": "Venta" },
+    { "id": "demetae", "name": "Demetae", "pos": [72, 350], "terrain": "coast", "settlement": "village" },
+    { "id": "silures", "name": "Silures", "pos": [120, 355], "terrain": "hills", "settlement": "village" },
+    { "id": "dobunni", "name": "Dobunni", "pos": [167, 347], "terrain": "fertile", "settlement": "oppidum", "seat": "Corinion" },
+    { "id": "catuvellauni", "name": "Catuvellauni", "pos": [213, 344], "terrain": "fertile", "settlement": "oppidum", "seat": "Verlamion" },
+    { "id": "trinovantes", "name": "Trinovantes", "pos": [263, 347], "terrain": "fertile", "settlement": "oppidum", "seat": "Camulodunon" },
+    { "id": "atrebates", "name": "Atrebates", "pos": [200, 384], "terrain": "fertile", "settlement": "oppidum", "seat": "Calleva" },
+    { "id": "cantiaci", "name": "Cantiaci", "pos": [272, 383], "terrain": "coast", "settlement": "village", "port": true },
+    { "id": "durotriges", "name": "Durotriges", "pos": [150, 406], "terrain": "hills", "settlement": "oppidum", "seat": "Mai Dun" },
+    { "id": "dumnonii", "name": "Dumnonii", "pos": [78, 427], "terrain": "coast", "settlement": "village" }
   ],
   "eras": {
     "caratacus": {
-      "label": "Caratacus", "year": 43, "tribe": "Catuvellauni",
+      "label": "Caratacus",
+      "year": 43,
+      "tribe": "Catuvellauni",
       "intro": "AD 43. Four legions under Aulus Plautius have landed in the land of the Cantiaci. Caratacus of the Catuvellauni must hold the Thames, rally the tribes and throw Rome back into the sea.",
-      "player": ["catuvellauni", "trinovantes"],
-      "rome": ["cantiaci"],
+      "player": [
+        "catuvellauni",
+        "trinovantes"
+      ],
+      "rome": [
+        "cantiaci"
+      ],
       "romanTowns": [],
       "playerArmies": [
-        { "region": "catuvellauni", "general": "Caratacus", "units": ["chieftain", "warriors", "warriors", "warriors", "spearmen", "spearmen", "slingers", "javelinmen", "chariots", "horsemen"] },
-        { "region": "trinovantes", "general": "Togodumnus", "units": ["chieftain", "warriors", "warriors", "spearmen", "slingers"] }
+        {
+          "region": "catuvellauni",
+          "general": "Caratacus",
+          "units": [
+            "chieftain",
+            "warriors",
+            "warriors",
+            "warriors",
+            "spearmen",
+            "spearmen",
+            "slingers",
+            "javelinmen",
+            "chariots",
+            "horsemen"
+          ]
+        },
+        {
+          "region": "trinovantes",
+          "general": "Togodumnus",
+          "units": [
+            "chieftain",
+            "warriors",
+            "warriors",
+            "spearmen",
+            "slingers"
+          ]
+        }
       ],
       "romeArmies": [
-        { "region": "cantiaci", "general": "Aulus Plautius", "template": "legion" },
-        { "region": "cantiaci", "general": "Vespasian", "template": "vexillation" }
+        {
+          "region": "cantiaci",
+          "general": "Aulus Plautius",
+          "template": "legion"
+        },
+        {
+          "region": "cantiaci",
+          "general": "Vespasian",
+          "template": "vexillation"
+        }
       ],
-      "port": "cantiaci", "silver": 300, "wheat": 60
+      "port": "cantiaci",
+      "silver": 300,
+      "wheat": 60
     },
     "boudica": {
-      "label": "Boudica", "year": 60, "tribe": "Iceni",
+      "label": "Boudica",
+      "year": 60,
+      "tribe": "Iceni",
       "intro": "AD 60. Rome has flogged the queen of the Iceni and seized her lands. While the governor campaigns in far Mona, Boudica raises the east. Burn the Roman towns and break the legions.",
-      "player": ["iceni"],
-      "rome": ["trinovantes", "catuvellauni", "cantiaci", "atrebates", "corieltauvi", "dobunni", "durotriges", "cornovii"],
-      "romanTowns": ["trinovantes", "catuvellauni", "cantiaci"],
+      "player": [
+        "iceni"
+      ],
+      "rome": [
+        "trinovantes",
+        "catuvellauni",
+        "cantiaci",
+        "atrebates",
+        "corieltauvi",
+        "dobunni",
+        "durotriges",
+        "cornovii"
+      ],
+      "romanTowns": [
+        "trinovantes",
+        "catuvellauni",
+        "cantiaci"
+      ],
       "playerArmies": [
-        { "region": "iceni", "general": "Boudica", "units": ["chieftain", "warriors", "warriors", "warriors", "warriors", "spearmen", "spearmen", "slingers", "chariots", "chariots"] },
-        { "region": "iceni", "general": "Prasutagos' kin", "units": ["chieftain", "warriors", "warriors", "slingers", "horsemen"] }
+        {
+          "region": "iceni",
+          "general": "Boudica",
+          "units": [
+            "chieftain",
+            "warriors",
+            "warriors",
+            "warriors",
+            "warriors",
+            "spearmen",
+            "spearmen",
+            "slingers",
+            "chariots",
+            "chariots"
+          ]
+        },
+        {
+          "region": "iceni",
+          "general": "Prasutagos' kin",
+          "units": [
+            "chieftain",
+            "warriors",
+            "warriors",
+            "slingers",
+            "horsemen"
+          ]
+        }
       ],
       "romeArmies": [
-        { "region": "deceangli", "general": "Suetonius Paulinus", "template": "legion" },
-        { "region": "corieltauvi", "general": "Petillius Cerialis", "template": "vexillation" }
+        {
+          "region": "deceangli",
+          "general": "Suetonius Paulinus",
+          "template": "legion"
+        },
+        {
+          "region": "corieltauvi",
+          "general": "Petillius Cerialis",
+          "template": "vexillation"
+        }
       ],
-      "romeHoldsExtra": ["deceangli"],
-      "port": "cantiaci", "silver": 400, "wheat": 50
+      "romeHoldsExtra": [
+        "deceangli"
+      ],
+      "port": "cantiaci",
+      "silver": 400,
+      "wheat": 50
     },
     "calgacus": {
-      "label": "Calgacus", "year": 83, "tribe": "Caledonii",
+      "label": "Calgacus",
+      "year": 83,
+      "tribe": "Caledonii",
       "intro": "AD 83. Agricola's legions have marched to the edge of the world. Calgacus of the Caledonii calls the free peoples of the north to stand. They make a desert and call it peace.",
-      "player": ["caledonii", "taexali"],
-      "rome": ["votadini", "selgovae", "novantae", "brigantes", "parisi", "deceangli", "ordovices", "cornovii", "corieltauvi", "iceni", "demetae", "silures", "dobunni", "catuvellauni", "trinovantes", "atrebates", "cantiaci", "durotriges", "dumnonii"],
-      "romanTowns": ["trinovantes", "catuvellauni", "cantiaci", "brigantes"],
+      "player": [
+        "caledonii",
+        "taexali"
+      ],
+      "rome": [
+        "votadini",
+        "selgovae",
+        "novantae",
+        "brigantes",
+        "parisi",
+        "deceangli",
+        "ordovices",
+        "cornovii",
+        "corieltauvi",
+        "iceni",
+        "demetae",
+        "silures",
+        "dobunni",
+        "catuvellauni",
+        "trinovantes",
+        "atrebates",
+        "cantiaci",
+        "durotriges",
+        "dumnonii"
+      ],
+      "romanTowns": [
+        "trinovantes",
+        "catuvellauni",
+        "cantiaci",
+        "brigantes"
+      ],
       "playerArmies": [
-        { "region": "caledonii", "general": "Calgacus", "units": ["chieftain", "warriors", "warriors", "warriors", "warriors", "spearmen", "spearmen", "slingers", "javelinmen", "chariots"] },
-        { "region": "taexali", "general": "Talorc", "units": ["chieftain", "warriors", "spearmen", "javelinmen"] }
+        {
+          "region": "caledonii",
+          "general": "Calgacus",
+          "units": [
+            "chieftain",
+            "warriors",
+            "warriors",
+            "warriors",
+            "warriors",
+            "spearmen",
+            "spearmen",
+            "slingers",
+            "javelinmen",
+            "chariots"
+          ]
+        },
+        {
+          "region": "taexali",
+          "general": "Talorc",
+          "units": [
+            "chieftain",
+            "warriors",
+            "spearmen",
+            "javelinmen"
+          ]
+        }
       ],
       "romeArmies": [
-        { "region": "votadini", "general": "Agricola", "template": "legion" },
-        { "region": "selgovae", "general": "Roscius", "template": "vexillation" }
+        {
+          "region": "votadini",
+          "general": "Agricola",
+          "template": "legion"
+        },
+        {
+          "region": "selgovae",
+          "general": "Roscius",
+          "template": "vexillation"
+        }
       ],
-      "port": "cantiaci", "silver": 300, "wheat": 50
+      "port": "cantiaci",
+      "silver": 300,
+      "wheat": 50
     }
+  },
+  "land": {
+    "w": 320,
+    "h": 480,
+    "image": "assets/britannia-map.webp",
+    "runs":[790,18,301,19,297,23,297,17,300,12,15,1,292,12,309,11,309,11,17,3,289,11,17,3,263,2,24,16,12,2,22,2,221,2,16,5,6,2,14,27,24,3,6,2,211,4,15,15,12,28,24,3,5,3,211,4,14,17,9,30,24,11,208,7,13,18,6,33,22,13,207,8,9,61,20,15,205,5,14,61,19,16,204,6,14,61,19,16,202,8,12,63,19,17,200,9,11,64,15,20,200,10,10,65,15,19,198,17,6,66,14,19,197,18,6,65,15,19,196,15,10,64,18,16,193,19,7,67,19,13,196,18,7,65,21,2,8,2,200,15,7,63,236,14,7,62,237,14,7,60,239,81,239,9,5,67,19,2,10,1,207,6,8,61,5,1,17,5,7,5,205,5,9,61,5,1,17,18,204,3,11,61,5,12,5,21,216,61,5,38,216,61,5,38,216,105,215,104,207,2,7,104,206,5,5,104,205,115,205,115,204,117,201,120,177,1,22,120,177,2,9,2,10,121,175,3,9,3,9,121,174,4,7,6,8,121,174,4,6,8,7,120,175,4,6,8,7,119,176,4,6,8,6,120,176,4,6,9,5,119,172,9,6,9,5,118,172,6,5,14,5,117,171,8,5,14,5,117,171,8,5,14,5,114,171,11,5,132,173,10,5,130,177,143,177,7,5,131,177,7,5,131,177,7,5,131,177,6,6,132,177,5,7,132,176,5,8,131,176,5,11,127,177,5,11,126,178,5,11,126,178,5,11,125,179,5,11,124,180,5,14,120,181,5,14,120,180,6,15,119,180,6,16,118,180,6,16,118,180,6,16,119,179,6,16,120,178,6,16,123,11,1,163,6,9,131,7,6,162,5,7,12,6,129,161,5,7,12,6,131,159,5,7,12,6,139,151,5,7,12,6,140,150,2,13,9,6,143,144,5,13,12,8,138,143,6,17,7,9,139,141,4,20,7,9,139,140,5,24,3,9,139,139,6,24,3,9,139,139,6,24,3,8,141,138,5,10,8,7,152,139,2,13,7,7,152,154,6,8,152,154,6,8,150,156,6,8,148,158,6,5,150,152,13,5,149,152,168,152,168,152,7,8,153,152,6,9,153,152,6,9,153,152,5,10,152,152,3,13,151,154,1,14,150,166,153,166,152,169,149,171,148,172,148,172,147,178,142,178,142,178,108,6,28,179,107,6,28,189,97,6,29,188,97,6,29,188,97,6,28,189,98,5,28,189,98,5,27,188,131,188,131,185,133,186,121,5,6,186,118,11,4,186,119,201,119,201,119,201,119,200,120,202,118,195,1,6,118,195,1,6,118,195,1,6,125,187,2,6,126,184,4,5,130,181,139,180,140,179,143,176,145,175,145,175,146,177,143,177,141,179,140,180,138,182,128,5,4,183,128,192,23,5,12,5,82,192,22,7,12,5,82,191,23,7,12,8,78,192,23,7,12,8,75,195,3,5,15,7,12,8,74,204,14,7,13,8,73,205,14,8,15,9,68,206,14,8,18,6,66,208,14,8,18,6,66,13,1,194,14,9,17,7,65,11,4,194,4,5,1,12,17,8,64,9,8,8,4,189,1,12,17,9,63,9,9,6,9,185,1,12,18,11,93,185,1,12,18,11,94,197,7,5,7,10,94,196,8,5,7,10,94,196,8,5,7,11,93,196,8,6,6,11,93,196,8,8,3,12,93,195,9,25,91,195,9,26,91,194,9,27,91,193,7,29,91,194,4,31,95,191,2,32,95,225,96,222,99,221,99,220,101,219,101,219,101,216,104,203,116,203,117,203,117,203,117,202,118,201,119,201,119,200,120,200,120,198,122,198,122,197,123,196,124,195,126,194,126,194,126,194,126,195,126,195,126,194,126,194,126,195,125,196,124,196,124,197,124,198,5,6,112,197,5,7,112,196,5,7,112,197,4,8,111,198,2,10,110,211,6,7,96,213,3,8,96,224,96,224,97,223,98,221,100,219,105,214,107,210,111,209,112,207,113,200,120,199,122,196,124,195,125,194,127,193,127,193,128,192,129,192,128,192,128,194,127,198,123,197,123,197,123,197,124,196,124,196,125,196,124,186,2,11,122,184,4,11,124,180,6,10,126,178,6,10,126,178,7,9,128,176,9,7,127,176,7,10,127,176,6,12,124,197,123,197,123,198,122,199,121,201,120,202,120,200,120,200,120,200,121,199,122,198,122,198,122,197,123,196,125,194,126,193,129,191,130,189,131,189,132,188,132,188,132,188,133,141,6,40,132,140,9,39,132,140,12,36,129,140,15,33,132,139,17,31,133,139,18,29,134,138,21,26,135,137,22,24,139,135,26,16,144,136,24,5,1,8,146,136,185,135,186,134,186,135,185,137,184,136,185,135,185,135,185,140,181,140,180,141,179,141,179,141,179,141,179,141,179,141,178,141,176,12,12,119,176,11,15,113,181,10,18,110,178,13,20,108,179,13,21,107,179,9,27,105,179,5,33,102,180,5,35,99,9,8,207,96,9,8,207,95,9,9,208,93,10,9,210,91,10,10,211,109,211,110,210,111,210,110,211,109,212,108,212,108,212,107,214,105,216,104,216,103,217,103,217,106,215,105,215,105,215,105,216,104,216,104,216,103,217,103,218,102,217,103,217,102,218,102,218,101,218,102,218,101,218,101,218,102,218,101,219,99,221,98,221,98,221,95,224,95,225,92,227,92,228,91,229,90,229,90,229,84,235,85,233,86,233,76,3,6,235,76,244,76,244,75,245,71,249,70,249,70,249,70,249,70,238,5,6,71,237,8,1,81,230,90,230,90,230,90,230,90,231,86,233,86,234,84,236,84,235,85,2,6,226,94,16,13,195,96,16,13,195,96,16,13,195,96,16,13,195,99,7,20,194,100,6,22,193,127,195,14,4,107,195,5,1,6,7,106,214,106,214,106,214,106,214,106,13,9,195,104,8,15,193,128,188,133,186,135,185,136,184,136,184,138,182,139,182,139,11,5,165,143,4,8,164,92,2,62,164,91,11,54,163,92,11,54,162,93,11,21,8,24,161,98,8,12,2,6,13,20,155,104,8,10,25,16,155,106,8,9,26,15,156,106,7,9,28,6,1,6,157,107,4,11,198,122,193,127,193,127,191,129,190,125,192,127,190,130,186,134,170,9,7,133,168,14,5,133,140,8,19,15,5,125,144,19,11,16,5,124,143,21,9,18,5,123,144,24,5,19,4,123,144,51,1,124,142,177,142,178,140,180,140,180,110,12,18,180,110,14,16,179,111,14,16,179,111,14,16,179,67,7,17,14,6,14,16,178,67,11,14,17,2,16,15,177,63,20,10,39,8,179,63,23,8,39,7,178,62,27,7,40,5,179,61,29,6,42,2,179,61,32,3,222,63,32,1,224,63,255,62,255,65,255,65,254,66,252,68,250,70,250,70,249,72,247,73,247,73,244,74,237,48,13,21,236,36,5,7,19,16,236,34,8,6,22,14,234,36,8,4,25,12,234,37,8,4,27,10,234,37,8,4,27,8,235,38,8,4,30,3,238,37,8,2,273,37,275,2,16,14,10,3,273,4,17,13,10,3,272,5,17,13,10,2,273,5,17,13,284,7,16,13,284,8,15,13,283,9,15,13,281,12,15,13,279,2,6,4,16,12,279,3,7,3,17,10,290,3,19,7,291,2,21,1,4437]
   }
 }
