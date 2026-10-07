@@ -24,9 +24,10 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
 
   root.innerHTML = `
     <header class="b-top">
+      <button id="b-pause" title="Pause">❚❚</button>
+      <button id="b-speed" title="Battle speed: tap to change">1×</button>
       <b>${b.siege ? "Siege of" : "Battle of"} ${b.regionName}</b>
       <span class="b-clock" id="b-clock"></span>
-      <span class="b-ctl">${B.speeds.map((s) => `<button data-speed="${s}" class="${s === 1 ? "on" : ""}">${s === 0.5 ? "½" : s}×</button>`).join("")}<button id="b-pause">❚❚</button></span>
     </header>
     <div class="b-stage" id="b-stage">
       <canvas id="b-canvas"></canvas>
@@ -55,7 +56,7 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
     cam.min = Math.min(stage.clientWidth / B.width, stage.clientHeight / B.height);
     if (!cam.userZoom) {
       // the whole field on a big screen; on a phone, close enough to see the men
-      cam.scale = stage.clientWidth >= 900 ? cam.min : Math.max(cam.min, Math.min(stage.clientWidth / 520, stage.clientHeight / 420));
+      cam.scale = stage.clientWidth >= 900 ? cam.min : Math.max(cam.min, Math.min(stage.clientWidth / 600, stage.clientHeight / 420));
       centreOn(side);
     }
     clamp();
@@ -140,7 +141,7 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
           }).join("") + `<button data-cmd="allai">All to AI</button><button data-cmd="retreat" class="danger">Retreat</button>`}
       </div>`);
     const banner = root.querySelector("#b-banner");
-    banner.innerHTML = deploying ? `Drag your bands into place within the lit ground. Bands in woods lie hidden until the enemy is close.${b.siege ? (side === "attacker" ? " Batter the gate or climb the palisade, then hold the centre." : " Hold the palisade and the centre until nightfall.") : ""}` : "";
+    banner.innerHTML = deploying ? `Drag your bands into place. Bands in woods stay hidden.${b.siege ? (side === "attacker" ? " Break the gate or climb, then hold the centre." : " Hold the walls until nightfall.") : ""}` : "";
     banner.hidden = !deploying;
     morph(root.querySelector("#b-log"), b.log.slice(-3).filter((l) => b.time - l.t < 8).map((l) => `<div>${l.text}</div>`).join(""));
   }
@@ -173,8 +174,13 @@ export function openBattle(root, b, { factions, onEnd, sfx = () => {} }) {
     panels();
   });
   root.querySelector(".b-top").addEventListener("click", (e) => {
-    const sp = e.target.closest("[data-speed]")?.dataset.speed;
-    if (sp) { speed = +sp; paused = false; root.querySelectorAll("[data-speed]").forEach((x) => x.classList.toggle("on", +x.dataset.speed === speed)); root.querySelector("#b-pause").textContent = "❚❚"; }
+    if (e.target.id === "b-speed") {
+      // one button cycles the speeds: ½× for tricky moments, up to 3× for a won field
+      speed = B.speeds[(B.speeds.indexOf(speed) + 1) % B.speeds.length];
+      e.target.textContent = `${speed === 0.5 ? "½" : speed}×`;
+      e.target.classList.toggle("on", speed !== 1);
+      paused = false; root.querySelector("#b-pause").textContent = "❚❚";
+    }
     if (e.target.id === "b-pause") { paused = !paused; e.target.textContent = paused ? "▶" : "❚❚"; }
     last = performance.now();
   });

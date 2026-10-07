@@ -43,10 +43,10 @@ Rule: `simulation/` never touches the DOM; `ui/` calls simulation functions and 
 4. Food is the only supply rule: hosts carry wheat, eat each season, refill in friendly land, forage abroad in summer and autumn, starve in winter.
 5. Taking a tribe offers a choice: win them over (a band joins you) or plunder (silver and wheat, but unrest and angry neighbours).
 6. The battle AI and the player use the same rules. No cheats.
-7. Mobile first: every battle control must work by touch.
+7. Mobile first, portrait first: the campaign map and battles are both laid out for a phone held upright; every control must work by touch.
 
 ## How battles work
-- Field 1200x760, ticks of 0.05s, speeds half to 3x plus pause.
+- Field 760x1040, portrait so it fills a phone held upright: armies deploy top and bottom (the player's always at the bottom), a big host in two lines. Ticks of 0.05s; one header button cycles speed (half to 3x) beside pause.
 - Every soldier is simulated: units march to formation slots (tight, dense, wild, loose, cavalry), soldiers pick foes and duel. Hit chance from attack vs defence; frontal shields block; flank and rear hits land more; a charge adds damage, knock-downs and morale shock; braced spears and tight ranks blunt horse.
 - Missiles fly in arcs (stones, arrows, javelins, pila, scorpion bolts that pierce). Skirmishers keep their distance while they have ammo. "Throw javelins" is a skill shot: aim a volley where the enemy will be.
 - Morale falls with losses, flanking, charges and the general's death; units rout and may rally. Stamina drains with running and fighting.
