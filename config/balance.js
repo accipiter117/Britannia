@@ -64,11 +64,11 @@ export const BALANCE = {
 
   // ---------- BATTLE ----------
   battle: {
-    width: 1200, height: 760, cell: 20,   // field units; terrain grid cell size
+    width: 760, height: 1040, cell: 20,   // field units (portrait, to fill a phone held upright); terrain grid cell size
     tick: 0.05,                           // seconds per step
     speeds: [0.5, 1, 2, 3],               // slow motion to fast
     timeLimit: 480, siegeTimeLimit: 480,
-    deployDepth: 190,
+    deployDepth: 300,
     radius: { foot: 3.2, mounted: 5.5 },  // soldier body radius for spacing
     engageRange: 18,                      // a soldier picks a foe within this
     reach: { foot: 7, mounted: 9 },       // striking distance

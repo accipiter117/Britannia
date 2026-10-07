@@ -67,7 +67,7 @@ export function makeTerrain(kind, seed, siege) {
 
 // A square enclosure near the top (defenders' side) with a gate facing the attackers.
 function addWalls(t) {
-  const cx = B.width / 2, cy = 215, half = 160;
+  const cx = B.width / 2, cy = 270, half = 160;
   const gateW = 40;
   forCells((x, y, k) => {
     const dx = Math.abs(x - cx), dy = Math.abs(y - cy);

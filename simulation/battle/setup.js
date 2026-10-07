@@ -94,7 +94,7 @@ function deploy(battle, side, list) {
   const atTop = battle.top === side;
   const dir = atTop ? 1 : -1;
   const cx = B.width / 2;
-  const baseY = atTop ? 70 : B.height - 70;
+  const baseY = atTop ? 50 : B.height - 50;
   const by = (pred) => list.filter(pred);
   const melee = by((u) => !u.ranged && !u.mounted);
   const ranged = by((u) => u.ranged && !u.artillery);
@@ -115,15 +115,24 @@ function deploy(battle, side, list) {
     place([...horse, ...art], cx, s.cy - 40, 10);
     place(gen, cx, s.cy - 100, 10);
   } else {
-    const front = baseY + dir * 70;
-    place(melee, cx, front, 14);
-    place(ranged, cx, roman ? baseY + dir * 15 : front + dir * 60, 20);
-    const lineHalf = melee.reduce((n, u) => n + unitWidth(u) + 14, 0) / 2;
+    // The field is narrow and deep, so a big host stands in two lines: the first line as wide as
+    // the field allows, the rest close behind; horse on the wings of the second line.
+    const front = baseY + dir * 190, second = front - dir * 75;
+    const room = B.width - 140;
+    const first = [];
+    let used = 0;
+    for (const u of melee) { const w = unitWidth(u) + 14; if (first.length && used + w > room) break; first.push(u); used += w; }
+    const rest = melee.slice(first.length);
+    place(first, cx, front, 14);
+    place(rest, cx, second, 14);
+    place(ranged, cx, roman ? second - dir * (rest.length ? 60 : 0) : front + dir * 60, 20);
+    const behind = rest.length ? rest : roman ? ranged : [];
+    const lineHalf = behind.reduce((n, u) => n + unitWidth(u) + 14, 0) / 2;
     const half = Math.ceil(horse.length / 2);
-    place(horse.slice(0, half), cx - lineHalf - 60, front, 10);
-    place(horse.slice(half), cx + lineHalf + 60, front, 10);
-    place(art, cx, baseY - dir * 30, 30);
-    place(gen, cx, baseY - dir * 40, 10);
+    place(horse.slice(0, half), cx - lineHalf - 70, second, 10);
+    place(horse.slice(half), cx + lineHalf + 70, second, 10);
+    place(art, cx, baseY + dir * 20, 30);
+    place(gen, cx, baseY, 10);
   }
   for (const u of list) {
     for (let k = 0; k < 8 && [GROUND.wall, GROUND.gate, GROUND.river].includes(groundAt(battle.terrain, u.cx, u.cy)); k++) u.cy -= dir * 20;
