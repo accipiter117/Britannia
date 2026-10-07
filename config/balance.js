@@ -100,10 +100,10 @@ export const BALANCE = {
   // ---------- CAMPAIGN ----------
   seasons: ["Spring", "Summer", "Autumn", "Winter"],
   maxUnitsPerArmy: 10,
-  maxArmies: 4,
+  maxArmies: 6,
   newArmyCost: 120,
   movesPerSeason: 1, fastMoves: 2,
-  upkeepPerUnit: 2,                     // silver per unit per season
+  upkeepPerUnit: 1.5,                     // silver per unit per season
   // Wheat: every army carries food. It eats each season; at home or in friendly land it is fed from
   // the region's harvest; abroad it forages in summer and autumn; in winter it eats more and finds none.
   food: {

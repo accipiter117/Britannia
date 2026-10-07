@@ -63,6 +63,30 @@
             "warriors",
             "warriors",
             "spearmen",
+            "slingers",
+            "warriors"
+          ]
+        },
+        {
+          "region": "catuvellauni",
+          "general": "Epaticcus",
+          "units": [
+            "chieftain",
+            "warriors",
+            "warriors",
+            "spearmen",
+            "slingers",
+            "horsemen"
+          ]
+        },
+        {
+          "region": "trinovantes",
+          "general": "Andocos",
+          "units": [
+            "chieftain",
+            "warriors",
+            "spearmen",
+            "javelinmen",
             "slingers"
           ]
         }
@@ -89,10 +113,10 @@
       "tribe": "Iceni",
       "intro": "AD 60. Rome has flogged the queen of the Iceni and seized her lands. While the governor campaigns in far Mona, Boudica raises the east. Burn the Roman towns and break the legions.",
       "player": [
-        "iceni"
+        "iceni",
+        "trinovantes"
       ],
       "rome": [
-        "trinovantes",
         "catuvellauni",
         "cantiaci",
         "atrebates",
@@ -102,7 +126,6 @@
         "cornovii"
       ],
       "romanTowns": [
-        "trinovantes",
         "catuvellauni",
         "cantiaci"
       ],
@@ -131,7 +154,31 @@
             "warriors",
             "warriors",
             "slingers",
+            "horsemen",
+            "warriors"
+          ]
+        },
+        {
+          "region": "iceni",
+          "general": "Antedios",
+          "units": [
+            "chieftain",
+            "warriors",
+            "warriors",
+            "spearmen",
+            "slingers",
             "horsemen"
+          ]
+        },
+        {
+          "region": "iceni",
+          "general": "Esuprastus",
+          "units": [
+            "chieftain",
+            "warriors",
+            "warriors",
+            "chariots",
+            "javelinmen"
           ]
         }
       ],
@@ -161,7 +208,8 @@
       "intro": "AD 83. Agricola's legions have marched to the edge of the world. Calgacus of the Caledonii calls the free peoples of the north to stand. They make a desert and call it peace.",
       "player": [
         "caledonii",
-        "taexali"
+        "taexali",
+        "venicones"
       ],
       "rome": [
         "votadini",
@@ -214,7 +262,31 @@
             "chieftain",
             "warriors",
             "spearmen",
-            "javelinmen"
+            "javelinmen",
+            "warriors"
+          ]
+        },
+        {
+          "region": "caledonii",
+          "general": "Brude",
+          "units": [
+            "chieftain",
+            "warriors",
+            "warriors",
+            "spearmen",
+            "slingers",
+            "horsemen"
+          ]
+        },
+        {
+          "region": "taexali",
+          "general": "Drest",
+          "units": [
+            "chieftain",
+            "warriors",
+            "spearmen",
+            "slingers",
+            "horsemen"
           ]
         }
       ],

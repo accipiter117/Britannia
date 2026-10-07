@@ -40,7 +40,7 @@ Rule: `simulation/` never touches the DOM; `ui/` calls simulation functions and 
 1. Battles are the heart. The campaign map exists to set up interesting battles.
 2. Every number lives in `config/balance.js`.
 3. Rome is stronger man for man; the Britons win with numbers, charges, ground, ambush and timing.
-4. Food is the only supply rule: hosts carry wheat, eat each season, refill in friendly land, forage abroad in summer and autumn, starve in winter.
+4. Food is the only supply rule: hosts carry wheat; at home they live off the land outside winter and refill from the granary; abroad they forage half their needs in summer and autumn and nothing in winter.
 5. Taking a tribe offers a choice: win them over (a band joins you) or plunder (silver and wheat, but unrest and angry neighbours).
 6. The battle AI and the player use the same rules. No cheats.
 7. Mobile first, portrait first: the campaign map and battles are both laid out for a phone held upright; every control must work by touch.
@@ -58,6 +58,8 @@ Rule: `simulation/` never touches the DOM; `ui/` calls simulation functions and 
 - The map fills the screen. A panel opens only when a host or tribe is chosen (side card on desktop, collapsible bottom sheet on phones).
 - With a host chosen, reachable regions carry a badge: March, Take, or Fight/Siege with the odds (`attackOdds`). Pulsing red borders mark where Rome may strike next season (`romeThreats`, same rule as Rome's AI).
 - The advice line at the top of the map says what to do next and steps through hosts that can still march.
+- Your hosts carry numbered standards (`army.standard`, set in `newArmy`), each with its own colour on the map plaque, the host bar along the foot of the map, and the host panel. Tap a chip in the host bar to pick and centre that host.
+- The host panel has two tabs: Bands (tap a band for upgrades, transfers to a host in the same region, or disband) and Recruit (in your own land).
 - `window.britanniaMap.screenOf(id)` gives a region's screen position for browser tests.
 
 ## Testing

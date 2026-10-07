@@ -234,7 +234,7 @@ canvas.unit-art { width: 33px; height: 27px; image-rendering: pixelated; flex: n
 @media (max-width: 820px) {
   #panel { max-height: 46%; padding-top: 8px; }
   #panel:not(.open) { max-height: none; overflow: hidden; }
-  #panel:not(.open) > :not(.army-head):not(.panel-tools):not(.wagon) { display: none; }
+  #panel:not(.open) > :not(.army-head):not(.host-head):not(.panel-tools):not(.wagon):not(.tabs) { display: none; }
   #panel:not(.open) .wagon { margin-bottom: 6px; }
   #panel .army-head h2 { font-size: 18px; margin: 0; }
   #panel .army-head p { margin: 2px 0 6px; font-size: 13px; }
@@ -259,4 +259,44 @@ canvas.unit-art { width: 33px; height: 27px; image-rendering: pixelated; flex: n
   .b-orders { gap: 4px; }
   .b-row { gap: 4px; }
   .b-row button { padding: 6px 7px; font-size: 12px; }
+}
+
+/* ---- your hosts: numbered, coloured standards; the host bar; the host panel ---- */
+.std { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 4px; border-radius: 5px; background: var(--std); color: #14160f; font: 800 13px system-ui; flex: none; }
+#hostbar { position: absolute; left: 10px; right: 60px; bottom: 10px; display: flex; gap: 6px; overflow-x: auto; z-index: 2; scrollbar-width: none; }
+#hostbar::-webkit-scrollbar { display: none; }
+.host-chip { flex: none; display: flex; align-items: center; gap: 7px; padding: 5px 8px 5px 6px; background: rgba(17,19,12,0.92); border: 1px solid var(--line); border-left: 4px solid var(--std); border-radius: 9px; text-align: left; }
+.host-chip.on { background: #3a3b2a; border-color: #fff4b0; border-left-color: var(--std); box-shadow: 0 0 0 1px #fff4b0; }
+.host-chip.done { opacity: 0.7; }
+.host-chip .hc-text { display: grid; line-height: 1.15; }
+.host-chip .hc-text b { font-size: 13px; white-space: nowrap; }
+.host-chip .hc-text small { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.hc-food { width: 5px; height: 26px; background: #151711; border-radius: 2px; display: flex; align-items: flex-end; overflow: hidden; }
+.hc-food b { display: block; width: 100%; background: #e6c25a; }
+.hc-state { font-style: normal; font-size: 11px; color: var(--gold); }
+.host-chip.done .hc-state { color: var(--muted); }
+.host-chip.add { border-left-width: 1px; font-size: 18px; padding: 6px 12px; color: var(--muted); }
+.map-legend { bottom: auto; top: 10px; }
+.host-head { display: flex; gap: 10px; align-items: center; border-left: 5px solid var(--std); padding-left: 10px; margin-bottom: 8px; }
+.host-head .std { min-width: 30px; height: 30px; font-size: 16px; }
+.host-head h2 { margin: 0; font-size: 19px; }
+.host-head p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.tabs { display: flex; margin: 8px 0; } .tabs button { flex: 1; }
+.tabs button[disabled] { opacity: 0.5; }
+.unit-row[data-action] { cursor: pointer; }
+.unit-row.open { border-color: #fff4b0; }
+.unit-main { grid-template-columns: auto 1fr 60px auto auto; }
+.unit-main .un { display: grid; line-height: 1.15; } .unit-main .un small { color: var(--muted); font-size: 11px; }
+.unit-main .chev { color: var(--muted); width: 12px; text-align: center; }
+.unit-opts { display: grid; gap: 6px; margin-top: 8px; }
+.unit-opts button { display: flex; align-items: center; gap: 6px; justify-content: space-between; text-align: left; }
+.unit-opts button small { color: var(--muted); }
+button.danger { border-color: var(--bad); color: #f2a99c; }
+@media (max-width: 820px) {
+  #main { display: flex; flex-direction: column; }
+  #map-wrap { position: relative; inset: auto; flex: 1; min-height: 0; }
+  #panel { position: relative; inset: auto; width: auto; max-height: 50%; flex: none; border-radius: 0; border-width: 1px 0 0; box-shadow: none; }
+  #hostbar { right: 10px; left: 8px; bottom: 8px; }
+  .map-zoom { top: auto; bottom: 64px; }
+  .map-legend { display: none; }
 }

@@ -305,7 +305,7 @@ export function transfer(state, fromId, index, toId) {
 export function income(state) {
   const D = C.difficulty[state.difficulty];
   const gross = Math.round(regionsOf(state, PLAYER).reduce((n, r) => n + (C.regionYield[r.settlement]?.silver ?? 15) * (r.unrest ? 0.5 : 1), 0) * D.silver);
-  const upkeep = state.armies.filter((a) => a.faction === PLAYER).reduce((n, a) => n + a.units.length * C.upkeepPerUnit, 0);
+  const upkeep = Math.round(state.armies.filter((a) => a.faction === PLAYER).reduce((n, a) => n + a.units.length * C.upkeepPerUnit, 0));
   return { gross, upkeep, net: gross - upkeep };
 }
 
@@ -346,15 +346,16 @@ export function endTurn(state) {
   return notes;
 }
 
-// Hosts eat. At home they live half off the land outside winter and refill from the granary;
-// abroad they forage only in summer and autumn.
+// Hosts eat. At home they live off the land outside winter, and refill from the granary;
+// abroad they forage half their needs in summer and autumn, and nothing in winter.
 // An empty wagon means hunger, and men slip away.
 function supply(state, season, notes) {
   for (const army of state.armies.filter((a) => a.faction === PLAYER)) {
     const need = foodNeed(army, season);
     const home = state.regions[army.region].owner === PLAYER;
     let eat = need;
-    if (home ? season !== "Winter" : season === "Summer" || season === "Autumn") eat = Math.ceil(need * (1 - C.food.forageSummer));
+    if (home && season !== "Winter") eat = 0;
+    else if (!home && (season === "Summer" || season === "Autumn")) eat = Math.ceil(need * (1 - C.food.forageSummer));
     army.food -= eat;
     if (home) {
       const room = foodCap(army) - Math.max(0, army.food);
