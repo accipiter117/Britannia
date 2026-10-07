@@ -105,7 +105,7 @@ function beginCampaign(s) {
     modal(`<h2>${icon("scroll")} ${esc(data.eras[state.era].label)}, AD ${state.startYear}</h2><p>${esc(state.intro)}</p>
       <ul class="help">
         <li><b>The map:</b> your tribes are blue, Rome's red. Tap your host and the regions it can reach are marked: March, or a fight with the odds. Red pulsing borders show where Rome may strike next.</li>
-        <li><b>Wheat:</b> every host carries food. At home it lives half off the land outside winter and refills from your granary; abroad it forages in summer and autumn and starves in winter.</li>
+        <li><b>Wheat:</b> every host carries food. At home it lives off the land outside winter and refills from your granary; abroad it forages in summer and autumn and goes hungry in winter.</li>
         <li><b>Taken land:</b> win a tribe over (its warriors join you) or plunder it (silver and wheat now, unrest later).</li>
         <li><b>Battles:</b> drag your bands into place, then fight. Tap to march, drag to march and face, tap an enemy to attack. Throw javelins with the skill shot: tap the button, then where they should land.</li>
         <li><b>Win</b> by driving Rome from Britannia.</li>
@@ -133,9 +133,11 @@ function render() {
     }
     for (const n of view.reach) view.badges[n] = { text: state.regions[n].owner === "celts" ? "March" : `Take ${state.regions[n].name}` };
   }
+  view.standards = Object.fromEntries(state.armies.filter((a) => a.faction === "celts").map((a) => [a.id, { n: standardOf(a), colour: colourOf(a) }]));
   map.render(state, view);
   hud();
   advise(view);
+  hostbar();
   const panel = army ? armyPanel(army) : ui.region ? regionPanel(state.regions[ui.region]) : "";
   $("panel").innerHTML = panel;
   $("panel").hidden = !panel;
@@ -154,6 +156,30 @@ function hud() {
     <span class="date">${seasonName(state)} <small>AD ${state.startYear + Math.floor((state.turn - 1) / 4)}</small></span>
     <span class="spacer"></span>
     <button id="end-turn" class="primary" data-action="end-turn">${state.pending.length ? `Rome attacks (${state.pending.length})` : "End Season"}</button>`;
+}
+
+// Each of your hosts has a numbered standard and a colour, the same on the map, the host bar and its panel.
+const STANDARD_COLOURS = ["#e6c25a", "#4fc1b0", "#b48ae0", "#ef8f4a", "#9ad05a", "#ec7aa8", "#7ab0ef", "#d8d8d8"];
+function standardOf(a) {
+  if (a.standard == null) { // saves from before standards
+    const mine = state.armies.filter((x) => x.faction === "celts");
+    a.standard = mine.indexOf(a) + 1;
+  }
+  return a.standard;
+}
+const colourOf = (a) => STANDARD_COLOURS[(standardOf(a) - 1) % STANDARD_COLOURS.length];
+const badge = (a) => `<span class="std" style="--std:${colourOf(a)}">${standardOf(a)}</span>`;
+
+// The strip of your hosts along the foot of the map: tap one to pick it and bring it into view.
+function hostbar() {
+  const hosts = state.armies.filter((a) => a.faction === "celts").sort((p, q) => standardOf(p) - standardOf(q));
+  $("hostbar").innerHTML = hosts.map((a) => {
+    const cap = foodCap(a);
+    return `<button class="host-chip ${a.id === ui.army ? "on" : ""} ${a.moves ? "ready" : "done"}" data-action="pick-host" data-army="${a.id}" style="--std:${colourOf(a)}">
+      ${badge(a)}<span class="hc-text"><b>${esc(a.general.name)}</b><small>${a.units.length} bands · ${esc(state.regions[a.region].name)}</small></span>
+      <i class="hc-food" title="Wheat ${a.food}/${cap}"><b style="height:${Math.min(100, (a.food / Math.max(1, cap)) * 100)}%"></b></i>
+      ${a.moves ? "" : `<i class="hc-state" title="Has marched this season">✓</i>`}</button>`;
+  }).join("") + (hosts.length < BALANCE.maxArmies ? `<button class="host-chip add" data-action="raise-help" title="Raise a new host">＋</button>` : "");
 }
 
 function panelTools() {
@@ -202,45 +228,52 @@ function armyPanel(a) {
   const mine = a.faction === "celts";
   const r = state.regions[a.region];
   const home = r.owner === "celts";
-  const others = armiesIn(state, a.region, "celts").filter((x) => x.id !== a.id);
   const stars = "★".repeat(a.general.rank) + "☆".repeat(3 - a.general.rank);
-  const head = `${panelTools()}<header class="army-head ${a.faction}">
-      <h2>${esc(a.name)}</h2>
-      <p>${a.faction === "rome" ? "Legate" : "Led by"} ${esc(a.general.name)} <span class="stars">${stars}</span> · ${esc(r.name)}${mine ? ` · ${a.moves ? `${a.moves} march${a.moves > 1 ? "es" : ""} left` : "has marched"}` : ""}</p>
-    </header>`;
   if (!mine) {
-    return head + `<p class="muted">About ${Math.round(armyMen(a) / 20) * 20} men in ${a.units.length} units.</p>
-      <ul class="unit-list">${a.units.map((u) => `<li class="unit-row foe"><b>${U[u.type].name}</b><span class="muted">${u.men} men</span></li>`).join("")}</ul>
-      <button data-action="deselect">Back</button>`;
+    return `${panelTools()}<header class="army-head ${a.faction}"><h2>${esc(a.name)}</h2>
+      <p>Legate ${esc(a.general.name)} <span class="stars">${stars}</span> · ${esc(r.name)}</p></header>
+      <p class="muted">About ${Math.round(armyMen(a) / 20) * 20} men in ${a.units.length} units.</p>
+      <ul class="unit-list">${a.units.map((u) => `<li class="unit-row foe"><b>${U[u.type].name}</b><span class="muted">${u.men} men</span></li>`).join("")}</ul>`;
   }
   const season = seasonName(state);
   const need = foodNeed(a, season);
   const cap = foodCap(a);
-  const units = a.units.map((u, i) => {
-    const rank = rankOf(u);
-    const canUp = home && !U[u.type].tags?.includes("general");
-    return `<li class="unit-row">
-      <div class="unit-main"><canvas class="unit-art" data-type="${u.type}" width="22" height="18"></canvas><b>${U[u.type].name}</b><span class="rank r${rank}" title="${BALANCE.ranks[rank].label}">${"▲".repeat(rank) || "·"}</span>
-        <span class="men"><i style="width:${(u.men / u.maxMen) * 100}%"></i></span><small>${u.men}/${u.maxMen}</small></div>
-      <div class="unit-sub">
-        <span class="pips" title="Weapons">⚔ ${"●".repeat(u.weapons)}${"○".repeat(3 - u.weapons)}</span>
-        <span class="pips" title="Armour">⛨ ${"●".repeat(u.armour)}${"○".repeat(3 - u.armour)}</span>
-        ${canUp && u.weapons < 3 ? `<button class="mini" data-action="upgrade" data-index="${i}" data-kind="weapons">+⚔ ${upgradeCost(u, "weapons")}</button>` : ""}
-        ${canUp && u.armour < 3 ? `<button class="mini" data-action="upgrade" data-index="${i}" data-kind="armour">+⛨ ${upgradeCost(u, "armour")}</button>` : ""}
-        ${others.length && canUp ? `<button class="mini" data-action="transfer" data-index="${i}" data-to="${others[0].id}" title="Send to ${esc(others[0].name)}">→ host</button>` : ""}
-        ${canUp ? `<button class="mini ghost" data-action="disband" data-index="${i}" title="Disband">✕</button>` : ""}
-      </div></li>`;
-  }).join("");
-  const rec = home ? recruitOptions(state, a).map((o) => `<button class="recruit ${o.ok ? "" : "off"}" data-action="recruit" data-type="${o.type}" ${o.ok ? "" : "disabled"} title="${esc(o.reason || U[o.type].desc)}">
-      <canvas class="unit-art" data-type="${o.type}" width="22" height="18"></canvas><b>${U[o.type].name}</b><small><i class="coin"></i>${o.cost}${o.ok ? ` · ${U[o.type].men} men` : ` · ${esc(o.reason)}`}</small></button>`).join("") : "";
-  return head + `
-    <div class="wagon ${a.food < need ? "low" : ""}"><i class="wheat"></i><span>Wheat <b>${a.food}/${cap}</b> · eats ${need} this ${season.toLowerCase()}${home ? (season === "Winter" ? " · refills from the granary" : " · half off the land, refills from the granary") : season === "Summer" || season === "Autumn" ? " · foraging abroad" : " · nothing to forage"}</span>
-      <i class="bar"><b style="width:${Math.min(100, (a.food / Math.max(1, cap)) * 100)}%"></b></i></div>
-    <p class="hint">${a.moves ? "Tap a marked region: March, or a fight with its odds." : "This host has marched this season."}</p>
-    <ul class="unit-list">${units}</ul>
-    <p class="muted small">${a.units.length}/${BALANCE.maxUnitsPerArmy} bands · strength ${Math.round(armyPower(a))}${home ? " · men return to the colours at home" : ""}</p>
-    ${home ? `<h3>Recruit at ${esc(r.name)}</h3><div class="recruit-grid">${rec}</div>` : ""}
-`;
+  const others = armiesIn(state, a.region, "celts").filter((x) => x.id !== a.id);
+  const tab = home && ui.tab === "recruit" ? "recruit" : "bands";
+  const head = `${panelTools()}<header class="host-head" style="--std:${colourOf(a)}">
+      ${badge(a)}<div><h2>${esc(a.name)}</h2>
+      <p>${esc(r.name)} · <span class="stars">${stars}</span> · ${a.moves ? `<b class="pos">${a.moves} march${a.moves > 1 ? "es" : ""} left</b>` : "has marched"}</p></div>
+    </header>
+    <div class="wagon ${a.food < need ? "low" : ""}"><i class="wheat"></i><span>Wheat <b>${a.food}/${cap}</b> · ${home && season !== "Winter" ? "living off the land" : `eats ${need} this ${season.toLowerCase()}`}${home ? "" : season === "Summer" || season === "Autumn" ? " · foraging" : " · nothing to forage"}</span>
+      <i class="bar"><b style="width:${Math.min(100, (a.food / Math.max(1, cap)) * 100)}%"></b></i></div>`;
+  const tabs = `<div class="seg tabs">
+      <button data-action="tab" data-tab="bands" class="${tab === "bands" ? "on" : ""}">Bands ${a.units.length}/${BALANCE.maxUnitsPerArmy}</button>
+      <button data-action="tab" data-tab="recruit" class="${tab === "recruit" ? "on" : ""}" ${home ? "" : "disabled title=\"Recruit in your own land\""}>Recruit${home ? "" : " (at home)"}</button>
+    </div>`;
+  let body;
+  if (tab === "bands") {
+    body = `<ul class="unit-list">${a.units.map((u, i) => {
+      const rank = rankOf(u);
+      const general = U[u.type].tags?.includes("general");
+      const open = ui.unitOpen === `${a.id}:${i}`;
+      const opts = open && !general ? `<div class="unit-opts">
+          ${home ? `<button data-action="upgrade" data-index="${i}" data-kind="weapons" ${u.weapons < 3 ? "" : "disabled"}>⚔ Better weapons <small>${u.weapons < 3 ? `<i class="coin"></i>${upgradeCost(u, "weapons")}` : "best"}</small></button>
+          <button data-action="upgrade" data-index="${i}" data-kind="armour" ${u.armour < 3 ? "" : "disabled"}>⛨ Better armour <small>${u.armour < 3 ? `<i class="coin"></i>${upgradeCost(u, "armour")}` : "best"}</small></button>` : `<p class="muted small">Upgrades need your own land.</p>`}
+          ${others.map((o) => `<button data-action="transfer" data-index="${i}" data-to="${o.id}">→ Send to ${badge(o)} ${esc(o.general.name)}</button>`).join("")}
+          <button class="danger" data-action="disband" data-index="${i}">Disband</button>
+        </div>` : "";
+      return `<li class="unit-row ${open ? "open" : ""}" ${general ? "" : `data-action="unit-open" data-key="${a.id}:${i}"`}>
+        <div class="unit-main"><canvas class="unit-art" data-type="${u.type}" width="22" height="18"></canvas>
+          <span class="un"><b>${U[u.type].name}</b><small>${BALANCE.ranks[rank].label}${u.weapons || u.armour ? ` · ⚔${u.weapons} ⛨${u.armour}` : ""}</small></span>
+          <span class="men"><i style="width:${(u.men / u.maxMen) * 100}%"></i></span><small>${u.men}/${u.maxMen}</small>${general ? "" : `<span class="chev">${open ? "▾" : "▸"}</span>`}</div>
+        ${opts}</li>`;
+    }).join("")}</ul>
+    <p class="muted small">Tap a band for upgrades, transfers or to disband it.${home ? " Men return to the colours at home." : ""}</p>`;
+  } else {
+    body = `<div class="recruit-grid">${recruitOptions(state, a).map((o) => `<button class="recruit ${o.ok ? "" : "off"}" data-action="recruit" data-type="${o.type}" ${o.ok ? "" : "disabled"} title="${esc(o.reason || U[o.type].desc)}">
+      <canvas class="unit-art" data-type="${o.type}" width="22" height="18"></canvas><b>${U[o.type].name}</b><small><i class="coin"></i>${o.cost}${o.ok ? ` · ${U[o.type].men} men` : ` · ${esc(o.reason)}`}</small></button>`).join("")}</div>`;
+  }
+  return head + tabs + body;
 }
 
 function regionPanel(r) {
@@ -327,9 +360,11 @@ function askCapture() {
 function centre(id) {
   requestAnimationFrame(() => {
     const p = $("panel"), m = $("map").getBoundingClientRect();
-    if (p.hidden) return map.centreOn(id);
+    const bar = $("hostbar").offsetHeight + 10;
+    if (p.hidden) return map.centreOn(id, { bottom: bar });
     const b = p.getBoundingClientRect();
-    map.centreOn(id, b.width >= m.width - 20 ? { bottom: m.bottom - b.top } : { right: m.right - b.left });
+    const over = (n) => Math.max(0, n);
+    map.centreOn(id, b.width >= m.width - 20 ? { bottom: over(m.bottom - b.top) + bar } : { right: over(m.right - b.left), bottom: bar });
   });
 }
 
@@ -445,7 +480,7 @@ function help() {
   modal(`<h2>${icon("scroll")} How to play</h2>
     <ul class="help">
       <li><b>The map:</b> your tribes are blue, Rome's red, free tribes plain. Tap your host and the regions it can reach are marked with March or the odds of a fight (one region a season; all-horse hosts two). Red pulsing borders show where Rome may strike next season. The line at the top of the map says what to do next.</li>
-      <li><b>Wheat:</b> each host carries wheat and eats every season, more in winter. At home it lives half off the land outside winter and refills from the granary; the harvest comes in summer and autumn. Abroad it forages in summer and autumn only. Empty wagons mean desertion.</li>
+      <li><b>Wheat:</b> each host carries wheat and eats every season, more in winter. At home it lives off the land outside winter and refills from the granary; the harvest comes in summer and autumn. Abroad it forages in summer and autumn only. Empty wagons mean desertion.</li>
       <li><b>Silver</b> comes from your tribes each season. Recruit and upgrade in your own land; men return to the colours at home.</li>
       <li><b>Taken land:</b> win a tribe over and its warriors join you; plunder it for silver and wheat, but it may rise again and its neighbours will resist harder.</li>
       <li><b>Battles:</b> drag bands into place, then begin. Tap a soldier to select his band; tap ground to march; drag to march and face; tap an enemy to attack. Throw javelins: tap the button, then where they should land. Hit flanks and rears, charge downhill, ambush from woods. War Cry, Rally and Fury can turn a fight. Use ½× to slow time.</li>
@@ -474,16 +509,25 @@ const actions = {
     toast(notes.slice(-1)[0]);
     nextPending();
   },
-  "select-army": (el) => { ui.army = el.dataset.army; ui.region = null; render(); },
+  "select-army": (el) => { ui.army = el.dataset.army; ui.region = null; ui.unitOpen = null; render(); },
   "select-army-close": (el) => { closeModal(); ui.army = el.dataset.army; ui.region = null; render(); centre(state.armies.find((a) => a.id === ui.army).region); },
   "next-host": () => nextHost(),
+  "pick-host": (el) => {
+    const id = el.dataset.army;
+    ui.army = ui.army === id && !$("panel").hidden ? null : id; ui.region = null; ui.unitOpen = null;
+    render();
+    if (ui.army) centre(state.armies.find((a) => a.id === id).region);
+  },
+  tab: (el) => { ui.tab = el.dataset.tab; ui.sheet = true; render(); },
+  "unit-open": (el) => { ui.unitOpen = ui.unitOpen === el.dataset.key ? null : el.dataset.key; render(); },
+  "raise-help": () => toast("Tap one of your tribes to raise a new host there."),
   sheet: () => { ui.sheet = !ui.sheet; render(); },
   "show-threat": () => { const id = romeThreats(state)[0]; if (id) { ui.region = id; ui.army = null; render(); centre(id); } },
   deselect: () => { ui.army = null; ui.region = null; render(); },
   recruit: (el) => { const r = recruit(state, ui.army, el.dataset.type); if (r.ok) sfx("recruit"); else toast(r.reason); render(); },
   upgrade: (el) => { const r = upgrade(state, ui.army, +el.dataset.index, el.dataset.kind); if (r.ok) sfx("build"); else toast(r.reason); render(); },
-  disband: (el) => { disband(state, ui.army, +el.dataset.index); render(); },
-  transfer: (el) => { transfer(state, ui.army, +el.dataset.index, el.dataset.to); render(); },
+  disband: (el) => { disband(state, ui.army, +el.dataset.index); ui.unitOpen = null; render(); },
+  transfer: (el) => { transfer(state, ui.army, +el.dataset.index, el.dataset.to); ui.unitOpen = null; render(); },
   raise: () => { const r = raiseArmy(state, ui.region); if (r.ok) { ui.army = r.army.id; ui.region = null; sfx("recruit"); } else toast(r.reason); render(); },
   capture: (el) => { decideCapture(state, el.dataset.choice); sfx(el.dataset.choice === "plunder" ? "build" : "recruit"); modalAfter = null; closeModal(); if (state.pending.length || state.over) nextPending(); else nextHost(true); },
   "attack-fight": () => { const m = moveArmy(state, ui.attack.armyId, ui.attack.to); if (m.battle) fight(m.battle, false); else closeModal(); },

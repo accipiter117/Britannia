@@ -151,13 +151,15 @@ export function createMap(canvas, { regions: regionsData, land }, { onRegion, on
     for (const a of state.armies) (by[a.region] ||= []).push(a);
     for (const [rid, list] of Object.entries(by)) {
       const r = state.regions[rid];
-      list.forEach((a, i) => host(a, r, i, list.length));
+      list.forEach((a, i) => { if (a.id !== view.selected) host(a, r, i, list.length); });
+      list.forEach((a, i) => { if (a.id === view.selected) host(a, r, i, list.length); }); // the chosen host on top
     }
   }
 
   function host(a, r, i, n) {
     const k = Math.max(1, Math.round(cam.scale * 0.75));      // sprite zoom
-    const [cx, cy] = toScreen(r.pos[0] + (i - (n - 1) / 2) * 14, r.pos[1] - 2);
+    const [px0, cy] = toScreen(r.pos[0], r.pos[1] - 2);
+    const cx = px0 + (i - (n - 1) / 2) * 58; // hosts sharing a region stand side by side, plaques clear
     const types = a.faction === "rome" ? ["legionaries", "legionaries", "auxilia"] : ["warriors", "spearmen", "warriors"];
     const general = a.units.find((u) => BALANCE.units[u.type].tags?.includes("general"));
     ctx.save();
@@ -171,20 +173,32 @@ export function createMap(canvas, { regions: regionsData, land }, { onRegion, on
     ctx.drawImage(flag, -16, -flag.height - 6);
     ctx.restore();
     // plaque: units, and wheat for your hosts
-    const w = a.faction === "celts" ? 46 : 30;
+    const w = a.faction === "celts" ? 52 : 30;
     const py = cy + 4;
     ctx.fillStyle = a.faction === "celts" ? "rgba(18,30,50,0.9)" : a.faction === "rome" ? "rgba(60,14,16,0.9)" : "rgba(50,44,26,0.9)";
     ctx.fillRect(cx - w / 2, py, w, 13);
     if (a.id === view.selected) { ctx.strokeStyle = "#fff6b0"; ctx.lineWidth = 1.5; ctx.strokeRect(cx - w / 2, py, w, 13); }
-    if (a.faction === "celts" && a.moves > 0) { ctx.fillStyle = "#e6c25a"; ctx.fillRect(cx - w / 2, py, 3, 13); }
-    ctx.fillStyle = "#f4ecd4"; ctx.font = "bold 9px system-ui"; ctx.textAlign = "left";
-    ctx.fillText(`${a.units.length}`, cx - w / 2 + 6, py + 10);
+    const std = view.standards?.[a.id];
+    ctx.textAlign = "left";
+    if (std) {
+      // the host's numbered standard in its own colour; dimmed once it has marched
+      ctx.fillStyle = std.colour; ctx.globalAlpha = a.moves > 0 ? 1 : 0.55;
+      ctx.fillRect(cx - w / 2, py, 14, 13);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#14160f"; ctx.font = "bold 10px system-ui";
+      ctx.fillText(`${std.n}`, cx - w / 2 + 4, py + 10);
+      ctx.fillStyle = "#f4ecd4"; ctx.font = "bold 9px system-ui";
+      ctx.fillText(`${a.units.length}`, cx - w / 2 + 17, py + 10);
+    } else {
+      ctx.fillStyle = "#f4ecd4"; ctx.font = "bold 9px system-ui";
+      ctx.fillText(`${a.units.length}`, cx - w / 2 + 6, py + 10);
+    }
     if (a.faction === "celts") {
       const cap = a.units.length * BALANCE.food.carry;
       // a little sheaf of wheat
-      ctx.fillStyle = "#e6c25a"; ctx.fillRect(cx - w / 2 + 25, py + 3, 1, 8); ctx.fillRect(cx - w / 2 + 23, py + 3, 1, 4); ctx.fillRect(cx - w / 2 + 27, py + 3, 1, 4);
-      ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(cx + 9, py + 5, 12, 4);
-      ctx.fillStyle = a.food / cap > 0.35 ? "#e6c25a" : "#e2735f"; ctx.fillRect(cx + 9, py + 5, 12 * Math.max(0, Math.min(1, a.food / cap)), 4);
+      ctx.fillStyle = "#e6c25a"; ctx.fillRect(cx - w / 2 + 30, py + 3, 1, 8); ctx.fillRect(cx - w / 2 + 28, py + 3, 1, 4); ctx.fillRect(cx - w / 2 + 32, py + 3, 1, 4);
+      ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(cx + 10, py + 5, 12, 4);
+      ctx.fillStyle = a.food / cap > 0.35 ? "#e6c25a" : "#e2735f"; ctx.fillRect(cx + 10, py + 5, 12 * Math.max(0, Math.min(1, a.food / cap)), 4);
     }
     ctx.textAlign = "center";
     tokens.push({ id: a.id, x0: cx - 18, x1: cx + 18, y0: cy - 30, y1: py + 13 });

@@ -26,6 +26,12 @@ export function newArmy(state, { faction, region, general, units, name }) {
   };
   army.moves = armyMoves(army);
   army.food = foodCap(army);
+  // your hosts carry numbered standards (1, 2, 3...), so each keeps its colour and number on the map
+  if (faction === "celts") {
+    const used = new Set(state.armies.filter((x) => x.faction === "celts").map((x) => x.standard));
+    army.standard = 1;
+    while (used.has(army.standard)) army.standard++;
+  }
   return army;
 }
 
