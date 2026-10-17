@@ -14,6 +14,7 @@ import { createBattle } from "./battle/setup.js";
 import { autoResolve } from "./battle/engine.js";
 import { resolveRome } from "./romeAI.js";
 import { growSettlements, has, silverOf, wheatOf } from "./settlements.js";
+import { rollEvent } from "./events.js";
 
 const C = BALANCE;
 const PLAYER = "celts";
@@ -42,8 +43,57 @@ export function attackOdds(army, clash) {
 
 export function canMove(state, army, to) {
   if (army.moves <= 0) return { ok: false, reason: "This host has marched this season" };
-  if (!neighbours(state, army.region).includes(to)) return { ok: false, reason: "One region at a time" };
+  if (!neighbours(state, army.region).includes(to) && !seaRoutes(state, army).includes(to)) return { ok: false, reason: "One region at a time, or by sea from a harbour" };
   return { ok: true };
+}
+
+// Coasts a host can sail to: it must stand in one of your tribes that has a harbour.
+export function seaRoutes(state, army) {
+  const from = state.regions[army.region];
+  if (army.faction !== PLAYER || from.owner !== PLAYER || !from.coastal || !from.buildings?.includes("harbour")) return [];
+  const near = new Set(neighbours(state, from.id));
+  return Object.values(state.regions).filter((r) => r.id !== from.id && r.coastal && !near.has(r.id)
+    && Math.hypot(r.pos[0] - from.pos[0], r.pos[1] - from.pos[1]) <= C.sea.range).map((r) => r.id);
+}
+
+// Gifts to a free tribe that borders your land. Friendship builds; at 100 the tribe joins you in peace,
+// keeping its people and buildings. Plundering its neighbours sours it (anger).
+export function giftOptions(state, regionId) {
+  const r = state.regions[regionId];
+  if (r.owner !== "free") return null;
+  const borders = neighbours(state, r.id).some((n) => state.regions[n].owner === PLAYER);
+  const reason = !borders ? "Only tribes that border your land" : state.silver < C.gifts.cost ? `Needs ${C.gifts.cost} silver` : null;
+  return { cost: C.gifts.cost, friendship: r.friendship || 0, ok: !reason, reason };
+}
+export function sendGifts(state, regionId) {
+  const o = giftOptions(state, regionId);
+  if (!o?.ok) return { ok: false, reason: o?.reason || "Not a free tribe" };
+  const r = state.regions[regionId];
+  state.silver -= o.cost;
+  const [lo, hi] = C.gifts.friendship;
+  const gain = Math.max(5, Math.round(lo + (hi - lo) * nextRandom(state)) - (r.anger || 0) * C.gifts.angerPenalty);
+  r.friendship = Math.min(100, (r.friendship || 0) + gain);
+  if (r.friendship >= 100) {
+    r.owner = PLAYER; r.friendship = 0; r.garrison = garrisonFor(PLAYER, r.settlement); r.build = null; r.progress = 0;
+    log(state, `The ${r.name} join you of their own free will.`, "good");
+    reveal(state);
+    checkEnd(state);
+    return { ok: true, joined: true, gain };
+  }
+  return { ok: true, joined: false, gain };
+}
+
+// What your people know of the island: your tribes, your hosts' surroundings, and coasts in reach of
+// your harbours. The rest lies under the fog until a host or a ship comes near.
+export function reveal(state) {
+  const seen = new Set(state.seen || []);
+  const look = (id) => { seen.add(id); for (const n of neighbours(state, id)) seen.add(n); };
+  for (const r of regionsOf(state, PLAYER)) {
+    look(r.id);
+    if (r.buildings?.includes("harbour")) for (const id of seaRoutes(state, { faction: PLAYER, region: r.id })) seen.add(id);
+  }
+  for (const a of state.armies) if (a.faction === PLAYER) look(a.region);
+  state.seen = [...seen];
 }
 
 // Moves a host one region. Returns { battle } if the move starts a fight; { capture } if it takes an
@@ -60,6 +110,7 @@ export function moveArmy(state, armyId, to) {
   }
   const was = state.regions[to].owner;
   army.region = to;
+  if (army.faction === PLAYER) reveal(state);
   if (was !== army.faction) return take(state, to, army.faction, was);
   return { ok: true };
 }
@@ -390,6 +441,8 @@ export function endTurn(state) {
     }
   }
   checkEnd(state);
+  reveal(state);
+  rollEvent(state, season);
   state.turn += 1;
   for (const a of state.armies) a.moves = armyMoves(a);
   notes.push(`${seasonName(state)} begins. Silver ${inc.net >= 0 ? "+" : ""}${inc.net}.`);

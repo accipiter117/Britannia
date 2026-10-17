@@ -356,3 +356,8 @@ button.wide { width: 100%; margin-top: 6px; }
 .built { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 8px; }
 .built span { font-size: 11.5px; padding: 2px 7px; border-radius: 10px; background: #2f3a2a; color: #cfe6b8; }
 .list-row { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 2px 8px; } .list-row span { flex-basis: 100%; }
+
+.gifts { display: grid; gap: 4px; margin: 8px 0; padding: 8px 10px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; }
+.gifts .bar { height: 6px; background: #151711; border-radius: 3px; overflow: hidden; display: block; }
+.gifts .bar b { display: block; height: 100%; background: #8fd18a; transition: width 0.3s ease; }
+.gifts button { display: flex; justify-content: space-between; }

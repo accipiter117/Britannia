@@ -9,6 +9,8 @@ import { armyPower, createCampaign, dateLabel, deserialise, neighbours, regionsO
 import { applyBattle, clashAt, decideCapture, endTurn, moveArmy, pendingBattle, recruit, recruitOptions } from "../simulation/campaign.js";
 import { autoResolve } from "../simulation/battle/engine.js";
 import { buildOptions, rush, rushCost, setBuild } from "../simulation/settlements.js";
+import { chooseEvent } from "../simulation/events.js";
+import { giftOptions, sendGifts } from "../simulation/campaign.js";
 
 const data = JSON.parse(readFileSync(new URL("../data/britannia.json", import.meta.url)));
 const [SEASONS, mode, era, difficulty, seed] = [+process.argv[2] || 40, process.argv[3] || "bot", process.argv[4] || "caratacus", process.argv[5] || "normal", +process.argv[6] || 1];
@@ -24,6 +26,8 @@ function fight(battle) {
 
 for (let i = 0; i < SEASONS && !state.over; i++) {
   state.announce = null;
+  let events = 0;
+  if (state.event) { chooseEvent(state, 0); events++; }
   for (const p of state.pending) { const b = pendingBattle(state, p); if (b) fight(b); }
   state.pending = [];
   if (mode === "bot") {
@@ -32,6 +36,7 @@ for (let i = 0; i < SEASONS && !state.over; i++) {
       if (pick) setBuild(state, r.id, pick.id);
     }
     for (const r of regionsOf(state, "celts")) if (r.build && rushCost(r) < state.silver - 300) rush(state, r.id);
+    for (const r of regionsOf(state, "free")) if (state.silver > 400 && giftOptions(state, r.id)?.ok) sendGifts(state, r.id);
     for (const army of state.armies.filter((a) => a.faction === "celts")) {
       for (const t of ["warriors", "spearmen", "warriors", "slingers", "horsemen", "champions", "warriors"]) {
         if (state.silver < 120) break;

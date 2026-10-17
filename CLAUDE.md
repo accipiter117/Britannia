@@ -52,7 +52,11 @@ Rule: `simulation/` never touches the DOM; `ui/` calls simulation functions and 
 - Victories (`checkEnd`) are announced once and play goes on: Britannia free, High King (every tribe), golden age (`victories.prosperity` people). Only losing everything ends a game.
 - Once driven out, Rome returns by sea every `romeReturns.every` seasons onto an unguarded coast (`returnFromTheSea` in romeAI.js).
 - Save version 3; `upgradeSave` brings version 2 saves up to date.
-- Next: Northern Gaul and western Scandinavia as new lands (ChatGPT art briefs are in hand), ships from harbours, fog of war.
+- Ships: a host standing in one of your coastal tribes with a harbour can sail to any coast within `sea.range` (`seaRoutes`); the map marks those targets with ⛵.
+- Fog of war: `state.seen` holds the regions your people know (`reveal` adds your tribes, your hosts' surroundings and your harbours' sea reach). Unseen regions are drawn under cloud with no names, settlements or hosts.
+- Gifts: a free tribe on your border gains friendship from gifts (`sendGifts`); at 100 it joins you in peace.
+- Story events (`simulation/events.js`): about one season in three a small story offers a choice (harvests, druids, Gaulish traders, sea raiders, bards, sickness, refugees, hoards).
+- Next: Northern Gaul and western Scandinavia as new lands (ChatGPT art briefs are in hand); sea routes will reach them from harbours.
 
 ## How battles work
 - Field 760x1040, portrait so it fills a phone held upright: armies deploy top and bottom (the player's always at the bottom), a big host in two lines. Ticks of 0.05s; one header button cycles speed (half to 3x) beside pause.
