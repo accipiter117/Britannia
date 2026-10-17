@@ -59,7 +59,8 @@ Rule: `simulation/` never touches the DOM; `ui/` calls simulation functions and 
 - With a host chosen, reachable regions carry a badge: March, Take, or Fight/Siege with the odds (`attackOdds`). Pulsing red borders mark where Rome may strike next season (`romeThreats`, same rule as Rome's AI).
 - The advice line at the top of the map says what to do next and steps through hosts that can still march.
 - Your hosts carry numbered standards (`army.standard`, set in `newArmy`), each with its own colour on the map plaque, the host bar along the foot of the map, and the host panel. Tap a chip in the host bar to pick and centre that host.
-- The host panel has two tabs: Bands (tap a band for upgrades, transfers to a host in the same region, or disband) and Recruit (in your own land).
+- The host panel is one list: tap a band to Train it (one button; raises the lower of weapons and armour, `train` in campaign.js) or Disband it; "+ Recruit a band" opens the recruit picker at home; "Join with..." merges another host in the same region (`joinHosts`).
+- Feedback and motion: every button presses in and clicks (`sfx("tap")`, `select` for hosts); hosts glide between regions when they march, the camera glides when it centres, taps on the map ripple, the chosen host's ring pulses, panels slide in, dialogs pop, End Season pulses when every host has marched. All motion respects reduced-motion settings.
 - `window.britanniaMap.screenOf(id)` gives a region's screen position for browser tests.
 
 ## Testing

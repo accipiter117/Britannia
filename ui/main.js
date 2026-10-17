@@ -9,8 +9,8 @@ import {
   armiesIn, armyMen, armyPower, createCampaign, dateLabel, deserialise, foodCap, garrisonPower, neighbours, newUnit, rankOf, regionsOf, seasonName, serialise,
 } from "../simulation/state.js";
 import {
-  applyBattle, attackOdds, canRaiseArmy, captureOptions, clashAt, decideCapture, disband, endTurn, foodNeed, harvest, income, moveArmy, pendingBattle,
-  raiseArmy, recruit, recruitOptions, transfer, upgrade, upgradeCost,
+  applyBattle, attackOdds, canRaiseArmy, joinHosts, train, trainCost, captureOptions, clashAt, decideCapture, disband, endTurn, foodNeed, harvest, income, moveArmy, pendingBattle,
+  raiseArmy, recruit, recruitOptions,
 } from "../simulation/campaign.js";
 import { createBattle } from "../simulation/battle/setup.js";
 import { autoResolve } from "../simulation/battle/engine.js";
@@ -155,7 +155,7 @@ function hud() {
     <span class="res" title="Wheat in the granary${crop ? `; this season's harvest brings ${crop}` : ""}"><i class="wheat"></i>${state.wheat}${crop ? `<small class="pos">+${crop}</small>` : ""}</span>
     <span class="date">${seasonName(state)} <small>AD ${state.startYear + Math.floor((state.turn - 1) / 4)}</small></span>
     <span class="spacer"></span>
-    <button id="end-turn" class="primary" data-action="end-turn">${state.pending.length ? `Rome attacks (${state.pending.length})` : "End Season"}</button>`;
+    <button id="end-turn" class="primary ${!state.pending.length && !state.armies.some((x) => x.faction === "celts" && x.moves > 0) ? "ready" : ""}" data-action="end-turn">${state.pending.length ? `Rome attacks (${state.pending.length})` : "End Season"}</button>`;
 }
 
 // Each of your hosts has a numbered standard and a colour, the same on the map, the host bar and its panel.
@@ -183,7 +183,7 @@ function hostbar() {
 }
 
 function panelTools() {
-  return `<div class="panel-tools"><button class="sheet-toggle" data-action="sheet" aria-label="Show or hide details">${ui.sheet ? "Less" : "More"}</button><button data-action="deselect" aria-label="Close">✕</button></div>`;
+  return `<div class="panel-tools"><button data-action="deselect" aria-label="Close">✕</button></div>`;
 }
 
 // One line on the map saying what to do next, with a tap to go there.
@@ -238,42 +238,42 @@ function armyPanel(a) {
   const season = seasonName(state);
   const need = foodNeed(a, season);
   const cap = foodCap(a);
+  const hungry = a.food < need && !(home && season !== "Winter");
   const others = armiesIn(state, a.region, "celts").filter((x) => x.id !== a.id);
-  const tab = home && ui.tab === "recruit" ? "recruit" : "bands";
+  const full = a.units.length >= BALANCE.maxUnitsPerArmy;
   const head = `${panelTools()}<header class="host-head" style="--std:${colourOf(a)}">
       ${badge(a)}<div><h2>${esc(a.name)}</h2>
-      <p>${esc(r.name)} · <span class="stars">${stars}</span> · ${a.moves ? `<b class="pos">${a.moves} march${a.moves > 1 ? "es" : ""} left</b>` : "has marched"}</p></div>
+      <p>${esc(r.name)} · <span class="stars">${stars}</span> · ${a.moves ? `<b class="pos">ready to march</b>` : "has marched"}</p></div>
     </header>
-    <div class="wagon ${a.food < need ? "low" : ""}"><i class="wheat"></i><span>Wheat <b>${a.food}/${cap}</b> · ${home && season !== "Winter" ? "living off the land" : `eats ${need} this ${season.toLowerCase()}`}${home ? "" : season === "Summer" || season === "Autumn" ? " · foraging" : " · nothing to forage"}</span>
-      <i class="bar"><b style="width:${Math.min(100, (a.food / Math.max(1, cap)) * 100)}%"></b></i></div>`;
-  const tabs = `<div class="seg tabs">
-      <button data-action="tab" data-tab="bands" class="${tab === "bands" ? "on" : ""}">Bands ${a.units.length}/${BALANCE.maxUnitsPerArmy}</button>
-      <button data-action="tab" data-tab="recruit" class="${tab === "recruit" ? "on" : ""}" ${home ? "" : "disabled title=\"Recruit in your own land\""}>Recruit${home ? "" : " (at home)"}</button>
-    </div>`;
-  let body;
-  if (tab === "bands") {
-    body = `<ul class="unit-list">${a.units.map((u, i) => {
-      const rank = rankOf(u);
-      const general = U[u.type].tags?.includes("general");
-      const open = ui.unitOpen === `${a.id}:${i}`;
-      const opts = open && !general ? `<div class="unit-opts">
-          ${home ? `<button data-action="upgrade" data-index="${i}" data-kind="weapons" ${u.weapons < 3 ? "" : "disabled"}>⚔ Better weapons <small>${u.weapons < 3 ? `<i class="coin"></i>${upgradeCost(u, "weapons")}` : "best"}</small></button>
-          <button data-action="upgrade" data-index="${i}" data-kind="armour" ${u.armour < 3 ? "" : "disabled"}>⛨ Better armour <small>${u.armour < 3 ? `<i class="coin"></i>${upgradeCost(u, "armour")}` : "best"}</small></button>` : `<p class="muted small">Upgrades need your own land.</p>`}
-          ${others.map((o) => `<button data-action="transfer" data-index="${i}" data-to="${o.id}">→ Send to ${badge(o)} ${esc(o.general.name)}</button>`).join("")}
-          <button class="danger" data-action="disband" data-index="${i}">Disband</button>
-        </div>` : "";
-      return `<li class="unit-row ${open ? "open" : ""}" ${general ? "" : `data-action="unit-open" data-key="${a.id}:${i}"`}>
-        <div class="unit-main"><canvas class="unit-art" data-type="${u.type}" width="22" height="18"></canvas>
-          <span class="un"><b>${U[u.type].name}</b><small>${BALANCE.ranks[rank].label}${u.weapons || u.armour ? ` · ⚔${u.weapons} ⛨${u.armour}` : ""}</small></span>
-          <span class="men"><i style="width:${(u.men / u.maxMen) * 100}%"></i></span><small>${u.men}/${u.maxMen}</small>${general ? "" : `<span class="chev">${open ? "▾" : "▸"}</span>`}</div>
-        ${opts}</li>`;
-    }).join("")}</ul>
-    <p class="muted small">Tap a band for upgrades, transfers or to disband it.${home ? " Men return to the colours at home." : ""}</p>`;
-  } else {
-    body = `<div class="recruit-grid">${recruitOptions(state, a).map((o) => `<button class="recruit ${o.ok ? "" : "off"}" data-action="recruit" data-type="${o.type}" ${o.ok ? "" : "disabled"} title="${esc(o.reason || U[o.type].desc)}">
-      <canvas class="unit-art" data-type="${o.type}" width="22" height="18"></canvas><b>${U[o.type].name}</b><small><i class="coin"></i>${o.cost}${o.ok ? ` · ${U[o.type].men} men` : ` · ${esc(o.reason)}`}</small></button>`).join("")}</div>`;
-  }
-  return head + tabs + body;
+    <div class="host-food ${hungry ? "low" : ""}" title="Wheat ${a.food}/${cap}"><i class="wheat"></i><i class="bar"><b style="width:${Math.min(100, (a.food / Math.max(1, cap)) * 100)}%"></b></i>
+      <span>${hungry ? "Hungry: bring it home or forage in summer" : home && season !== "Winter" ? "Fed by the land" : `Wheat for ${Math.floor(a.food / Math.max(1, need))} season${Math.floor(a.food / Math.max(1, need)) === 1 ? "" : "s"}`}</span></div>`;
+  const bands = a.units.map((u, i) => {
+    const general = U[u.type].tags?.includes("general");
+    const key = `${a.id}:${i}`;
+    const open = ui.unitOpen === key;
+    const level = u.weapons + u.armour;
+    const cost = trainCost(u);
+    const opts = open && !general ? `<div class="unit-opts">
+        ${cost == null ? `<span class="muted small">Fully trained</span>` : home
+          ? `<button class="primary" data-action="train" data-index="${i}" ${state.silver >= cost ? "" : "disabled"}>Train <small><i class="coin"></i>${cost}</small></button>`
+          : `<span class="muted small">Train them in your own land</span>`}
+        <button class="danger" data-action="disband" data-index="${i}">Disband</button>
+      </div>` : "";
+    return `<li class="unit-row ${open ? "open" : ""}" ${general ? "" : `data-action="unit-open" data-key="${key}"`}>
+      <div class="unit-main"><canvas class="unit-art" data-type="${u.type}" width="22" height="18"></canvas>
+        <span class="un"><b>${U[u.type].name}</b><small>${general ? "War leader" : level ? `Trained ${"▮".repeat(level)}` : BALANCE.ranks[rankOf(u)].label}</small></span>
+        <span class="men"><i style="width:${(u.men / u.maxMen) * 100}%"></i></span><small>${u.men}</small></div>
+      ${opts}</li>`;
+  }).join("");
+  const recruitOpen = ui.recruit === a.id;
+  const recruit = home ? (full ? "" : recruitOpen
+    ? `<div class="recruit-grid">${recruitOptions(state, a).map((o) => `<button class="recruit ${o.ok ? "" : "off"}" data-action="recruit" data-type="${o.type}" ${o.ok ? "" : "disabled"} title="${esc(o.reason || U[o.type].desc)}">
+        <canvas class="unit-art" data-type="${o.type}" width="22" height="18"></canvas><b>${U[o.type].name}</b><small><i class="coin"></i>${o.cost}${o.ok ? "" : ` · ${esc(o.reason)}`}</small></button>`).join("")}</div>
+       <button class="ghost wide" data-action="recruit-toggle">Done</button>`
+    : `<button class="add-band" data-action="recruit-toggle">＋ Recruit a band <small>${a.units.length}/${BALANCE.maxUnitsPerArmy}</small></button>`)
+    : `<p class="muted small">Recruit and train in your own land. ${a.units.length}/${BALANCE.maxUnitsPerArmy} bands.</p>`;
+  const join = others.map((o) => `<button class="join" data-action="join" data-from="${o.id}">Join with ${badge(o)} ${esc(o.general.name)}'s host</button>`).join("");
+  return head + `<ul class="unit-list">${bands}</ul>${recruit}${join}`;
 }
 
 function regionPanel(r) {
@@ -312,6 +312,7 @@ new MutationObserver(() => paintUnitArt()).observe(document.getElementById("pane
 
 function tapArmy(id) {
   const a = state.armies.find((x) => x.id === id);
+  if (a.faction === "celts") sfx("select"); else sfx("tap");
   if (ui.army && ui.army !== id && a.faction !== "celts") return tapRegion(a.region);
   ui.army = ui.army === id ? null : id;
   ui.region = null;
@@ -481,7 +482,7 @@ function help() {
     <ul class="help">
       <li><b>The map:</b> your tribes are blue, Rome's red, free tribes plain. Tap your host and the regions it can reach are marked with March or the odds of a fight (one region a season; all-horse hosts two). Red pulsing borders show where Rome may strike next season. The line at the top of the map says what to do next.</li>
       <li><b>Wheat:</b> each host carries wheat and eats every season, more in winter. At home it lives off the land outside winter and refills from the granary; the harvest comes in summer and autumn. Abroad it forages in summer and autumn only. Empty wagons mean desertion.</li>
-      <li><b>Silver</b> comes from your tribes each season. Recruit and upgrade in your own land; men return to the colours at home.</li>
+      <li><b>Silver</b> comes from your tribes each season. Recruit and train bands in your own land; men return to the colours at home.</li>
       <li><b>Taken land:</b> win a tribe over and its warriors join you; plunder it for silver and wheat, but it may rise again and its neighbours will resist harder.</li>
       <li><b>Battles:</b> drag bands into place, then begin. Tap a soldier to select his band; tap ground to march; drag to march and face; tap an enemy to attack. Throw javelins: tap the button, then where they should land. Hit flanks and rears, charge downhill, ambush from woods. War Cry, Rally and Fury can turn a fight. Use ½× to slow time.</li>
       <li><b>Sieges:</b> batter the gate or climb the palisade, then hold the centre.</li>
@@ -514,20 +515,26 @@ const actions = {
   "next-host": () => nextHost(),
   "pick-host": (el) => {
     const id = el.dataset.army;
+    sfx("select");
     ui.army = ui.army === id && !$("panel").hidden ? null : id; ui.region = null; ui.unitOpen = null;
     render();
     if (ui.army) centre(state.armies.find((a) => a.id === id).region);
   },
-  tab: (el) => { ui.tab = el.dataset.tab; ui.sheet = true; render(); },
+  "recruit-toggle": () => { ui.recruit = ui.recruit === ui.army ? null : ui.army; ui.sheet = true; render(); },
+  train: (el) => { const r = train(state, ui.army, +el.dataset.index); if (r.ok) { sfx("build"); toast("Trained."); } else toast(r.reason); render(); },
+  join: (el) => {
+    const r = joinHosts(state, ui.army, el.dataset.from);
+    if (!r.ok) return toast(r.reason);
+    sfx("recruit"); toast(r.merged ? "The hosts are one." : `${r.moved} band${r.moved > 1 ? "s" : ""} joined; the rest had no room.`);
+    render();
+  },
   "unit-open": (el) => { ui.unitOpen = ui.unitOpen === el.dataset.key ? null : el.dataset.key; render(); },
   "raise-help": () => toast("Tap one of your tribes to raise a new host there."),
   sheet: () => { ui.sheet = !ui.sheet; render(); },
   "show-threat": () => { const id = romeThreats(state)[0]; if (id) { ui.region = id; ui.army = null; render(); centre(id); } },
   deselect: () => { ui.army = null; ui.region = null; render(); },
   recruit: (el) => { const r = recruit(state, ui.army, el.dataset.type); if (r.ok) sfx("recruit"); else toast(r.reason); render(); },
-  upgrade: (el) => { const r = upgrade(state, ui.army, +el.dataset.index, el.dataset.kind); if (r.ok) sfx("build"); else toast(r.reason); render(); },
   disband: (el) => { disband(state, ui.army, +el.dataset.index); ui.unitOpen = null; render(); },
-  transfer: (el) => { transfer(state, ui.army, +el.dataset.index, el.dataset.to); ui.unitOpen = null; render(); },
   raise: () => { const r = raiseArmy(state, ui.region); if (r.ok) { ui.army = r.army.id; ui.region = null; sfx("recruit"); } else toast(r.reason); render(); },
   capture: (el) => { decideCapture(state, el.dataset.choice); sfx(el.dataset.choice === "plunder" ? "build" : "recruit"); modalAfter = null; closeModal(); if (state.pending.length || state.over) nextPending(); else nextHost(true); },
   "attack-fight": () => { const m = moveArmy(state, ui.attack.armyId, ui.attack.to); if (m.battle) fight(m.battle, false); else closeModal(); },
@@ -542,10 +549,16 @@ const actions = {
   "zoom-out": () => map.zoom(0.77),
 };
 
+// actions that make their own sound
+const QUIET = new Set(["end-turn", "recruit", "train", "join", "capture", "attack-fight", "attack-auto", "pending-fight", "pending-auto", "pick-host"]);
+
 function wire() {
   document.addEventListener("click", (e) => {
     const el = e.target.closest("[data-action]");
-    if (el && !el.disabled && actions[el.dataset.action]) actions[el.dataset.action](el);
+    if (el && !el.disabled && actions[el.dataset.action]) {
+      if (!QUIET.has(el.dataset.action)) sfx("tap");
+      actions[el.dataset.action](el);
+    }
   });
   document.addEventListener("pointerdown", () => initAudio(), { once: true });
 }

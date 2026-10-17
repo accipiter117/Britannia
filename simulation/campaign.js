@@ -266,6 +266,43 @@ export function upgrade(state, armyId, index, kind) {
   return { ok: true };
 }
 
+// One-tap training: raises whichever of weapons or armour is lower.
+export function trainKind(unit) {
+  if (unit.weapons >= C.upgrades.maxLevel && unit.armour >= C.upgrades.maxLevel) return null;
+  return unit.armour < unit.weapons ? "armour" : unit.weapons < C.upgrades.maxLevel ? "weapons" : "armour";
+}
+export function trainCost(unit) {
+  const kind = trainKind(unit);
+  return kind ? upgradeCost(unit, kind) : null;
+}
+export function train(state, armyId, index) {
+  const u = state.armies.find((a) => a.id === armyId)?.units[index];
+  const kind = u && trainKind(u);
+  return kind ? upgrade(state, armyId, index, kind) : { ok: false, reason: "Fully trained" };
+}
+
+// Two hosts in one region join forces: the other host's bands move into this one while there is
+// room. If every band moves, the other host (and its war leader) stands down.
+export function joinHosts(state, intoId, fromId) {
+  const into = state.armies.find((a) => a.id === intoId), from = state.armies.find((a) => a.id === fromId);
+  if (!into || !from || into.region !== from.region) return { ok: false, reason: "Hosts must share a region" };
+  const general = (u) => C.units[u.type]?.tags?.includes("general");
+  const before = from.units.length;
+  let moved = 0;
+  for (let i = from.units.length - 1; i >= 0 && into.units.length < C.maxUnitsPerArmy; i--) {
+    if (general(from.units[i])) continue;
+    into.units.push(...from.units.splice(i, 1));
+    moved++;
+  }
+  if (!moved) return { ok: false, reason: `${into.name} is full` };
+  const share = Math.round((from.food * moved) / before); // the wagons go with the men
+  from.food -= share;
+  into.food = Math.min(foodCap(into), into.food + share);
+  into.moves = Math.min(into.moves, from.moves);
+  if (from.units.every(general)) state.armies = state.armies.filter((a) => a !== from);
+  return { ok: true, moved, merged: !state.armies.includes(from) };
+}
+
 export function canRaiseArmy(state, regionId) {
   const r = state.regions[regionId];
   if (r.owner !== PLAYER) return { ok: false, reason: "Only in your own land" };
