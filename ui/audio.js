@@ -187,6 +187,8 @@ export function sfx(name) {
   if (!enabled || !ctx) return;
   const t = ctx.currentTime + 0.02;
   switch (name) {
+    case "tap": tone(t, 640, "triangle", 0.05, 0.05, 520); break;
+    case "select": tone(t, 392, "triangle", 0.08, 0.07); tone(t + 0.06, 587.3, "triangle", 0.1, 0.06); break;
     case "build": burst(t, 900, "bandpass", 0.09, 0.5); burst(t + 0.16, 700, "bandpass", 0.09, 0.45); break;
     case "recruit": tone(t, 146.8, "sawtooth", 0.9, 0.25); tone(t + 0.25, 220, "sawtooth", 0.9, 0.18); break;
     case "march": for (let i = 0; i < 3; i++) tone(t + i * 0.22, 90, "sine", 0.25, 0.45, 50); break;

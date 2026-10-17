@@ -23,6 +23,11 @@ export function createMap(canvas, { regions: regionsData, land }, { onRegion, on
   let state = null, view = {}, base = null, baseKey = "";
   const cam = { scale: 2, x: 0, y: 0, user: false };
   let tokens = [];
+  // motion: hosts glide between regions, the camera glides to a target, taps leave a ripple
+  const lastRegion = {}, tweens = {}, ripples = [];
+  let glide = null;
+  const ease = (t) => 1 - (1 - t) ** 3;
+  const MARCH_MS = 650;
 
   // ---------- painting the island ----------
   // The painted map is the base; over it a soft wash in each owner's colour and the borders,
@@ -154,18 +159,36 @@ export function createMap(canvas, { regions: regionsData, land }, { onRegion, on
       list.forEach((a, i) => { if (a.id !== view.selected) host(a, r, i, list.length); });
       list.forEach((a, i) => { if (a.id === view.selected) host(a, r, i, list.length); }); // the chosen host on top
     }
+    const now = performance.now();
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      const rp = ripples[i], t = (now - rp.t0) / 420;
+      if (t >= 1) { ripples.splice(i, 1); continue; }
+      ctx.strokeStyle = `rgba(255,246,190,${0.8 * (1 - t)})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(rp.x, rp.y, 6 + 22 * ease(t), 0, Math.PI * 2); ctx.stroke();
+    }
   }
 
   function host(a, r, i, n) {
     const k = Math.max(1, Math.round(cam.scale * 0.75));      // sprite zoom
-    const [px0, cy] = toScreen(r.pos[0], r.pos[1] - 2);
+    let mx = r.pos[0], my = r.pos[1];
+    const tw = tweens[a.id];
+    if (tw) {
+      const t = (performance.now() - tw.t0) / MARCH_MS;
+      if (t >= 1) delete tweens[a.id];
+      else { const e = ease(t); mx = tw.from[0] + (mx - tw.from[0]) * e; my = tw.from[1] + (my - tw.from[1]) * e - Math.sin(Math.PI * t) * 6; }
+    }
+    const [px0, cy] = toScreen(mx, my - 2);
     const cx = px0 + (i - (n - 1) / 2) * 58; // hosts sharing a region stand side by side, plaques clear
     const types = a.faction === "rome" ? ["legionaries", "legionaries", "auxilia"] : ["warriors", "spearmen", "warriors"];
     const general = a.units.find((u) => BALANCE.units[u.type].tags?.includes("general"));
     ctx.save();
     ctx.translate(Math.round(cx), Math.round(cy));
     ctx.scale(k, k);
-    if (a.id === view.selected) { ctx.fillStyle = "rgba(255,246,176,0.9)"; ctx.fillRect(-12, 0, 24, 2); }
+    if (a.id === view.selected) {
+      const p = 0.5 + 0.5 * Math.sin(performance.now() / 220);
+      ctx.fillStyle = `rgba(255,246,176,${0.35 + 0.4 * p})`;
+      ctx.beginPath(); ctx.ellipse(0, 0, 15 + p * 2, 4 + p, 0, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(-11, -1, 22, 3);
     types.forEach((t, j) => { const spr = getSprite(t, (j + a.id.length) % 5, 0, a.faction === "rome" ? -1 : 1); ctx.drawImage(spr, -14 + j * 6, -spr.height + (j % 2)); });
     if (general) { const spr = getSprite(general.type, 1, 0, a.faction === "rome" ? -1 : 1); ctx.drawImage(spr, 2, -spr.height - 1); }
@@ -211,6 +234,7 @@ export function createMap(canvas, { regions: regionsData, land }, { onRegion, on
   const local = (e) => { const b = canvas.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
   canvas.addEventListener("pointerdown", (e) => {
     canvas.setPointerCapture(e.pointerId);
+    glide = null; // a finger on the map takes the camera back
     pointers.set(e.pointerId, local(e));
     if (pointers.size === 2) { const [p, q] = [...pointers.values()]; pinch = Math.hypot(p[0] - q[0], p[1] - q[1]); down = null; return; }
     const [x, y] = local(e);
@@ -237,6 +261,7 @@ export function createMap(canvas, { regions: regionsData, land }, { onRegion, on
     if (!down || down.moved) { down = null; return; }
     const [x, y] = [down.x, down.y];
     down = null;
+    ripples.push({ x, y, t0: performance.now() });
     const tok = tokens.slice().reverse().find((t) => x >= t.x0 && x <= t.x1 && y >= t.y0 && y <= t.y1);
     if (tok) return onArmy(tok.id);
     const [mx, my] = toMap(x, y).map(Math.floor);
@@ -258,20 +283,40 @@ export function createMap(canvas, { regions: regionsData, land }, { onRegion, on
 
   new ResizeObserver(fit).observe(canvas);
   let anim = 0;
-  const loop = () => { if (view.reach?.length || view.attack?.length || view.threats?.length) draw(); anim = requestAnimationFrame(loop); };
+  const loop = () => {
+    if (glide) {
+      const t = Math.min(1, (performance.now() - glide.t0) / 380), e = ease(t);
+      cam.x = glide.from.x + (glide.to.x - glide.from.x) * e; cam.y = glide.from.y + (glide.to.y - glide.from.y) * e;
+      cam.scale = glide.from.scale + (glide.to.scale - glide.from.scale) * e;
+      if (t >= 1) glide = null;
+    }
+    if (glide || ripples.length || Object.keys(tweens).length || view.selected || view.reach?.length || view.attack?.length || view.threats?.length) draw();
+    anim = requestAnimationFrame(loop);
+  };
   anim = requestAnimationFrame(loop);
 
   return {
-    render(s, v = {}) { state = s; view = v; if (!cam.min) fit(); else draw(); },
+    render(s, v = {}) {
+      state = s; view = v;
+      for (const a of s.armies) {
+        const was = lastRegion[a.id];
+        if (was && was !== a.region && s.regions[was]) tweens[a.id] = { from: s.regions[was].pos.slice(), t0: performance.now() };
+        lastRegion[a.id] = a.region;
+      }
+      if (!cam.min) fit(); else draw();
+    },
     // `cover` = { right, bottom } pixels hidden behind a panel, so the region lands in the open part
     centreOn(id, cover = {}) {
       const r = state.regions[id];
       if (!cam.min) fit();
       cam.user = true;
+      const from = { x: cam.x, y: cam.y, scale: cam.scale };
       cam.scale = Math.max(cam.scale, cam.min * 2);
       const w = canvas.clientWidth - (cover.right || 0), h = canvas.clientHeight - (cover.bottom || 0);
       cam.x = r.pos[0] - w / cam.scale / 2; cam.y = r.pos[1] - h / cam.scale / 2;
-      clamp(); draw();
+      clamp();
+      glide = { from, to: { x: cam.x, y: cam.y, scale: cam.scale }, t0: performance.now() };
+      Object.assign(cam, from);
     },
     // where a region sits on screen (CSS pixels within the canvas); used by browser tests
     screenOf(id) { const r = state.regions[id]; return toScreen(r.pos[0], r.pos[1] + 4); },
