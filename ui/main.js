@@ -6,7 +6,7 @@
 
 import { BALANCE } from "../config/balance.js";
 import {
-  armiesIn, armyMen, armyPower, createCampaign, dateLabel, deserialise, foodCap, garrisonPower, neighbours, newUnit, rankOf, regionsOf, seasonName, serialise,
+  armiesIn, armyMen, armyPower, createCampaign, dateLabel, deserialise, upgradeSave, foodCap, garrisonPower, neighbours, newUnit, rankOf, regionsOf, seasonName, serialise,
 } from "../simulation/state.js";
 import {
   applyBattle, attackOdds, canRaiseArmy, joinHosts, train, trainCost, captureOptions, clashAt, decideCapture, disband, endTurn, foodNeed, harvest, income, moveArmy, pendingBattle,
@@ -15,6 +15,7 @@ import {
 import { createBattle } from "../simulation/battle/setup.js";
 import { autoResolve } from "../simulation/battle/engine.js";
 import { romeThreats } from "../simulation/romeAI.js";
+import { buildOptions, growthNeed, growthRate, growthWheatCost, maxPop, rush, rushCost, setBuild, silverOf, wheatOf, workOf } from "../simulation/settlements.js";
 import { createMap } from "./mapView.js";
 import { openBattle } from "./battleView.js";
 import { icon, injectIconSprite } from "./icons.js";
@@ -38,7 +39,7 @@ async function start() {
 }
 
 function load() {
-  try { const s = localStorage.getItem(KEY); return s ? deserialise(s) : null; } catch { return null; }
+  try { const s = localStorage.getItem(KEY); return s ? upgradeSave(deserialise(s), data) : null; } catch { return null; }
 }
 function save() {
   try { if (state) localStorage.setItem(KEY, serialise(state)); } catch { /* storage blocked: play on */ }
@@ -133,6 +134,7 @@ function render() {
     }
     for (const n of view.reach) view.badges[n] = { text: state.regions[n].owner === "celts" ? "March" : `Take ${state.regions[n].name}` };
   }
+  view.idle = idleTribes().map((r) => r.id);
   view.standards = Object.fromEntries(state.armies.filter((a) => a.faction === "celts").map((a) => [a.id, { n: standardOf(a), colour: colourOf(a) }]));
   map.render(state, view);
   hud();
@@ -151,7 +153,7 @@ function hud() {
   const crop = harvest(state);
   $("hud").innerHTML = `
     <button class="icon-btn" data-action="menu" title="Your realm, chronicle and settings">☰</button>
-    <span class="res" title="Silver: ${inc.gross} from your tribes, ${inc.upkeep} upkeep a season"><i class="coin"></i>${state.silver}<small class="${inc.net < 0 ? "neg" : "pos"}">${inc.net >= 0 ? "+" : ""}${inc.net}</small></span>
+    <span class="res" title="Silver: ${inc.gross} from your tribes, ${inc.upkeep} for your hosts, ${inc.rule} to keep the peace, each season"><i class="coin"></i>${state.silver}<small class="${inc.net < 0 ? "neg" : "pos"}">${inc.net >= 0 ? "+" : ""}${inc.net}</small></span>
     <span class="res" title="Wheat in the granary${crop ? `; this season's harvest brings ${crop}` : ""}"><i class="wheat"></i>${state.wheat}${crop ? `<small class="pos">+${crop}</small>` : ""}</span>
     <span class="date">${seasonName(state)} <small>AD ${state.startYear + Math.floor((state.turn - 1) / 4)}</small></span>
     <span class="spacer"></span>
@@ -186,6 +188,8 @@ function panelTools() {
   return `<div class="panel-tools"><button data-action="deselect" aria-label="Close">✕</button></div>`;
 }
 
+const idleTribes = () => regionsOf(state, "celts").filter((r) => !r.build && buildOptions(r).some((o) => o.ok));
+
 // One line on the map saying what to do next, with a tap to go there.
 function advise(view) {
   const ready = state.armies.filter((a) => a.faction === "celts" && a.moves > 0);
@@ -196,6 +200,10 @@ function advise(view) {
     const easy = Object.entries(view.badges).filter(([, b]) => b.tone === "good").map(([id]) => state.regions[id].name);
     text = easy.length ? `Good odds at ${esc(easy[0])}. Tap a marked region.` : "Tap a marked region to march or fight.";
     if (ready.length > 1) { action = "next-host"; extra = "Next ›"; }
+  } else if (idleTribes().length && !sel) {
+    const idle = idleTribes();
+    text = `${esc(idle[0].name)}${idle.length > 1 ? ` and ${idle.length - 1} more` : ""} ha${idle.length > 1 ? "ve" : "s"} nothing to build.`;
+    action = "next-idle"; extra = "Choose ›";
   } else if (ready.length) {
     text = `${ready.length} host${ready.length > 1 ? "s" : ""} can still march.`;
     action = "next-host"; extra = "Select ›";
@@ -280,18 +288,43 @@ function regionPanel(r) {
   const hosts = state.armies.filter((a) => a.region === r.id);
   const raise = r.owner === "celts" ? canRaiseArmy(state, r.id) : null;
   const who = r.owner === "celts" ? "Yours" : r.owner === "rome" ? "Roman" : "A free tribe";
-  const walls = r.settlement === "town" ? "Roman town, walled" : r.settlement === "fort" ? "Roman fort" : r.settlement === "oppidum" ? `Hill fort${r.seat ? ` of ${r.seat}` : ""}` : "Open villages";
-  return `${panelTools()}<header class="army-head ${r.owner}"><h2>${esc(r.name)}</h2><p>${who} · ${r.terrain}${r.port ? " · port" : ""}</p></header>
-    <div class="kv"><span>Settlement</span><b>${walls}</b>
-      <span>Each season</span><b><i class="coin"></i>${BALANCE.regionYield[r.settlement]?.silver ?? 15} silver · <i class="wheat"></i>${BALANCE.regionYield[r.settlement]?.food ?? 4} wheat at harvest${r.owner === "celts" ? "" : " if yours"}</b>
+  const kind = r.settlement === "town" ? "Roman town" : r.settlement === "fort" ? "Roman fort" : r.settlement === "oppidum" ? `Hill fort${r.seat ? ` of ${r.seat}` : ""}` : "Villages";
+  const head = `${panelTools()}<header class="army-head ${r.owner}"><h2>${esc(r.name)}</h2><p>${who} · ${kind}${r.walls ? ", walled" : ""} · ${r.terrain}${r.coastal ? " · coast" : ""}</p></header>`;
+  const hostRows = hosts.map((a) => `<button class="list-row" data-action="select-army" data-army="${a.id}">${a.faction === "celts" ? badge(a) : ""}<b>${esc(a.name)}</b><span>${a.units.length} bands · ${armyMen(a)} men</span></button>`).join("");
+  if (r.owner !== "celts") {
+    return head + `<div class="kv">
+      <span>People</span><b>${r.pop}</b>
       <span>Garrison</span><b>${r.garrison.length ? r.garrison.map((u) => U[u.type].name).join(", ") : "none"}</b>
-      ${r.owner !== "celts" ? `<span>Defence</span><b>${Math.round(garrisonPower(r) + hosts.filter((a) => a.faction === r.owner).reduce((n, a) => n + armyPower(a), 0))}</b>` : ""}
-      ${r.unrest ? `<span>Unrest</span><b class="neg">${r.unrest} seasons: may rise if left unguarded</b>` : ""}
+      <span>Defence</span><b>${Math.round(garrisonPower(r) + hosts.filter((a) => a.faction === r.owner).reduce((n, a) => n + armyPower(a), 0))}</b>
       ${r.anger ? `<span>Mood</span><b class="neg">wary of you (${r.anger})</b>` : ""}
-      ${r.fortAt ? `<span>Rome</span><b class="neg">raising a fort</b>` : ""}</div>
-    ${hosts.map((a) => `<button class="list-row" data-action="select-army" data-army="${a.id}"><b>${esc(a.name)}</b><span>${a.units.length} bands · ${armyMen(a)} men</span></button>`).join("")}
-    ${raise ? `<button class="primary" data-action="raise" ${raise.ok ? "" : "disabled"}>Raise a host here (<i class="coin"></i>${BALANCE.newArmyCost})</button>${raise.ok ? "" : `<p class="muted small">${esc(raise.reason)}</p>`}` : ""}
-`;
+      ${r.fortAt ? `<span>Rome</span><b class="neg">raising a fort</b>` : ""}</div>${hostRows}`;
+  }
+  const harvestMult = seasonName(state) === "Summer" ? 1.5 : seasonName(state) === "Autumn" ? 1 : 0;
+  const full = r.pop >= maxPop(r);
+  const yields = `<div class="yields">
+      <span title="Silver each season"><i class="coin"></i><b>${silverOf(r)}</b></span>
+      <span title="Wheat each harvest (summer and autumn)"><i class="wheat"></i><b>${Math.round(wheatOf(r))}</b>${harvestMult ? "" : "<small>at harvest</small>"}</span>
+      <span title="Work each season builds what you choose">⚒ <b>${workOf(r)}</b></span>
+    </div>`;
+  const growth = `<div class="pop-row"><span class="pop">${"●".repeat(r.pop)}<i>${"○".repeat(Math.max(0, maxPop(r) - r.pop))}</i></span>
+      <span class="muted small">${full ? "Full: a shrine or hill fort makes room" : `Grows in ${Math.max(1, Math.ceil((growthNeed(r) - r.growth) / growthRate(r)))} growing season${Math.ceil((growthNeed(r) - r.growth) / growthRate(r)) > 1 ? "s" : ""} · takes ${growthWheatCost(r)} wheat`}</span></div>`;
+  let building;
+  if (r.build) {
+    const b = BALANCE.buildings[r.build];
+    const left = Math.ceil((b.work - r.progress) / workOf(r));
+    const cost = rushCost(r);
+    building = `<div class="building-now"><b>Building: ${esc(b.name)}</b><span class="muted small">${left} season${left === 1 ? "" : "s"} left</span>
+        <i class="bar"><b style="width:${(r.progress / b.work) * 100}%"></b></i>
+        <button data-action="rush" ${state.silver >= cost ? "" : "disabled"}>Finish now <small><i class="coin"></i>${cost}</small></button></div>`;
+  } else building = `<p class="build-prompt">Choose what ${esc(r.name)} builds next:</p>`;
+  // only what this place could ever build: hide the never-possible (no coast, already walled...)
+  const opts = buildOptions(r).filter((o) => o.id !== r.build && (o.ok || /people/.test(o.reason))).map((o) => `<button class="build-opt ${o.ok ? "" : "off"}" data-action="build" data-build="${o.id}" ${o.ok ? "" : "disabled"}>
+      <b>${esc(o.name)}</b><small>${esc(o.ok ? o.desc : o.reason)}</small><span class="muted small">${o.seasons} season${o.seasons === 1 ? "" : "s"}</span></button>`).join("");
+  const built = r.buildings.length ? `<p class="built">${r.buildings.map((id) => `<span>${esc(BALANCE.buildings[id].name)}</span>`).join("")}</p>` : "";
+  return head + growth + yields + building + built + (opts ? `<div class="build-list">${opts}</div>` : "") +
+    (r.unrest ? `<p class="neg small">Unrest for ${r.unrest} more season${r.unrest === 1 ? "" : "s"}: it may rise if no host stands here.</p>` : "") +
+    hostRows +
+    (raise?.ok ? `<button class="wide" data-action="raise">Raise a new host here <small><i class="coin"></i>${BALANCE.newArmyCost}</small></button>` : "");
 }
 
 // little pixel portraits of units in the panel
@@ -421,6 +454,13 @@ function finish(b, before) {
 function nextPending() {
   if (!state) return;
   if (state.over) return gameOver();
+  if (state.announce) {
+    const a = state.announce; state.announce = null; save();
+    sfx("victory");
+    return modal(`<h2>${icon("crown")} ${esc(a.title)}</h2><p>${esc(a.text)}</p>
+      <p class="muted small">Victories so far: ${state.won.length}. The game goes on as long as you like.</p>
+      <div class="choices"><button class="primary" data-action="close-modal">One more turn</button><button data-action="to-title">Back to the title</button></div>`, { after: nextPending });
+  }
   if (state.capture) return askCapture();
   const p = state.pending[0];
   if (!p) return render();
@@ -482,7 +522,9 @@ function help() {
     <ul class="help">
       <li><b>The map:</b> your tribes are blue, Rome's red, free tribes plain. Tap your host and the regions it can reach are marked with March or the odds of a fight (one region a season; all-horse hosts two). Red pulsing borders show where Rome may strike next season. The line at the top of the map says what to do next.</li>
       <li><b>Wheat:</b> each host carries wheat and eats every season, more in winter. At home it lives off the land outside winter and refills from the granary; the harvest comes in summer and autumn. Abroad it forages in summer and autumn only. Empty wagons mean desertion.</li>
-      <li><b>Silver</b> comes from your tribes each season. Recruit and train bands in your own land; men return to the colours at home.</li>
+      <li><b>Your tribes grow.</b> Tap one of your tribes to see its people, what it makes, and choose what it builds next (granary, market, shrine, smithy, palisade, harbour, hill fort). Bigger tribes make more silver, wheat and work; growing takes wheat from the granary. "Finish now" buys a building with silver. A ⚒ on the map means a tribe is idle.</li>
+      <li><b>Play on.</b> Freeing Britannia, ruling every tribe and a golden age of ${BALANCE.victories.prosperity} people are victories, but the game never has to end. Rome will return by sea to any unguarded coast.</li>
+      <li><b>Silver</b> comes from your tribes each season; hosts cost upkeep, and a larger realm costs more to keep at peace. Recruit and train bands in your own land; men return to the colours at home.</li>
       <li><b>Taken land:</b> win a tribe over and its warriors join you; plunder it for silver and wheat, but it may rise again and its neighbours will resist harder.</li>
       <li><b>Battles:</b> drag bands into place, then begin. Tap a soldier to select his band; tap ground to march; drag to march and face; tap an enemy to attack. Throw javelins: tap the button, then where they should land. Hit flanks and rears, charge downhill, ambush from woods. War Cry, Rally and Fury can turn a fight. Use ½× to slow time.</li>
       <li><b>Sieges:</b> batter the gate or climb the palisade, then hold the centre.</li>
@@ -507,12 +549,16 @@ const actions = {
     ui.region = null;
     ui.army = state.armies.find((a) => a.faction === "celts")?.id || null;
     render();
-    toast(notes.slice(-1)[0]);
+    toast(notes.filter((n) => !/^The harvest/.test(n)).slice(-3).join(" ") || notes.slice(-1)[0]);
     nextPending();
   },
   "select-army": (el) => { ui.army = el.dataset.army; ui.region = null; ui.unitOpen = null; render(); },
   "select-army-close": (el) => { closeModal(); ui.army = el.dataset.army; ui.region = null; render(); centre(state.armies.find((a) => a.id === ui.army).region); },
   "next-host": () => nextHost(),
+  build: (el) => { const res = setBuild(state, ui.region, el.dataset.build); if (res.ok) sfx("build"); else toast(res.reason); render(); },
+  rush: () => { const res = rush(state, ui.region); if (res.ok) { sfx("build"); toast(`${res.name} finished.`); } else toast(res.reason); render(); },
+  "next-idle": () => { const r = idleTribes()[0]; if (r) { ui.region = r.id; ui.army = null; render(); centre(r.id); } },
+  "keep-playing": () => closeModal(),
   "pick-host": (el) => {
     const id = el.dataset.army;
     sfx("select");
@@ -536,7 +582,7 @@ const actions = {
   recruit: (el) => { const r = recruit(state, ui.army, el.dataset.type); if (r.ok) sfx("recruit"); else toast(r.reason); render(); },
   disband: (el) => { disband(state, ui.army, +el.dataset.index); ui.unitOpen = null; render(); },
   raise: () => { const r = raiseArmy(state, ui.region); if (r.ok) { ui.army = r.army.id; ui.region = null; sfx("recruit"); } else toast(r.reason); render(); },
-  capture: (el) => { decideCapture(state, el.dataset.choice); sfx(el.dataset.choice === "plunder" ? "build" : "recruit"); modalAfter = null; closeModal(); if (state.pending.length || state.over) nextPending(); else nextHost(true); },
+  capture: (el) => { decideCapture(state, el.dataset.choice); sfx(el.dataset.choice === "plunder" ? "build" : "recruit"); modalAfter = null; closeModal(); if (state.pending.length || state.over || state.announce) nextPending(); else nextHost(true); },
   "attack-fight": () => { const m = moveArmy(state, ui.attack.armyId, ui.attack.to); if (m.battle) fight(m.battle, false); else closeModal(); },
   "attack-auto": () => { const m = moveArmy(state, ui.attack.armyId, ui.attack.to); if (m.battle) fight(m.battle, true); else closeModal(); },
   "pending-fight": () => { state.pending.shift(); fight(ui.pendingBattle, false); },

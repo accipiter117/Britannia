@@ -13,6 +13,7 @@ import { nextRandom } from "./random.js";
 import { createBattle } from "./battle/setup.js";
 import { autoResolve } from "./battle/engine.js";
 import { resolveRome } from "./romeAI.js";
+import { growSettlements, has, silverOf, wheatOf } from "./settlements.js";
 
 const C = BALANCE;
 const PLAYER = "celts";
@@ -120,14 +121,16 @@ export function decideCapture(state, choice) {
   state.capture = null;
   const r = state.regions[c.regionId];
   const host = state.armies.find((a) => a.region === r.id && a.faction === PLAYER);
-  r.walls = r.settlement === "oppidum" || r.settlement === "town";
+  r.walls = r.settlement === "oppidum" || r.settlement === "town" || r.buildings.includes("palisade");
+  r.build = null; r.progress = 0;
   if (choice === "plunder") {
+    r.pop = Math.max(1, Math.round(r.pop * (1 - C.settlements.plunderPop)));
     const loot = lootFor(r);
     state.silver += loot.silver;
     state.wheat += loot.wheat;
     r.unrest = C.plunder.unrest;
     r.plundered = true;
-    if (r.settlement === "town") { r.settlement = "village"; r.walls = false; }
+    if (r.settlement === "town") { r.settlement = "village"; r.walls = r.buildings.includes("palisade"); }
     for (const n of neighbours(state, r.id)) {
       const nr = state.regions[n];
       if (nr.owner === "free") { nr.anger += C.plunder.nearbyAnger; nr.garrison.push(newUnit(nr.anger > 1 ? "warriors" : "spearmen")); }
@@ -246,7 +249,9 @@ export function recruit(state, armyId, type) {
   const opt = recruitOptions(state, army).find((o) => o.type === type);
   if (!opt?.ok) return { ok: false, reason: opt?.reason || "Unknown unit" };
   state.silver -= opt.cost;
-  army.units.push(newUnit(type));
+  const u = newUnit(type);
+  if (has(state.regions[army.region], "smithy")) u.weapons = C.buildings.smithy.trained; // forged here
+  army.units.push(u);
   return { ok: true };
 }
 
@@ -341,14 +346,21 @@ export function transfer(state, fromId, index, toId) {
 
 export function income(state) {
   const D = C.difficulty[state.difficulty];
-  const gross = Math.round(regionsOf(state, PLAYER).reduce((n, r) => n + (C.regionYield[r.settlement]?.silver ?? 15) * (r.unrest ? 0.5 : 1), 0) * D.silver);
+  const gross = Math.round(regionsOf(state, PLAYER).reduce((n, r) => n + silverOf(r), 0) * D.silver);
   const upkeep = Math.round(state.armies.filter((a) => a.faction === PLAYER).reduce((n, a) => n + a.units.length * C.upkeepPerUnit, 0));
-  return { gross, upkeep, net: gross - upkeep };
+  // a growing realm costs more to hold together (Civilization's corruption, gently)
+  const tribes = regionsOf(state, PLAYER).length;
+  const rule = Math.round(C.ruleCost * tribes * tribes);
+  return { gross, upkeep, rule, net: gross - upkeep - rule };
 }
 
 export function harvest(state, season = seasonName(state)) {
   const mult = season === "Summer" ? 1.5 : season === "Autumn" ? 1 : 0;
-  return Math.round(regionsOf(state, PLAYER).reduce((n, r) => n + (C.regionYield[r.settlement]?.food ?? 4) * (r.unrest ? 0.5 : 1), 0) * mult);
+  return Math.round(regionsOf(state, PLAYER).reduce((n, r) => n + wheatOf(r), 0) * mult);
+}
+
+export function granaryCap(state) {
+  return C.granaryCap.base + C.granaryCap.perTribe * regionsOf(state, PLAYER).length;
 }
 
 // What a host eats this season, and where it will come from.
@@ -364,8 +376,9 @@ export function endTurn(state) {
   const inc = income(state);
   state.silver = Math.max(0, state.silver + inc.net);
   const crop = harvest(state, season);
-  state.wheat += crop;
+  state.wheat = Math.min(granaryCap(state), state.wheat + crop);
   if (crop) notes.push(`The harvest brings ${crop} wheat.`);
+  for (const n of growSettlements(state, season)) { notes.push(n); log(state, n, "good"); }
   supply(state, season, notes);
   unrest(state, notes);
   state.pending = [];
@@ -435,20 +448,30 @@ function unrest(state, notes) {
       notes.push(`${r.name} has risen against you!`);
       continue;
     }
-    r.unrest -= 1;
+    r.unrest = Math.max(0, r.unrest - (has(r, "shrine") ? 2 : 1));
   }
 }
 
+// Defeat ends the game. Victories are announced once and you play on: Civilization's "one more turn".
 export function checkEnd(state) {
   if (state.over) return;
+  state.won ??= [];
+  const win = (id, title, text) => {
+    if (state.won.includes(id)) return;
+    state.won.push(id);
+    state.announce = { title, text };
+    log(state, text, "good");
+  };
+  const mine = regionsOf(state, PLAYER);
   const romeLeft = regionsOf(state, "rome").length + state.armies.filter((a) => a.faction === "rome").length;
-  if (!romeLeft) {
-    state.over = { won: true, text: "Rome has been driven from Britannia. The island belongs to its own people again." };
-    log(state, state.over.text, "good");
-  } else if (!regionsOf(state, PLAYER).length && !state.armies.some((a) => a.faction === PLAYER)) {
+  if (!mine.length && !state.armies.some((a) => a.faction === PLAYER)) {
     state.over = { won: false, text: "The last of the free Britons has fallen. Britannia is a Roman province." };
     log(state, state.over.text, "bad");
+    return;
   }
+  if (!romeLeft) win("free", "Britannia is free", "Rome has been driven from Britannia. The island belongs to its own people again. Rome will not forget; keep the coasts guarded.");
+  if (mine.length === Object.keys(state.regions).length) win("highking", "High King of Britannia", "Every tribe of the island answers to you.");
+  if (mine.reduce((n, r) => n + r.pop, 0) >= C.victories.prosperity) win("prosperity", "A golden age", `Your tribes have grown to ${C.victories.prosperity} people. Bards will sing of this age.`);
 }
 
 export { armyPower, garrisonPower, rankOf };

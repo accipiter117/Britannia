@@ -131,6 +131,7 @@ export function createMap(canvas, { regions: regionsData, land }, { onRegion, on
       ctx.fillText(r.name, x, y);
       const notes = [];
       if (view.badges?.[r.id]) badgeAt.push([r.id, y + fs * 0.4]);
+      if (r.owner === "celts") notes.push([`${"●".repeat(Math.min(r.pop, 9))}${(view.idle || []).includes(r.id) ? "  ⚒ build" : ""}`, (view.idle || []).includes(r.id) ? "#ffd56a" : "#cfe0ff"]);
       if ((view.threats || []).includes(r.id)) notes.push(["Rome may strike", "#ff8a78"]);
       if (r.unrest) notes.push(["unrest", "#ffb070"]);
       notes.forEach(([text, col], i) => {
