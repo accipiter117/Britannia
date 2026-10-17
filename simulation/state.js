@@ -4,9 +4,10 @@
 // and "free" (tribes not yet won over). No DOM; runs in the browser and in Node.
 
 import { BALANCE } from "../config/balance.js";
-import { buildMapGrid, regionLinks } from "./mapGrid.js";
+import { buildMapGrid, MAP_H, MAP_W, regionLinks } from "./mapGrid.js";
+import { initSettlement } from "./settlements.js";
 
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 export const FACTIONS = {
   celts: { name: "The Britons", colour: "#3d6fb5" },
   rome: { name: "Rome", colour: "#b8323a" },
@@ -51,7 +52,7 @@ export function createCampaign(data, { era = "caratacus", difficulty = "normal",
     version: SAVE_VERSION, era, difficulty, turn: 1, startYear: E.year, rng: (seed | 0) || 1, nextId: 10,
     silver: Math.round(E.silver * D.silver), wheat: E.wheat,
     regions: {}, links: regionLinks(data.regions, grid), armies: [],
-    rome: { port: E.port, landed: 0 }, pending: [], capture: null, log: [], over: null, intro: E.intro,
+    rome: { port: E.port, landed: 0, away: 0 }, pending: [], capture: null, log: [], over: null, won: [], intro: E.intro,
   };
   const romanLand = new Set([...E.rome, ...(E.romeHoldsExtra || [])]);
   for (const r of data.regions) {
@@ -63,10 +64,33 @@ export function createCampaign(data, { era = "caratacus", difficulty = "normal",
       owner, walls: settlement === "oppidum" || settlement === "town", unrest: 0, fortAt: null, anger: 0, plundered: false,
       garrison: garrisonFor(owner, settlement),
     };
+    initSettlement(state.regions[r.id]);
   }
+  markCoasts(state, data, grid);
   for (const a of E.playerArmies) state.armies.push(newArmy(state, { faction: "celts", region: a.region, general: a.general, units: a.units }));
   for (const a of E.romeArmies) state.armies.push(romanArmy(state, a.region, a.general, a.template));
   log(state, E.intro, "story");
+  return state;
+}
+
+// Which tribes touch the sea (harbours, and later ships).
+function markCoasts(state, data, grid = buildMapGrid(data.regions, data.land)) {
+  const ids = data.regions.map((r) => r.id);
+  for (const r of Object.values(state.regions)) r.coastal = false;
+  for (let y = 1; y < MAP_H - 1; y++) for (let x = 1; x < MAP_W - 1; x++) {
+    const k = y * MAP_W + x, g = grid[k];
+    if (g < 0) continue;
+    if (grid[k - 1] < 0 || grid[k + 1] < 0 || grid[k - MAP_W] < 0 || grid[k + MAP_W] < 0) state.regions[ids[g]].coastal = true;
+  }
+}
+
+// Bring a save from an older version up to date (settlements arrived in version 3).
+export function upgradeSave(state, data) {
+  for (const r of Object.values(state.regions)) initSettlement(r);
+  if (Object.values(state.regions).every((r) => r.coastal === undefined)) markCoasts(state, data);
+  state.won ??= [];
+  state.rome.away ??= 0;
+  state.version = SAVE_VERSION;
   return state;
 }
 
@@ -145,6 +169,6 @@ export function serialise(state) {
 }
 export function deserialise(json) {
   const s = JSON.parse(json);
-  if (s.version !== SAVE_VERSION) throw new Error("Save from another version");
+  if (s.version !== SAVE_VERSION && s.version !== 2) throw new Error("Save from another version");
   return s;
 }

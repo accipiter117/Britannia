@@ -104,6 +104,8 @@ export const BALANCE = {
   newArmyCost: 120,
   movesPerSeason: 1, fastMoves: 2,
   upkeepPerUnit: 1.5,                     // silver per unit per season
+  ruleCost: 2,                          // keeping the peace: silver per season = this x (tribes held)^2
+  granaryCap: { base: 100, perTribe: 40 }, // wheat beyond this spoils
   // Wheat: every army carries food. It eats each season; at home or in friendly land it is fed from
   // the region's harvest; abroad it forages in summer and autumn; in winter it eats more and finds none.
   food: {
@@ -112,7 +114,31 @@ export const BALANCE = {
     forageSummer: 0.5,                  // share of needs found abroad in summer and autumn
     starvingLossPct: 0.12,              // men lost per season when the wagons are empty
   },
-  regionYield: { village: { silver: 15, food: 6 }, oppidum: { silver: 30, food: 10 }, fort: { silver: 20, food: 6 }, town: { silver: 45, food: 10 } },
+  // Settlements grow like cities in Civilization: people make silver and wheat and work, and the
+  // work builds one thing at a time. Growth needs (people + 2) points; each season outside winter
+  // gives 1 point plus building bonuses. Yields: silver every season, wheat at harvest (summer 1.5x,
+  // autumn 1x), work every season. Unrest halves all three.
+  settlements: {
+    startPop: { village: 2, oppidum: 4, fort: 2, town: 5 },
+    maxPop: { village: 5, oppidum: 8, fort: 4, town: 9 },
+    silverBase: 10, silverPerPop: 4, wheatPerPop: 2.5, workBase: 2, workPerPop: 1,
+    growthWheat: 4,                     // wheat from the granary per person when a tribe grows
+    rushSilver: 4,                      // silver per point of work to finish a building now
+    growth: 1, growthNeedBase: 2,
+    plunderPop: 0.5,                    // share of people lost when a region is plundered
+  },
+  buildings: {
+    granary: { name: "Granary", work: 10, desc: "+50% wheat at harvest and faster growth", growth: 1, wheat: 0.5 },
+    market: { name: "Market", work: 12, desc: "+50% silver", silver: 0.5 },
+    shrine: { name: "Shrine", work: 8, desc: "+2 room to grow and unrest fades twice as fast", maxPop: 2, calm: 1 },
+    smithy: { name: "Smithy", work: 14, desc: "Bands recruited here start trained", trained: 1 },
+    palisade: { name: "Palisade", work: 14, desc: "Walls: battles here become sieges", walls: true, needs: "noWalls" },
+    harbour: { name: "Harbour", work: 12, desc: "+3 wheat each harvest from the sea; ships will sail from here", fish: 3, needs: "coast" },
+    hillfort: { name: "Hill fort", work: 20, desc: "Raise the village into an oppidum: walls, room for 8 people, champions", needs: "village", minPop: 4 },
+  },
+  // Victories: you can keep playing after any of them.
+  victories: { prosperity: 150 },       // people across your tribes
+  romeReturns: { every: 10, after: 4 }, // once driven out, Rome tries again every N seasons (first after M)
   pacify: { silver: 0, food: 0, unrest: 0 },
   plunder: { silver: 90, food: 12, unrest: 4, nearbyAnger: 1 }, // unrest: seasons a region may rise; neighbours grow wary
   revoltChance: 0.3,                    // per season of unrest, if no host stands there

@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs";
 import { armyPower, createCampaign, dateLabel, deserialise, neighbours, regionsOf, serialise, garrisonPower } from "../simulation/state.js";
 import { applyBattle, clashAt, decideCapture, endTurn, moveArmy, pendingBattle, recruit, recruitOptions } from "../simulation/campaign.js";
 import { autoResolve } from "../simulation/battle/engine.js";
+import { buildOptions, rush, rushCost, setBuild } from "../simulation/settlements.js";
 
 const data = JSON.parse(readFileSync(new URL("../data/britannia.json", import.meta.url)));
 const [SEASONS, mode, era, difficulty, seed] = [+process.argv[2] || 40, process.argv[3] || "bot", process.argv[4] || "caratacus", process.argv[5] || "normal", +process.argv[6] || 1];
@@ -22,9 +23,15 @@ function fight(battle) {
 }
 
 for (let i = 0; i < SEASONS && !state.over; i++) {
+  state.announce = null;
   for (const p of state.pending) { const b = pendingBattle(state, p); if (b) fight(b); }
   state.pending = [];
   if (mode === "bot") {
+    for (const r of regionsOf(state, "celts")) if (!r.build) {
+      const pick = ["granary", "market", "hillfort", "shrine", "smithy", "harbour", "palisade"].map((id) => buildOptions(r).find((o) => o.id === id && o.ok)).find(Boolean);
+      if (pick) setBuild(state, r.id, pick.id);
+    }
+    for (const r of regionsOf(state, "celts")) if (r.build && rushCost(r) < state.silver - 300) rush(state, r.id);
     for (const army of state.armies.filter((a) => a.faction === "celts")) {
       for (const t of ["warriors", "spearmen", "warriors", "slingers", "horsemen", "champions", "warriors"]) {
         if (state.silver < 120) break;
@@ -46,8 +53,9 @@ for (let i = 0; i < SEASONS && !state.over; i++) {
   state = deserialise(serialise(state));
   if (i % 4 === 3 || state.over) {
     const own = (f) => regionsOf(state, f).length;
-    console.log(`${dateLabel(state).padEnd(18)} silver ${String(state.silver).padStart(4)} wheat ${String(state.wheat).padStart(4)}  britons ${own("celts")} rome ${own("rome")} free ${own("free")}  hosts ${state.armies.map((a) => `${a.faction[0]}:${a.region}:${a.units.length}:${a.food ?? ""}`).join(" ")}`);
+    const pop = regionsOf(state, "celts").reduce((n, r) => n + r.pop, 0), built = regionsOf(state, "celts").reduce((n, r) => n + r.buildings.length, 0);
+    console.log(`${dateLabel(state).padEnd(18)} pop ${String(pop).padStart(3)} built ${String(built).padStart(2)} silver ${String(state.silver).padStart(4)} wheat ${String(state.wheat).padStart(4)}  britons ${own("celts")} rome ${own("rome")} free ${own("free")}  hosts ${state.armies.map((a) => `${a.faction[0]}:${a.region}:${a.units.length}:${a.food ?? ""}`).join(" ")}`);
   }
 }
-console.log(state.over || "(no result)", `battles won ${won} lost ${lost}`);
+console.log(state.over || "(playing on)", "victories:", (state.won || []).join(", ") || "none", `battles won ${won} lost ${lost}`);
 console.log(state.log.slice(-10).map((l) => `  ${l.turn}: ${l.text}`).join("\n"));

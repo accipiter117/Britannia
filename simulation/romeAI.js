@@ -14,6 +14,7 @@ const R = BALANCE.rome;
 export function resolveRome(state, notes) {
   const D = BALANCE.difficulty[state.difficulty];
   const rome = () => state.armies.filter((a) => a.faction === "rome");
+  if (returnFromTheSea(state, notes)) return;
   const port = state.regions[state.rome.port];
   const holdsPort = port?.owner === "rome";
   const romanLand = Object.values(state.regions).filter((r) => r.owner === "rome");
@@ -137,4 +138,29 @@ export function romeThreats(state) {
     }
   }
   return [...out];
+}
+
+// Once driven from the island, Rome comes back by sea every so often: a fresh legion lands on an
+// unguarded coast (a free tribe's first, else one of yours with no host to stop it). Guard the coasts.
+function returnFromTheSea(state, notes) {
+  const hasLand = Object.values(state.regions).some((r) => r.owner === "rome");
+  if (hasLand || state.armies.some((a) => a.faction === "rome")) { state.rome.away = 0; return false; }
+  const E = BALANCE.romeReturns;
+  state.rome.away = (state.rome.away || 0) + 1;
+  if (state.rome.away < E.after || (state.rome.away - E.after) % E.every) return true;
+  const guarded = (r) => state.armies.some((a) => a.region === r.id && a.faction === "celts");
+  const coasts = Object.values(state.regions).filter((r) => r.coastal && !guarded(r));
+  const site = coasts.find((r) => r.owner === "free") || coasts.filter((r) => r.owner === "celts").sort((p, q) => q.pop - p.pop)[0];
+  if (!site) { notes.push("Roman sails were seen, but every coast was guarded."); return true; }
+  const was = site.owner;
+  site.owner = "rome"; site.garrison = []; site.unrest = 0; site.build = null; site.progress = 0;
+  site.fortAt = state.turn + R.fortAfter;
+  const army = romanArmy(state, site.id, ["Paulinus", "Cerialis", "Agricola", "Severus", "Theodosius"][state.rome.landed % 5], "legion");
+  army.moves = 0;
+  state.armies.push(army);
+  state.rome.port = site.id;
+  const text = `Rome returns! ${army.name} lands in ${site.name}${was === "celts" ? " and seizes it" : ""}.`;
+  log(state, text, "bad");
+  notes.push(text);
+  return true;
 }

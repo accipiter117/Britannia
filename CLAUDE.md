@@ -40,10 +40,19 @@ Rule: `simulation/` never touches the DOM; `ui/` calls simulation functions and 
 1. Battles are the heart. The campaign map exists to set up interesting battles.
 2. Every number lives in `config/balance.js`.
 3. Rome is stronger man for man; the Britons win with numbers, charges, ground, ambush and timing.
-4. Food is the only supply rule: hosts carry wheat; at home they live off the land outside winter and refill from the granary; abroad they forage half their needs in summer and autumn and nothing in winter.
+4. Food is the supply rule: hosts carry wheat; at home they live off the land outside winter and refill from the granary; abroad they forage half their needs in summer and autumn and nothing in winter.
 5. Taking a tribe offers a choice: win them over (a band joins you) or plunder (silver and wheat, but unrest and angry neighbours).
 6. The battle AI and the player use the same rules. No cheats.
 7. Mobile first, portrait first: the campaign map and battles are both laid out for a phone held upright; every control must work by touch.
+
+## Settlements and the long game (Civilization-style)
+- `simulation/settlements.js`: each region has `pop`, `growth`, `buildings`, `build`, `progress`. Your tribes grow each season outside winter (1 point, +1 with a granary; need pop + 2; each new person takes wheat from the granary). Pop drives silver (base + per pop), wheat at harvest and work. Work builds one building at a time; "Finish now" buys it with silver (`rush`).
+- Buildings (config `buildings`): granary, market, shrine, smithy, palisade, harbour (coast), hill fort (village to oppidum).
+- Costs that grow with the realm: host upkeep per band, and keeping the peace = `ruleCost` x tribes squared. Wheat beyond `granaryCap` spoils.
+- Victories (`checkEnd`) are announced once and play goes on: Britannia free, High King (every tribe), golden age (`victories.prosperity` people). Only losing everything ends a game.
+- Once driven out, Rome returns by sea every `romeReturns.every` seasons onto an unguarded coast (`returnFromTheSea` in romeAI.js).
+- Save version 3; `upgradeSave` brings version 2 saves up to date.
+- Next: Northern Gaul and western Scandinavia as new lands (ChatGPT art briefs are in hand), ships from harbours, fog of war.
 
 ## How battles work
 - Field 760x1040, portrait so it fills a phone held upright: armies deploy top and bottom (the player's always at the bottom), a big host in two lines. Ticks of 0.05s; one header button cycles speed (half to 3x) beside pause.
