@@ -20,7 +20,22 @@ export function createMap(canvas, { regions: regionsData, land }, { onRegion, on
   const index = Object.fromEntries(ids.map((id, i) => [id, i]));
   const masks = ids.map((_, i) => maskFor(grid, i));
   const edges = ids.map((_, i) => maskFor(grid, i, true));
-  let state = null, view = {}, base = null, baseKey = "";
+  let state = null, view = {}, base = null, baseKey = "", fogLayer = null, fogKey = "";
+  // the fog over lands your people have not seen: the regions' shapes in deep blue-grey, soft-edged
+  function paintFog(ids) {
+    const c = document.createElement("canvas");
+    c.width = MAP_W * 2; c.height = MAP_H * 2;
+    const g = c.getContext("2d");
+    g.filter = "blur(3px)";
+    for (const id of ids) g.drawImage(tinted(masks[index[id]], "rgba(18,24,32,1)"), 0, 0, c.width, c.height);
+    g.filter = "none";
+    // a faint pattern of drifting cloud
+    g.globalCompositeOperation = "source-atop";
+    let seed = 11;
+    const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(120,135,150,${0.05 + r() * 0.06})`; g.beginPath(); g.ellipse(r() * c.width, r() * c.height, 20 + r() * 50, 8 + r() * 16, 0, 0, 7); g.fill(); }
+    return c;
+  }
   const cam = { scale: 2, x: 0, y: 0, user: false };
   let tokens = [];
   // motion: hosts glide between regions, the camera glides to a target, taps leave a ripple
@@ -114,15 +129,20 @@ export function createMap(canvas, { regions: regionsData, land }, { onRegion, on
       }
     }
     ctx.globalAlpha = 1;
+    const fog = new Set(view.fog || []);
+    const fk = [...fog].sort().join(",");
+    if (fk !== fogKey) { fogLayer = fk ? paintFog(fog) : null; fogKey = fk; }
+    if (fogLayer) { ctx.globalAlpha = 0.9; ctx.drawImage(fogLayer, 0, 0, MAP_W, MAP_H); ctx.globalAlpha = 1; }
     ctx.imageSmoothingEnabled = false;
     // settlements
-    for (const r of Object.values(state.regions)) settlement(ctx, r);
+    for (const r of Object.values(state.regions)) if (!fog.has(r.id)) settlement(ctx, r);
     // names and hosts in screen space, so text stays crisp
     ctx.setTransform(cam.dpr, 0, 0, cam.dpr, 0, 0);
     ctx.imageSmoothingEnabled = false;
     ctx.textAlign = "center";
     const badgeAt = [];
     for (const r of Object.values(state.regions)) {
+      if (fog.has(r.id)) continue;
       const [x, y] = toScreen(r.pos[0], r.pos[1] + 9);
       const fs = Math.max(9, Math.min(15, cam.scale * 4.2));
       ctx.font = `bold ${fs}px Georgia, serif`;
@@ -154,7 +174,7 @@ export function createMap(canvas, { regions: regionsData, land }, { onRegion, on
     }
     tokens = [];
     const by = {};
-    for (const a of state.armies) (by[a.region] ||= []).push(a);
+    for (const a of state.armies) if (!fog.has(a.region)) (by[a.region] ||= []).push(a);
     for (const [rid, list] of Object.entries(by)) {
       const r = state.regions[rid];
       list.forEach((a, i) => { if (a.id !== view.selected) host(a, r, i, list.length); });

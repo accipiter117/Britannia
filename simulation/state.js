@@ -61,7 +61,7 @@ export function createCampaign(data, { era = "caratacus", difficulty = "normal",
     const settlement = town ? "town" : r.settlement;
     state.regions[r.id] = {
       id: r.id, name: r.name, seat: r.seat || null, pos: r.pos, terrain: r.terrain, settlement, port: !!r.port,
-      owner, walls: settlement === "oppidum" || settlement === "town", unrest: 0, fortAt: null, anger: 0, plundered: false,
+      owner, walls: settlement === "oppidum" || settlement === "town", unrest: 0, fortAt: null, anger: 0, plundered: false, friendship: 0,
       garrison: garrisonFor(owner, settlement),
     };
     initSettlement(state.regions[r.id]);
@@ -70,6 +70,11 @@ export function createCampaign(data, { era = "caratacus", difficulty = "normal",
   for (const a of E.playerArmies) state.armies.push(newArmy(state, { faction: "celts", region: a.region, general: a.general, units: a.units }));
   for (const a of E.romeArmies) state.armies.push(romanArmy(state, a.region, a.general, a.template));
   log(state, E.intro, "story");
+  // at the start you know your own lands, their neighbours and where Rome came ashore
+  const seen = new Set([...E.player, E.port]);
+  for (const id of E.player) for (const n of neighbours(state, id)) seen.add(n);
+  for (const a of state.armies) if (a.faction === "celts") { seen.add(a.region); for (const n of neighbours(state, a.region)) seen.add(n); }
+  state.seen = [...seen];
   return state;
 }
 
@@ -90,6 +95,8 @@ export function upgradeSave(state, data) {
   if (Object.values(state.regions).every((r) => r.coastal === undefined)) markCoasts(state, data);
   state.won ??= [];
   state.rome.away ??= 0;
+  state.seen ??= Object.keys(state.regions); // older saves: the whole island is already known
+  for (const r of Object.values(state.regions)) r.friendship ??= 0;
   state.version = SAVE_VERSION;
   return state;
 }

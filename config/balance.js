@@ -136,6 +136,13 @@ export const BALANCE = {
     harbour: { name: "Harbour", work: 12, desc: "+3 wheat each harvest from the sea; ships will sail from here", fish: 3, needs: "coast" },
     hillfort: { name: "Hill fort", work: 20, desc: "Raise the village into an oppidum: walls, room for 8 people, champions", needs: "village", minPop: 4 },
   },
+  // Ships: a host in one of your coastal tribes with a harbour can sail to any coast within range
+  // (map grid units; Britannia is about 300 tall) instead of marching.
+  sea: { range: 120 },
+  // Peaceful growth: send gifts to a free tribe next to your land; at 100 friendship it joins you.
+  gifts: { cost: 60, friendship: [25, 40], angerPenalty: 10 },
+  // A story event comes about one season in three.
+  events: { chance: 0.35 },
   // Victories: you can keep playing after any of them.
   victories: { prosperity: 150 },       // people across your tribes
   romeReturns: { every: 10, after: 4 }, // once driven out, Rome tries again every N seasons (first after M)
